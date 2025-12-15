@@ -355,7 +355,7 @@ contract VaultNFTTest is Test {
         vm.prank(alice);
         btcToken.transfer(bob, ONE_BTC);
 
-        vm.warp(block.timestamp + DORMANCY_THRESHOLD);
+        vm.warp(block.timestamp + DORMANCY_THRESHOLD + 1);
 
         (bool eligible, IVaultNFT.DormancyState state) = vault.isDormantEligible(tokenId);
         assertTrue(eligible);
@@ -395,7 +395,7 @@ contract VaultNFTTest is Test {
         vm.prank(alice);
         btcToken.transfer(bob, ONE_BTC);
 
-        vm.warp(block.timestamp + DORMANCY_THRESHOLD);
+        vm.warp(block.timestamp + DORMANCY_THRESHOLD + 1);
 
         vm.prank(bob);
         vault.pokeDormant(tokenId);

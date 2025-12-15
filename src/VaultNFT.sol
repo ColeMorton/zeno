@@ -128,14 +128,14 @@ contract VaultNFT is ERC721, IVaultNFT {
             block.timestamp
         );
 
-        if (!matured[tokenId]) {
-            totalActiveCollateral -= collateral;
-        }
-
         if (forfeited > 0) {
             _snapshotDenominator = totalActiveCollateral;
             matchPool += forfeited;
             emit MatchPoolFunded(forfeited, matchPool);
+        }
+
+        if (!matured[tokenId]) {
+            totalActiveCollateral -= collateral;
         }
 
         address treasureContract_ = _treasureContract[tokenId];

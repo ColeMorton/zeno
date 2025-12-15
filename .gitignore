@@ -1,0 +1,12 @@
+# Foundry build artifacts
+out/
+cache/
+
+# Deployment broadcasts
+broadcast/
+
+# Environment variables
+.env
+
+# Claude Code session data
+.claude/
