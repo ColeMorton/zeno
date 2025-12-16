@@ -48,7 +48,7 @@ BTCNFT Protocol provides perpetual withdrawals through percentage-based collater
 
 | Tier | Monthly | Annual | Historical Yearly Stability |
 |------|---------|--------|----------------------------|
-| Conservative | 0.833% | 10.5% | **100%** (2017-2025 data) |
+| Conservative | 0.875% | 10.5% | **100%** (2017-2025 data) |
 | Balanced | 1.14% | 14.6% | **100%** (2017-2025 data) |
 | Aggressive | 1.59% | 20.8% | 74% (2017-2025 data) |
 

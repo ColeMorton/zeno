@@ -1,8 +1,8 @@
 # BTCNFT Protocol Collateral Matching Mechanism
 
-> **Version:** 2.0
+> **Version:** 2.1
 > **Status:** Draft
-> **Last Updated:** 2025-12-12
+> **Last Updated:** 2025-12-16
 > **Related Documents:**
 > - [Technical Specification](./Technical_Specification.md)
 > - [Product Specification](./Product_Specification.md)
@@ -75,6 +75,8 @@ Where:
 - `matchPool` = total forfeited BTC available
 - `holderCollateral` = caller's Vault collateral amount
 - `totalActiveCollateral` = sum of collateral in all unvested Vaults
+
+**Important:** Pending mints (within minting windows) are **NOT** part of `totalActiveCollateral`. Collateral only enters the active pool when Vault NFTs are minted (either via instant mint or window execution).
 
 ### Key Properties
 

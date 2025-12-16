@@ -37,7 +37,7 @@ WITHDRAWABLE=$(cast call "$VAULT" "getWithdrawableAmount(uint256)(uint256)" "$TO
 
 TIER_NAME="Unknown"
 case $TIER in
-    0) TIER_NAME="Conservative (0.833%/month)" ;;
+    0) TIER_NAME="Conservative (0.875%/month)" ;;
     1) TIER_NAME="Balanced (1.14%/month)" ;;
     2) TIER_NAME="Aggressive (1.59%/month)" ;;
 esac
