@@ -10,6 +10,15 @@ interface IVaultNFT is IERC721 {
         CLAIMABLE
     }
 
+    struct PendingMint {
+        address minter;
+        address treasureContract;
+        uint256 treasureTokenId;
+        address collateralToken;
+        uint256 collateralAmount;
+        uint8 tier;
+    }
+
     event VaultMinted(
         uint256 indexed tokenId,
         address indexed owner,
@@ -43,6 +52,18 @@ interface IVaultNFT is IERC721 {
         address indexed claimer,
         uint256 collateralClaimed
     );
+    event PendingMintCreated(
+        uint256 indexed pendingMintId,
+        address indexed minter,
+        uint256 collateral,
+        uint8 tier
+    );
+    event PendingCollateralIncreased(
+        uint256 indexed pendingMintId,
+        uint256 additionalAmount,
+        uint256 newTotal
+    );
+    event MintsExecuted(uint256 count, uint256 executionTimestamp);
 
     error NotTokenOwner(uint256 tokenId);
     error StillVesting(uint256 tokenId);
@@ -60,6 +81,12 @@ interface IVaultNFT is IERC721 {
     error NotClaimable(uint256 tokenId);
     error InvalidCollateralToken(address token);
     error TokenDoesNotExist(uint256 tokenId);
+    error MintingWindowActive();
+    error MintingWindowNotActive();
+    error MintingWindowStillOpen();
+    error NotPendingMintOwner(uint256 pendingMintId);
+    error PendingMintNotFound(uint256 pendingMintId);
+    error NoPendingMints();
 
     function mint(
         address treasureContract,
@@ -109,4 +136,26 @@ interface IVaultNFT is IERC721 {
     function isVested(uint256 tokenId) external view returns (bool);
 
     function getWithdrawableAmount(uint256 tokenId) external view returns (uint256);
+
+    function pendingMint(
+        address treasureContract,
+        uint256 treasureTokenId,
+        address collateralToken,
+        uint256 collateralAmount,
+        uint8 tier
+    ) external returns (uint256 pendingMintId);
+
+    function increasePendingCollateral(uint256 pendingMintId, uint256 additionalAmount) external;
+
+    function executeMints() external returns (uint256 count);
+
+    function getPendingMint(uint256 pendingMintId) external view returns (PendingMint memory);
+
+    function getPendingMintCount() external view returns (uint256);
+
+    function getCollateralClaim(uint256 tokenId) external view returns (uint256);
+
+    function getClaimValue(address holder, uint256 tokenId) external view returns (uint256);
+
+    function mintingWindowEnd() external view returns (uint256);
 }

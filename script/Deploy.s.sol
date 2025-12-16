@@ -31,7 +31,7 @@ contract Deploy is Script {
         BtcToken btcToken = new BtcToken(predictedVault);
         console.log("BtcToken deployed at:", address(btcToken));
 
-        VaultNFT vault = new VaultNFT(address(btcToken), acceptedTokens);
+        VaultNFT vault = new VaultNFT(address(btcToken), acceptedTokens, 0);
         console.log("VaultNFT deployed at:", address(vault));
 
         require(address(vault) == predictedVault, "Vault address mismatch");

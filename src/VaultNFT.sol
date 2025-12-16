@@ -15,7 +15,14 @@ contract VaultNFT is ERC721, IVaultNFT {
     uint256 private _nextTokenId;
 
     IBtcToken public immutable btcToken;
+    uint256 public immutable mintingWindowEnd;
     mapping(address => bool) public acceptedCollateralTokens;
+
+    // Pending mints
+    mapping(uint256 => PendingMint) private _pendingMints;
+    uint256 private _nextPendingMintId;
+    uint256[] private _pendingMintIds;
+    bool private _mintsExecuted;
 
     mapping(uint256 => address) private _treasureContract;
     mapping(uint256 => uint256) private _treasureTokenId;
@@ -37,9 +44,11 @@ contract VaultNFT is ERC721, IVaultNFT {
 
     constructor(
         address _btcToken,
-        address[] memory _acceptedTokens
+        address[] memory _acceptedTokens,
+        uint256 _mintingWindowEnd
     ) ERC721("Vault NFT", "VAULT") {
         btcToken = IBtcToken(_btcToken);
+        mintingWindowEnd = _mintingWindowEnd;
         for (uint256 i = 0; i < _acceptedTokens.length; i++) {
             acceptedCollateralTokens[_acceptedTokens[i]] = true;
         }
@@ -52,6 +61,14 @@ contract VaultNFT is ERC721, IVaultNFT {
         uint256 collateralAmount_,
         uint8 tier_
     ) external returns (uint256 tokenId) {
+        if (mintingWindowEnd > 0) {
+            if (block.timestamp < mintingWindowEnd) {
+                revert MintingWindowActive();
+            }
+            if (!_mintsExecuted) {
+                revert MintingWindowStillOpen();
+            }
+        }
         if (!acceptedCollateralTokens[collateralToken_]) {
             revert InvalidCollateralToken(collateralToken_);
         }
@@ -141,6 +158,8 @@ contract VaultNFT is ERC721, IVaultNFT {
         address treasureContract_ = _treasureContract[tokenId];
         uint256 treasureTokenId_ = _treasureTokenId[tokenId];
         address collateralToken_ = _collateralToken[tokenId];
+
+        IERC721(treasureContract_).transferFrom(address(this), address(0xdead), treasureTokenId_);
 
         _clearVaultState(tokenId);
         _burn(tokenId);
@@ -406,6 +425,142 @@ contract VaultNFT is ERC721, IVaultNFT {
     function pokeTimestamp(uint256 tokenId) external view returns (uint256) {
         _requireOwned(tokenId);
         return _pokeTimestamp[tokenId];
+    }
+
+    function pendingMint(
+        address treasureContract_,
+        uint256 treasureTokenId_,
+        address collateralToken_,
+        uint256 collateralAmount_,
+        uint8 tier_
+    ) external returns (uint256 pendingMintId) {
+        if (mintingWindowEnd == 0) {
+            revert MintingWindowNotActive();
+        }
+        if (block.timestamp >= mintingWindowEnd) {
+            revert MintingWindowStillOpen();
+        }
+        if (!acceptedCollateralTokens[collateralToken_]) {
+            revert InvalidCollateralToken(collateralToken_);
+        }
+        if (collateralAmount_ == 0) revert ZeroCollateral();
+        if (tier_ > 2) revert InvalidTier(tier_);
+
+        IERC721(treasureContract_).transferFrom(msg.sender, address(this), treasureTokenId_);
+        IERC20(collateralToken_).safeTransferFrom(msg.sender, address(this), collateralAmount_);
+
+        pendingMintId = _nextPendingMintId++;
+        _pendingMints[pendingMintId] = PendingMint({
+            minter: msg.sender,
+            treasureContract: treasureContract_,
+            treasureTokenId: treasureTokenId_,
+            collateralToken: collateralToken_,
+            collateralAmount: collateralAmount_,
+            tier: tier_
+        });
+        _pendingMintIds.push(pendingMintId);
+
+        emit PendingMintCreated(pendingMintId, msg.sender, collateralAmount_, tier_);
+    }
+
+    function increasePendingCollateral(uint256 pendingMintId, uint256 additionalAmount) external {
+        if (mintingWindowEnd == 0) {
+            revert MintingWindowNotActive();
+        }
+        if (block.timestamp >= mintingWindowEnd) {
+            revert MintingWindowStillOpen();
+        }
+        if (additionalAmount == 0) revert ZeroCollateral();
+
+        PendingMint storage pm = _pendingMints[pendingMintId];
+        if (pm.minter == address(0)) {
+            revert PendingMintNotFound(pendingMintId);
+        }
+        if (pm.minter != msg.sender) {
+            revert NotPendingMintOwner(pendingMintId);
+        }
+
+        IERC20(pm.collateralToken).safeTransferFrom(msg.sender, address(this), additionalAmount);
+        pm.collateralAmount += additionalAmount;
+
+        emit PendingCollateralIncreased(pendingMintId, additionalAmount, pm.collateralAmount);
+    }
+
+    function executeMints() external returns (uint256 count) {
+        if (mintingWindowEnd == 0) {
+            revert MintingWindowNotActive();
+        }
+        if (block.timestamp < mintingWindowEnd) {
+            revert MintingWindowActive();
+        }
+        if (_mintsExecuted) {
+            revert NoPendingMints();
+        }
+        if (_pendingMintIds.length == 0) {
+            revert NoPendingMints();
+        }
+
+        _mintsExecuted = true;
+        uint256 executionTimestamp = block.timestamp;
+
+        for (uint256 i = 0; i < _pendingMintIds.length; i++) {
+            uint256 pmId = _pendingMintIds[i];
+            PendingMint storage pm = _pendingMints[pmId];
+
+            uint256 tokenId = _nextTokenId++;
+            _mint(pm.minter, tokenId);
+
+            _treasureContract[tokenId] = pm.treasureContract;
+            _treasureTokenId[tokenId] = pm.treasureTokenId;
+            _collateralToken[tokenId] = pm.collateralToken;
+            _collateralAmount[tokenId] = pm.collateralAmount;
+            _mintTimestamp[tokenId] = executionTimestamp;
+            _tier[tokenId] = pm.tier;
+            _lastActivity[tokenId] = executionTimestamp;
+
+            totalActiveCollateral += pm.collateralAmount;
+
+            emit VaultMinted(
+                tokenId,
+                pm.minter,
+                pm.treasureContract,
+                pm.treasureTokenId,
+                pm.collateralAmount,
+                pm.tier
+            );
+
+            count++;
+        }
+
+        emit MintsExecuted(count, executionTimestamp);
+    }
+
+    function getPendingMint(uint256 pendingMintId) external view returns (PendingMint memory) {
+        PendingMint storage pm = _pendingMints[pendingMintId];
+        if (pm.minter == address(0)) {
+            revert PendingMintNotFound(pendingMintId);
+        }
+        return pm;
+    }
+
+    function getPendingMintCount() external view returns (uint256) {
+        return _pendingMintIds.length;
+    }
+
+    function getCollateralClaim(uint256 tokenId) external view returns (uint256) {
+        _requireOwned(tokenId);
+        if (_btcTokenAmount[tokenId] == 0) return 0;
+        return _collateralAmount[tokenId];
+    }
+
+    function getClaimValue(address holder, uint256 tokenId) external view returns (uint256) {
+        _requireOwned(tokenId);
+        uint256 holderBalance = btcToken.balanceOf(holder);
+        uint256 originalAmount = _originalMintedAmount[tokenId];
+        if (originalAmount == 0 || holderBalance == 0) return 0;
+
+        uint256 currentCollateral = _collateralAmount[tokenId];
+        return (currentCollateral * holderBalance) / originalAmount;
     }
 
     function _updateActivity(uint256 tokenId) internal {

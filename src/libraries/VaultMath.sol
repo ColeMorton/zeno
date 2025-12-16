@@ -6,7 +6,7 @@ library VaultMath {
     uint256 internal constant WITHDRAWAL_PERIOD = 30 days;
     uint256 internal constant DORMANCY_THRESHOLD = 1093 days;
     uint256 internal constant GRACE_PERIOD = 30 days;
-    uint256 internal constant BASIS_POINTS = 10000;
+    uint256 internal constant BASIS_POINTS = 100000;
 
     uint256 internal constant TIER_CONSERVATIVE = 833;
     uint256 internal constant TIER_BALANCED = 1140;

@@ -38,7 +38,7 @@ contract IntegrationTest is Test {
 
         address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
         btcToken = new BtcToken(vaultAddr);
-        vault = new VaultNFT(address(btcToken), acceptedTokens);
+        vault = new VaultNFT(address(btcToken), acceptedTokens, 0);
 
         wbtc.mint(alice, 100 * ONE_BTC);
         wbtc.mint(bob, 100 * ONE_BTC);
@@ -113,6 +113,7 @@ contract IntegrationTest is Test {
         assertEq(returned + forfeited, ONE_BTC);
         assertEq(wbtc.balanceOf(alice), aliceWbtcBefore + returned);
         assertEq(vault.matchPool(), forfeited);
+        assertEq(treasure.ownerOf(0), address(0xdead));
 
         vm.expectRevert();
         vault.ownerOf(tokenId);
@@ -219,9 +220,9 @@ contract IntegrationTest is Test {
         vm.prank(charlie);
         uint256 aggressiveWithdraw = vault.withdraw(aggressiveToken);
 
-        assertEq(conservativeWithdraw, (ONE_BTC * 833) / 10000);
-        assertEq(balancedWithdraw, (ONE_BTC * 1140) / 10000);
-        assertEq(aggressiveWithdraw, (ONE_BTC * 1590) / 10000);
+        assertEq(conservativeWithdraw, (ONE_BTC * 833) / 100000);
+        assertEq(balancedWithdraw, (ONE_BTC * 1140) / 100000);
+        assertEq(aggressiveWithdraw, (ONE_BTC * 1590) / 100000);
 
         assertLt(conservativeWithdraw, balancedWithdraw);
         assertLt(balancedWithdraw, aggressiveWithdraw);
@@ -256,10 +257,12 @@ contract IntegrationTest is Test {
         vm.prank(alice);
         vault.mintBtcToken(tokenId);
 
+        uint256 activityTimestamp = vault.lastActivity(tokenId);
+
         vm.prank(alice);
         btcToken.transfer(bob, ONE_BTC);
 
-        vm.warp(block.timestamp + DORMANCY_THRESHOLD - 100 days);
+        vm.warp(activityTimestamp + DORMANCY_THRESHOLD - 100 days);
 
         vm.prank(alice);
         vault.transferFrom(alice, bob, tokenId);
@@ -310,5 +313,229 @@ contract IntegrationTest is Test {
         vault.withdraw(bobToken);
 
         assertEq(vault.totalActiveCollateral(), 3 * ONE_BTC);
+    }
+
+    function test_VestingExactBoundary() public {
+        vm.prank(alice);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+
+        vm.warp(block.timestamp + VESTING_PERIOD - 1);
+
+        assertFalse(vault.isVested(tokenId));
+
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.StillVesting.selector, tokenId));
+        vault.withdraw(tokenId);
+
+        vm.warp(block.timestamp + 1);
+
+        assertTrue(vault.isVested(tokenId));
+
+        vm.prank(alice);
+        uint256 withdrawn = vault.withdraw(tokenId);
+        assertGt(withdrawn, 0);
+    }
+
+    function test_WithdrawalPeriodExactBoundary() public {
+        vm.prank(alice);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+
+        vm.warp(block.timestamp + VESTING_PERIOD);
+
+        vm.prank(alice);
+        vault.withdraw(tokenId);
+
+        vm.warp(block.timestamp + WITHDRAWAL_PERIOD - 1);
+
+        vm.prank(alice);
+        vm.expectRevert();
+        vault.withdraw(tokenId);
+
+        vm.warp(block.timestamp + 1);
+
+        vm.prank(alice);
+        uint256 withdrawn = vault.withdraw(tokenId);
+        assertGt(withdrawn, 0);
+    }
+
+    function test_EarlyRedeem_MidVesting() public {
+        vm.prank(alice);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+
+        uint256 halfVesting = VESTING_PERIOD / 2;
+        vm.warp(block.timestamp + halfVesting);
+
+        vm.prank(alice);
+        (uint256 returned, uint256 forfeited) = vault.earlyRedeem(tokenId);
+
+        uint256 expectedReturned = (ONE_BTC * halfVesting) / VESTING_PERIOD;
+        uint256 expectedForfeited = ONE_BTC - expectedReturned;
+
+        assertEq(returned, expectedReturned, "Returned should be ~50%");
+        assertEq(forfeited, expectedForfeited, "Forfeited should be ~50%");
+        assertApproxEqAbs(returned, forfeited, 1, "Should be approximately 50/50 split");
+    }
+
+    function test_BtcToken_ClaimValueAfterWithdrawals() public {
+        vm.prank(alice);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+
+        vm.warp(block.timestamp + VESTING_PERIOD);
+
+        vm.prank(alice);
+        vault.mintBtcToken(tokenId);
+
+        assertEq(vault.getClaimValue(alice, tokenId), ONE_BTC);
+
+        vm.prank(alice);
+        uint256 withdrawn = vault.withdraw(tokenId);
+
+        uint256 remainingCollateral = ONE_BTC - withdrawn;
+        assertEq(vault.getClaimValue(alice, tokenId), remainingCollateral);
+
+        vm.warp(block.timestamp + WITHDRAWAL_PERIOD);
+
+        vm.prank(alice);
+        uint256 withdrawn2 = vault.withdraw(tokenId);
+
+        remainingCollateral -= withdrawn2;
+        assertEq(vault.getClaimValue(alice, tokenId), remainingCollateral);
+    }
+
+    function test_BtcToken_MultipleHolders() public {
+        vm.prank(alice);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+
+        vm.warp(block.timestamp + VESTING_PERIOD);
+
+        vm.prank(alice);
+        vault.mintBtcToken(tokenId);
+
+        vm.prank(alice);
+        btcToken.transfer(bob, ONE_BTC / 4);
+
+        vm.prank(alice);
+        btcToken.transfer(charlie, ONE_BTC / 4);
+
+        assertEq(vault.getClaimValue(alice, tokenId), ONE_BTC / 2);
+        assertEq(vault.getClaimValue(bob, tokenId), ONE_BTC / 4);
+        assertEq(vault.getClaimValue(charlie, tokenId), ONE_BTC / 4);
+
+        vm.prank(alice);
+        vault.withdraw(tokenId);
+
+        uint256 remaining = vault.collateralAmount(tokenId);
+
+        assertEq(vault.getClaimValue(alice, tokenId), remaining / 2);
+        assertEq(vault.getClaimValue(bob, tokenId), remaining / 4);
+        assertEq(vault.getClaimValue(charlie, tokenId), remaining / 4);
+    }
+
+    function test_BtcToken_MintAfterPartialWithdraw() public {
+        vm.prank(alice);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+
+        uint256 currentTime = block.timestamp + VESTING_PERIOD;
+        vm.warp(currentTime);
+
+        vm.prank(alice);
+        vault.withdraw(tokenId);
+
+        currentTime += WITHDRAWAL_PERIOD;
+        vm.warp(currentTime);
+
+        vm.prank(alice);
+        vault.withdraw(tokenId);
+
+        currentTime += WITHDRAWAL_PERIOD;
+        vm.warp(currentTime);
+
+        vm.prank(alice);
+        vault.withdraw(tokenId);
+
+        uint256 remainingCollateral = vault.collateralAmount(tokenId);
+
+        vm.prank(alice);
+        uint256 btcMinted = vault.mintBtcToken(tokenId);
+
+        assertEq(btcMinted, remainingCollateral);
+        assertEq(vault.btcTokenAmount(tokenId), remainingCollateral);
+        assertEq(vault.originalMintedAmount(tokenId), remainingCollateral);
+        assertEq(btcToken.balanceOf(alice), remainingCollateral);
+    }
+
+    function test_E2E_ThreeYearLifecycle() public {
+        uint256 startTime = block.timestamp;
+
+        vm.prank(alice);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 5 * ONE_BTC, 0);
+
+        vm.prank(bob);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), 3 * ONE_BTC, 1);
+
+        vm.prank(charlie);
+        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), 2 * ONE_BTC, 2);
+
+        assertEq(vault.totalActiveCollateral(), 10 * ONE_BTC);
+
+        vm.warp(startTime + 500 days);
+
+        vm.prank(charlie);
+        (, uint256 charlieForfeited) = vault.earlyRedeem(charlieToken);
+        assertGt(charlieForfeited, 0);
+
+        assertEq(vault.matchPool(), charlieForfeited);
+
+        vm.warp(startTime + VESTING_PERIOD + 1);
+
+        assertTrue(vault.isVested(aliceToken));
+        assertTrue(vault.isVested(bobToken));
+
+        uint256 aliceTotalWithdrawn = 0;
+        uint256 currentTime = block.timestamp;
+        for (uint256 i = 0; i < 12; i++) {
+            vm.prank(alice);
+            uint256 withdrawn = vault.withdraw(aliceToken);
+            aliceTotalWithdrawn += withdrawn;
+            currentTime += WITHDRAWAL_PERIOD + 1 days;
+            vm.warp(currentTime);
+        }
+        assertGt(aliceTotalWithdrawn, 0);
+
+        vm.prank(bob);
+        uint256 bobMatchClaimed = vault.claimMatch(bobToken);
+        assertGt(bobMatchClaimed, 0);
+
+        vm.prank(bob);
+        vault.mintBtcToken(bobToken);
+
+        uint256 bobBtcTokenBalance = btcToken.balanceOf(bob);
+
+        vm.prank(bob);
+        btcToken.transfer(alice, bobBtcTokenBalance);
+
+        currentTime = block.timestamp + DORMANCY_THRESHOLD + 1 days;
+        vm.warp(currentTime);
+
+        (bool eligible,) = vault.isDormantEligible(bobToken);
+        assertTrue(eligible);
+
+        vm.prank(charlie);
+        vault.pokeDormant(bobToken);
+
+        vm.warp(block.timestamp + GRACE_PERIOD + 1 days);
+
+        uint256 aliceWbtcBefore = wbtc.balanceOf(alice);
+        vm.startPrank(alice);
+        btcToken.approve(address(vault), type(uint256).max);
+        uint256 dormantCollateral = vault.claimDormantCollateral(bobToken);
+        vm.stopPrank();
+
+        assertEq(wbtc.balanceOf(alice), aliceWbtcBefore + dormantCollateral);
+
+        assertGt(vault.collateralAmount(aliceToken), 0);
+        vm.prank(alice);
+        (uint256 aliceReturned,) = vault.earlyRedeem(aliceToken);
+        assertGt(aliceReturned, 0);
     }
 }
