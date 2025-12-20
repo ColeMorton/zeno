@@ -90,14 +90,18 @@ function registerIssuer() external {
 | Cancel pending mints | Remove pending mints from their windows |
 | Cancel empty windows | Cancel windows with no pending mints |
 
-### Issuer Constraints
+### Issuer Constraints (Code-Enforced)
 
-| Constraint | Reason |
-|------------|--------|
-| Cannot modify core protocol | Immutable withdrawal rates, vesting periods |
-| Cannot access user collateral | Non-custodial design |
-| Cannot cancel executed windows | Terminal state protection |
-| Cannot cancel with pending mints | User asset protection |
+These constraints are **technically impossible to circumvent**—they are enforced by the absence of functions in the smart contract, not by policy.
+
+| Constraint | Reason | Enforcement |
+|------------|--------|-------------|
+| Cannot modify core protocol | Immutable withdrawal rates, vesting periods | **No function exists** in contract |
+| Cannot access user collateral | Non-custodial design | **No function exists** in contract |
+| Cannot cancel executed windows | Terminal state protection | **State cannot transition** from terminal |
+| Cannot cancel with pending mints | User asset protection | **Revert condition** in contract |
+
+**Key Insight:** Issuers are constrained by immutable code, not by trust or policy. The functions that would enable these actions simply do not exist in the deployed contract.
 
 ---
 
@@ -340,15 +344,15 @@ No issuer extraction from deposits.
 │       │    (Withdrawal rights        │                          │
 │       │     retained)                ↓                          │
 │       │                    ┌─────────────────────┐              │
-│       │                    │  DEX (Uniswap/Curve)│              │
-│       │                    │  vestedBTC/USDC LP  │              │
+│       │                    │  DEX (Curve/Uniswap)│              │
+│       │                    │  vestedBTC/WBTC LP  │              │
 │       │                    └─────────────────────┘              │
 │       │                              │                          │
 │       │                    ┌─────────┴─────────┐                │
 │       │                    ↓                   ↓                │
 │       │           ┌──────────────┐    ┌──────────────┐          │
 │       │           │  Trade for   │    │  Use as      │          │
-│       │           │  USDC/ETH    │    │  Collateral  │          │
+│       │           │  WBTC/cbBTC  │    │  Collateral  │          │
 │       │           └──────────────┘    │  (Aave)      │          │
 │       │                               └──────────────┘          │
 │       │                                                         │
@@ -369,16 +373,16 @@ No issuer extraction from deposits.
 │  │              stability (not a USD peg)                  │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                          ↓                                      │
-│  Layer 2: Liquidity                                            │
+│  Layer 2: Liquidity (BTC-Denominated Only)                     │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Uniswap V3: vestedBTC/USDC concentrated liquidity      │   │
-│  │  Curve: vestedBTC/USDC stable swap                      │   │
-│  │  Balancer: vestedBTC/WBTC/USDC weighted pool            │   │
+│  │  Curve: vestedBTC/WBTC stable-like (minimal IL)         │   │
+│  │  Curve: vestedBTC/cbBTC stable-like (multi-BTC)         │   │
+│  │  Uniswap V3: vestedBTC/WBTC [0.80-1.00] concentrated    │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                          ↓                                      │
 │  Layer 3: Lending                                              │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Aave: vestedBTC as collateral (borrow USDC/ETH)        │   │
+│  │  Aave: vestedBTC as collateral (borrow WBTC/ETH)        │   │
 │  │  Compound: vestedBTC market                             │   │
 │  │  Morpho: Optimized vestedBTC lending                    │   │
 │  └─────────────────────────────────────────────────────────┘   │
@@ -406,7 +410,7 @@ Bonding enables protocol-owned liquidity accumulation:
 │                                                                 │
 │  Step 1: User Provides Liquidity                               │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  vestedBTC + USDC → Uniswap/Curve → LP Tokens           │   │
+│  │  vestedBTC + WBTC → Curve → LP Tokens                   │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                          ↓                                      │
 │  Step 2: User Bonds LP                                         │

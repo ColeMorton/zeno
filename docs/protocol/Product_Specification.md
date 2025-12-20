@@ -1,12 +1,13 @@
 # BTCNFT Protocol Product Specification
 
-> **Version:** 2.0
+> **Version:** 2.1
 > **Status:** Draft
-> **Last Updated:** 2025-12-16
+> **Last Updated:** 2025-12-19
 > **Related Documents:**
 > - [Technical Specification](./Technical_Specification.md)
 > - [Quantitative Validation](./Quantitative_Validation.md)
 > - [Market Analysis](../issuer/Market_Analysis.md)
+> - [Withdrawal Delegation](./Withdrawal_Delegation.md)
 
 ---
 
@@ -17,6 +18,8 @@
    - 1.2 [Mechanism Summary](#12-mechanism-summary)
    - 1.3 [Token Standard](#13-token-standard)
    - 1.4 [Minting Windows](#14-minting-windows)
+   - 1.5 [Non-Custodial Guarantee](#15-non-custodial-guarantee)
+   - 1.6 [Withdrawal Delegation](#16-withdrawal-delegation)
 2. [vestedBTC Product](#2-vestedbtc-product)
    - 2.1 [Product Definition](#21-product-definition)
    - 2.2 [Value Proposition](#22-value-proposition)
@@ -107,6 +110,76 @@ Issuers can create time-bound minting campaigns for community goals.
 
 See [Technical Specification Section 1.3](./Technical_Specification.md#13-dynamic-minting-windows) for implementation details.
 
+### 1.5 Non-Custodial Guarantee
+
+| Property | Value |
+|----------|-------|
+| Custody Model | Non-custodial (user retains control) |
+| Collateral Location | Inside user's Vault NFT (ERC-998 composable) |
+| Withdrawal Rights | Owner only (via `msg.sender == ownerOf(vaultTokenId)`) |
+| Collateral Access | Direct transfer to owner wallet |
+| Issuer Access | **None** (no extraction function exists) |
+
+**Architecture:**
+```
+┌─────────────────────────────────────┐
+│  Vault NFT (ERC-998)                │
+│  ┌─────────────┬───────────────────┐│
+│  │  Treasure   │  BTC Collateral   ││
+│  │  (ERC-721)  │  (ERC-20)         ││
+│  │  Child NFT  │  Locked Balance   ││
+│  └─────────────┴───────────────────┘│
+│  Owner: USER (not issuer, not protocol)
+└─────────────────────────────────────┘
+```
+
+**Key Guarantees:**
+- Only the Vault NFT owner can call `withdraw()`
+- No extraction function exists in the contract
+- Issuers have zero access to user collateral
+- 100% of deposited BTC becomes user collateral
+
+### 1.6 Withdrawal Delegation
+
+**Overview:** Vault holders can grant percentage-based withdrawal permissions to other addresses, enabling flexible treasury management without transferring ownership.
+
+**Key Features:**
+- **Non-custodial delegation**: Vault ownership never transfers
+- **Percentage allocation**: Grant share of the cumulative 0.875% monthly withdrawal
+- **Multiple delegates**: Support for multi-party treasury management
+- **Revocable permissions**: Owner maintains full control (single or bulk revoke)
+- **Independent periods**: Each delegate has separate 30-day cooldowns
+- **Cumulative withdrawals**: The 0.875% monthly limit is shared among all parties
+
+**Use Case Examples:**
+
+| Scenario | Implementation |
+|----------|----------------|
+| **DAO Treasury** | Treasury committee (60%), Operations (30%), Emergency (10%) |
+| **Family Trust** | Children receive equal monthly allowances (33.3% each) |
+| **Automated Services** | DCA bot (25%), Bill payments (20%), Investments (55%) |
+| **Corporate Treasury** | Hot wallet ops (40%), Cold storage rotation (60%) |
+
+**Delegation Flow:**
+```
+Vault with 1 BTC: Monthly Withdrawal Pool = 0.00875 BTC (0.875%)
+├─ Owner retains vault ownership + withdrawal rights
+└─ Grants percentage shares of the 0.00875 BTC pool:
+    ├─ Delegate A: 60% = 0.00525 BTC monthly
+    ├─ Delegate B: 30% = 0.00263 BTC monthly
+    └─ Delegate C: 10% = 0.00087 BTC monthly
+    
+Total: 100% of 0.00875 BTC distributed
+```
+
+**Benefits:**
+- Enables institutional treasury management patterns
+- Supports automated withdrawal strategies
+- Compatible with multi-signature setups
+- Maintains security through owner-controlled permissions
+
+For technical implementation details, see [Withdrawal Delegation Specification](./Withdrawal_Delegation.md).
+
 ---
 
 ## 2. vestedBTC Product
@@ -185,18 +258,18 @@ When dormant collateral is claimed:
 | Party | Receives | Loses |
 |-------|----------|-------|
 | **Claimer** | BTC collateral (remaining amount) | vestedBTC (burned) |
-| **Original Owner** | Treasure (returned) | Collateral |
+| **Original Owner** | N/A | Collateral, Treasure (burned) |
 | **Vault NFT** | N/A (burned - empty shell) | N/A |
 | **vestedBTC** | N/A (permanently burned) | Supply reduced |
 
-**Note:** The Vault NFT is burned because after Treasure extraction and collateral transfer, it has no remaining value.
+**Note:** Both the Vault NFT and Treasure NFT are burned as a commitment mechanism, treating dormancy similarly to early redemption.
 
 ### 3.4 Economic Fairness
 
 The mechanism ensures fair treatment for all parties:
 
 **For Original Owner:**
-- Receives Treasure back (original property, unrelated to BTC collateral)
+- Treasure burned (commitment mechanism; disincentivizes dormancy)
 - Already received value when selling vestedBTC
 - Had 1093+ days of inactivity + 30-day warning to respond
 
@@ -227,16 +300,16 @@ The mechanism ensures fair treatment for all parties:
 │  │              stability (not a USD peg)                  │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                          ↓                                      │
-│  Layer 2: Liquidity                                            │
+│  Layer 2: Liquidity (BTC-Denominated Only)                     │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Uniswap V3: vestedBTC/USDC concentrated liquidity      │   │
-│  │  Curve: vestedBTC/USDC stable swap                      │   │
-│  │  Balancer: vestedBTC/WBTC/USDC weighted pool            │   │
+│  │  Curve: vestedBTC/WBTC stable-like (PRIMARY)            │   │
+│  │  Curve: vestedBTC/cbBTC stable-like                     │   │
+│  │  Uniswap V3: vestedBTC/WBTC [0.80-1.00] concentrated    │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                          ↓                                      │
 │  Layer 3: Lending                                              │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Aave: vestedBTC as collateral (borrow USDC/ETH)        │   │
+│  │  Aave: vestedBTC as collateral (borrow WBTC/ETH)        │   │
 │  │  Compound: vestedBTC market                             │   │
 │  │  Morpho: Optimized vestedBTC lending                    │   │
 │  └─────────────────────────────────────────────────────────┘   │
@@ -249,6 +322,10 @@ The mechanism ensures fair treatment for all parties:
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+**Why BTC-Denominated Pairs Only?**
+
+vestedBTC represents a claim on BTC collateral. Pairing exclusively with WBTC/cbBTC creates correlated-asset pools (similar to stETH/ETH) that minimize impermanent loss, enable direct NAV arbitrage without oracle dependency, and keep users within the BTC ecosystem. Users acquire WBTC/cbBTC through existing market infrastructure before interacting with vestedBTC.
 
 ### 4.2 Withdrawal Stacking Example
 
@@ -289,6 +366,7 @@ Total Stack: 10.5% + 7-17% = 17.5-27.5% APY
 | **Sell Vault NFT** | Secondary market | Immediate | Market spread |
 | **Sell vestedBTC** | DEX trade | Immediate | Slippage + gas |
 | **Sell vestedBTC, Keep Withdrawals** | DEX trade | Immediate | Principal only |
+| **Delegate Withdrawals** | Grant % to other wallets | Immediate | Gas only |
 | **Claim Dormant Collateral** | Burn vestedBTC to claim abandoned BTC | 30+ days | vestedBTC burned |
 
 ### 5.2 Exit Decision Tree
@@ -319,6 +397,7 @@ Total Stack: 10.5% + 7-17% = 17.5-27.5% APY
 | Early Redemption | Emergency liquidity | Forfeiture penalty + Treasure loss |
 | Sell Vault NFT | Clean exit | Market-dependent price |
 | Sell vestedBTC | Principal access | Lose redemption rights |
+| Delegate Withdrawals | Distributed management | Retains ownership |
 | Claim Dormant | vestedBTC → BTC conversion | Requires dormant position |
 
 ---
@@ -335,7 +414,7 @@ Total Stack: 10.5% + 7-17% = 17.5-27.5% APY
 | Vesting period | 1093 days | Full BTC market cycle coverage |
 | Dormancy threshold | 1093 days | Matches vesting period; full inactivity cycle |
 | Grace period | 30 days | Fair warning; one withdrawal period |
-| Treasure on claim | Returned to original owner | Preserves original property rights |
+| Treasure on claim | Burned | Commitment mechanism; disincentivizes dormancy |
 | Collateral on claim | Transferred to claimer | Claimer receives BTC directly |
 | Vault NFT on claim | Burned | Empty shell after extraction - no value |
 | vestedBTC on claim | Burned | Economic equivalence with recombination |

@@ -21,6 +21,8 @@
 7. [Gamification](#7-gamification)
 8. [Governance Options](#8-governance-options)
 9. [Analytics](#9-analytics)
+10. [Bonding Integration (Optional)](#10-bonding-integration-optional)
+11. [Liquidity Bootstrapping (IOL)](#11-liquidity-bootstrapping-iol)
 
 ---
 
@@ -39,15 +41,19 @@ Issuers customize the participant experience without modifying core protocol par
 | Gamification | Leaderboards, vanity tiers, profiles |
 | Governance | Multisig, DAO, or centralized |
 
-### What Protocol Controls
+### What Protocol Controls (Immutable - Code-Enforced)
 
-| Aspect | Protocol Control |
-|--------|------------------|
-| Withdrawal rate | Fixed at 10.5% annually (0.875% monthly) |
-| Vesting period | Fixed at 1093 days |
-| Collateral matching | Pro-rata distribution from early exits |
-| Dormancy mechanism | 1093-day inactivity threshold |
-| vestedBTC mechanics | ERC-20, 1:1 with collateral |
+These parameters are **technically impossible to change** after deployment. They are stored in contract bytecode, not modifiable storage.
+
+| Aspect | Protocol Control | Modifiability |
+|--------|------------------|---------------|
+| Withdrawal rate | 10.5% annually (0.875% monthly) | **Immutable** (bytecode constant) |
+| Vesting period | 1093 days | **Immutable** (bytecode constant) |
+| Collateral matching | Pro-rata distribution from early exits | **Immutable** (no governance params) |
+| Dormancy mechanism | 1093-day inactivity threshold | **Immutable** (bytecode constant) |
+| vestedBTC mechanics | ERC-20, 1:1 with collateral | **Immutable** (contract logic) |
+
+**Key Insight:** No admin, no DAO, no governance mechanism can alter these parameters. The functions to modify them do not exist in the contract.
 
 ---
 
@@ -356,11 +362,11 @@ Purchased achievements provide cosmetic value only:
 │  ├─ Treasury management                                        │
 │  └─ Gamification updates                                       │
 │                                                                 │
-│  Constraints (Immutable):                                       │
-│  ├─ Cannot modify core protocol contract                       │
-│  ├─ Cannot access user collateral                              │
-│  ├─ Cannot change withdrawal rates                             │
-│  └─ Cannot create fungible governance tokens                   │
+│  Constraints (Code-Enforced - No Functions Exist):             │
+│  ├─ Cannot modify core protocol (no setParameter functions)    │
+│  ├─ Cannot access user collateral (no extraction function)     │
+│  ├─ Cannot change withdrawal rates (immutable in bytecode)     │
+│  └─ Cannot create fungible governance tokens (scope limited)   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -416,6 +422,327 @@ Purchased achievements provide cosmetic value only:
 
 ---
 
+## 10. Bonding Integration (Optional)
+
+> **Note**: Bonding is NOT part of the core protocol. This is an optional issuer-layer extension that requires deploying additional smart contracts.
+
+### Overview
+
+Bonding enables protocol-owned liquidity (POL) accumulation by allowing users to exchange LP tokens for discounted Vault NFTs.
+
+### Mechanism
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      vBTC BONDING                           │
+│                                                             │
+│  Step 1: User Provides Liquidity                            │
+│  └─ vBTC + WBTC → Curve → LP Tokens                        │
+│                                                             │
+│  Step 2: User Bonds LP                                      │
+│  └─ Call bond(lpTokenAmount)                               │
+│  └─ Issuer quotes: 5-15% discount, 5-7 day vesting         │
+│                                                             │
+│  Step 3: Issuer Receives LP                                 │
+│  └─ LP tokens → Issuer Treasury                            │
+│  └─ Issuer earns all trading fees                          │
+│  └─ Liquidity is permanent (no mercenary flight)           │
+│                                                             │
+│  Step 4: User Receives Discounted Position                  │
+│  └─ After vesting: Claim Vault NFT (pre-funded with BTC)   │
+│  └─ Effective entry: 5-15% below market                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Bond Pricing Parameters
+
+| Parameter | Recommended Value | Rationale |
+|-----------|-------------------|-----------|
+| Discount Floor | 5% | Covers gas + vesting opportunity cost (~4% breakeven) |
+| Discount Ceiling | 15% | Prevents dilutive acquisition; creates arbitrage ceiling |
+| Vesting Period | 5-7 days | Prevents flash loan attacks; allows price discovery |
+| Capacity | Treasury-limited | Prevents over-commitment |
+
+### Oracle-Free Pricing Approaches
+
+Bonding can operate without external price oracles using these approaches:
+
+#### Option 1: Fixed Rate (Simplest)
+
+```
+1 LP token → Fixed BTC amount in Vault
+```
+
+| Pros | Cons |
+|------|------|
+| No price feed required | Doesn't adapt to market conditions |
+| Simple implementation | Can become exploitable if market moves |
+| Predictable for users | Requires manual rate updates |
+
+#### Option 2: Capacity-Based Dynamic Pricing
+
+```
+discount = base_rate × (1 - utilization_ratio)
+
+Where:
+- base_rate = 15% (max discount)
+- utilization_ratio = bonds_outstanding / max_capacity
+```
+
+| Utilization | Discount | Behavior |
+|-------------|----------|----------|
+| 0% (empty) | 15% | Attract bonders aggressively |
+| 50% | 10% | Balanced pricing |
+| 100% (full) | 5% | Ration access, preserve treasury |
+
+**Tradeoff**: Pricing reflects demand, not market discount. If vBTC trades at 20% discount on DEX, capacity-based pricing won't capture this.
+
+#### Option 3: Dutch Auction
+
+```
+discount starts at 15%
+decreases by 0.5% per hour toward 5%
+resets to 15% after each bond purchase
+```
+
+| Pros | Cons |
+|------|------|
+| Market finds equilibrium naturally | Inefficient; users may delay |
+| No oracle dependency | Discount oscillates unpredictably |
+| Self-correcting | Gaming possible (wait for reset) |
+
+#### Option 4: DEX TWAP (Recommended for Market-Responsive Pricing)
+
+TWAP (Time-Weighted Average Price) queries on-chain DEX data without external oracles.
+
+**How It Works:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    TWAP PRICE ORACLE                        │
+│                                                             │
+│  Uniswap V3 / Curve Pool: vBTC/WBTC                        │
+│                                                             │
+│  1. Pool accumulates price observations over time           │
+│  2. Bonding contract queries:                               │
+│     - observe(secondsAgo: [3600, 0])  // 1-hour window     │
+│  3. Calculate TWAP:                                         │
+│     - TWAP = (cumulative[now] - cumulative[1hr]) / 3600    │
+│  4. Derive discount:                                        │
+│     - If TWAP shows vBTC at 0.92 WBTC (8% discount)        │
+│     - Bond discount = min(TWAP_discount + 2%, 15%)         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Implementation (Uniswap V3):**
+
+```solidity
+// Query TWAP from Uniswap V3 pool
+function getVBtcDiscount(address pool, uint32 twapWindow) external view returns (uint256) {
+    uint32[] memory secondsAgos = new uint32[](2);
+    secondsAgos[0] = twapWindow;  // e.g., 3600 (1 hour)
+    secondsAgos[1] = 0;           // now
+
+    (int56[] memory tickCumulatives, ) = IUniswapV3Pool(pool).observe(secondsAgos);
+
+    int24 avgTick = int24((tickCumulatives[1] - tickCumulatives[0]) / int56(uint56(twapWindow)));
+    uint256 price = getQuoteAtTick(avgTick, 1e8, vBTC, WBTC);
+
+    // price < 1e8 means vBTC trades at discount
+    // e.g., price = 0.92e8 → 8% discount
+    return price < 1e8 ? ((1e8 - price) * 100) / 1e8 : 0;
+}
+```
+
+**TWAP Window Considerations:**
+
+| Window | Pros | Cons |
+|--------|------|------|
+| 5 min | Responsive to market | Vulnerable to manipulation |
+| 1 hour | Balanced | Standard choice |
+| 24 hours | Manipulation-resistant | Slow to react |
+
+**Security: Manipulation Resistance**
+
+| Attack Vector | Mitigation |
+|---------------|------------|
+| Flash loan price manipulation | TWAP averages across time; single-block manipulation ineffective |
+| Multi-block manipulation | Longer windows (1hr+) make sustained manipulation expensive |
+| Low liquidity exploitation | Require minimum pool liquidity before using TWAP |
+
+**Discount Formula with TWAP:**
+
+```
+market_discount = TWAP query result (e.g., 8%)
+bond_discount = min(market_discount + premium, 15%)
+
+Where:
+- premium = 2-5% (incentive to bond vs DEX purchase)
+- ceiling = 15% (treasury protection)
+```
+
+| Market Discount | Premium | Bond Discount |
+|-----------------|---------|---------------|
+| 3% | +2% | 5% |
+| 8% | +2% | 10% |
+| 12% | +2% | 14% |
+| 18% | +2% | 15% (capped) |
+
+**Recommendation**: Use 1-hour TWAP with 2% premium. Require minimum 50 BTC equivalent pool liquidity.
+
+#### Other Price Feed Options
+
+| Approach | Use Case |
+|----------|----------|
+| **Chainlink** | If pricing against USD or external assets |
+| **Custom oracle** | Aggregate multiple DEX prices |
+| **Hybrid** | TWAP primary, Chainlink fallback |
+
+### Implementation Requirements
+
+Issuers must deploy:
+1. **Bonding Contract** - Accepts LP tokens, manages vesting, distributes Vaults
+2. **Treasury Contract** - Holds LP tokens, receives trading fees
+3. **Price Oracle** (optional) - Dynamic discount based on capacity utilization
+
+### Economic Considerations
+
+| Factor | Consideration |
+|--------|---------------|
+| **Acquisition cost** | At 15% discount, paying 85 cents per $1 of permanent liquidity |
+| **Fee generation** | LP trading fees accrue to treasury perpetually |
+| **Liquidity depth** | Deeper pools reduce slippage for all participants |
+| **Death spiral risk** | Bounded discounts prevent OHM-style reflexive selling |
+
+### When to Implement Bonding
+
+| Scenario | Recommendation |
+|----------|----------------|
+| Early stage, low liquidity | High priority - build POL foundation |
+| Established liquidity | Lower priority - market makers sufficient |
+| High vBTC discount (>10%) | Bonding attracts arbitrage, compresses discount |
+| Treasury has excess BTC | Bonding converts BTC to permanent LP |
+
+---
+
+## 11. Liquidity Bootstrapping (IOL)
+
+### The Cold Start Problem
+
+vBTC utility depends on liquidity. Without it:
+
+```
+No liquidity → High slippage → Users won't mint vBTC
+     ↑                                    │
+     └────── No vBTC supply ←─────────────┘
+```
+
+Issuers must bootstrap Issuer-Owned Liquidity (IOL) to break this cycle.
+
+### Strategy Options
+
+#### Option 1: Genesis Vault Program
+
+Limited "Genesis" status for early participants who commit to LP:
+
+```
+Genesis Vaults (first 100-500):
+├─ Unique on-chain badge (soulbound)
+├─ Enhanced benefits (issuer-defined)
+├─ Requires: LP commitment for 6+ months
+└─ Creates: Urgency, exclusivity, aligned behavior
+```
+
+| Pros | Cons |
+|------|------|
+| Creates FOMO/urgency | Limited to early participants |
+| Strong narrative ("Genesis holder") | May create two-tier perception |
+| No capital required from issuer | Complex eligibility tracking |
+
+#### Option 2: Single-Sided Liquidity
+
+Users deposit only vBTC; issuer provides WBTC side:
+
+```
+User deposits:   100% vBTC
+Issuer deposits: 100% WBTC (from treasury)
+Pool:            Balancer 80/20 or Curve V2
+```
+
+| Pros | Cons |
+|------|------|
+| Zero WBTC required from users | Issuer bears IL on WBTC side |
+| Lowest barrier to entry | Requires significant treasury |
+| Familiar to yield farmers | Weighted pools have higher slippage |
+
+#### Option 3: Time-Locked LP Multipliers
+
+Reward longer LP commitments with enhanced benefits:
+
+```
+LP Lock Duration → Benefit Multiplier
+├─ No lock:    1.0x (baseline)
+├─ 6 months:   1.5x
+├─ 12 months:  2.0x
+└─ 24 months:  3.0x
+
+Benefits can include:
+- Fee share boost
+- Governance weight
+- Priority access to future features
+```
+
+| Pros | Cons |
+|------|------|
+| Creates sticky, long-term liquidity | Locks reduce user flexibility |
+| Predictable liquidity depth | Unlock cliffs can cause volatility |
+| No issuer capital required | Complex contract logic |
+
+#### Option 4: Liquidity Bootstrapping Pool (LBP)
+
+Balancer-style weight-shifting pool for price discovery:
+
+```
+Day 0: 95% vBTC / 5% WBTC  → High vBTC price
+Day 3: 50% vBTC / 50% WBTC → Fair market price
+
+Weights shift continuously; market discovers fair value
+```
+
+| Pros | Cons |
+|------|------|
+| Built-in price discovery | Temporary (not permanent liquidity) |
+| No need to guess initial price | Requires active management |
+| Early participants get discount | Users may wait for "bottom" |
+
+### Strategy Comparison
+
+| Strategy | Capital Required | Complexity | Stickiness | Best For |
+|----------|-----------------|------------|------------|----------|
+| Genesis Program | None | Low | Very High | Community building |
+| Single-Sided | High | Low | Medium | Fast bootstrap |
+| Time-Locked | None | Medium | Very High | Long-term depth |
+| LBP | Medium | Medium | Low | Price discovery |
+
+### Recommended Phased Approach
+
+**Phase 1: Genesis (Launch)**
+- Genesis Vault Program for first 100-500 participants
+- 6-month minimum LP commitment required
+- Exclusive benefits for early supporters
+
+**Phase 2: Growth (Months 1-6)**
+- Single-sided deposits to accelerate liquidity
+- Time-locked multipliers for new entrants
+- Bonding integration (if implemented)
+
+**Phase 3: Maturity (6+ months)**
+- Remove special incentives gradually
+- Natural LP economics (trading fees) sustain liquidity
+- Focus shifts to volume growth
+
+---
+
 ## Summary
 
 | Aspect | Recommendation |
@@ -428,3 +755,5 @@ Purchased achievements provide cosmetic value only:
 | Gamification | Merit-first, vanity separate |
 | Governance | Match to organizational structure |
 | Analytics | Track health indicators, optimize |
+| Bonding | Optional; deploy for POL accumulation if needed |
+| IOL Bootstrap | Genesis program → Single-sided → Time-locked multipliers |

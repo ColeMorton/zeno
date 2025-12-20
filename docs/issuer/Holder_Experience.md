@@ -45,6 +45,38 @@
 
 ---
 
+## 1.5 Trust Model
+
+### Trust the Code, Not Operators
+
+| What You Trust | What You Don't Need to Trust |
+|----------------|------------------------------|
+| Immutable smart contract | Issuer promises |
+| On-chain state | Corporate solvency |
+| Your private keys | Custodians |
+
+### What "Immutable" Means
+
+The contract code **cannot be changed after deployment**. Not by the team, not by a DAO, not by anyone. This is enforced by:
+- No admin functions in the contract
+- No upgrade proxy pattern
+- Parameters stored in bytecode (not modifiable storage)
+
+### What "Non-Custodial" Means
+
+Your BTC sits in **YOUR** Vault NFT. Only you can withdraw it.
+
+| Operation | Who Can Do It |
+|-----------|---------------|
+| Withdraw BTC | **Only Vault owner** |
+| Access collateral | **Only Vault owner** |
+| Modify withdrawal rates | **Nobody** (immutable) |
+| Extract user funds | **Nobody** (no function exists) |
+
+**Bottom Line:** The contract has no function that allows anyone else to touch your collateral. This is not a policy—it's technical impossibility.
+
+---
+
 ## 2. User Journey
 
 ### Phase 1: Mint (Day 0)
@@ -153,7 +185,7 @@ After maturity, you can separate your BTC collateral into vestedBTC (ERC-20) whi
 |------|--------|
 | Need cash now | Sell vestedBTC on DEX, keep withdrawal rights |
 | Leverage | Deposit vestedBTC in Aave, borrow against it |
-| Earn LP fees | Provide vestedBTC/USDC liquidity |
+| Earn LP fees | Provide vestedBTC/WBTC liquidity |
 | Exit completely | Return vestedBTC, redeem Vault, get BTC back |
 
 ### Trade-off

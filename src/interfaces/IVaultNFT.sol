@@ -19,6 +19,13 @@ interface IVaultNFT is IERC721 {
         uint8 tier;
     }
 
+    struct DelegatePermission {
+        uint256 percentageBPS;      // Basis points (100 = 1%, 10000 = 100%)
+        uint256 lastWithdrawal;     // Timestamp of last withdrawal
+        uint256 grantedAt;          // When permission was granted
+        bool active;                // Permission status
+    }
+
     event VaultMinted(
         uint256 indexed tokenId,
         address indexed owner,
@@ -65,6 +72,23 @@ interface IVaultNFT is IERC721 {
     );
     event MintsExecuted(uint256 count, uint256 executionTimestamp);
 
+    // Delegation events
+    event WithdrawalDelegateGranted(
+        uint256 indexed tokenId,
+        address indexed delegate,
+        uint256 percentageBPS
+    );
+    event WithdrawalDelegateRevoked(
+        uint256 indexed tokenId,
+        address indexed delegate
+    );
+    event AllWithdrawalDelegatesRevoked(uint256 indexed tokenId);
+    event DelegatedWithdrawal(
+        uint256 indexed tokenId,
+        address indexed delegate,
+        uint256 amount
+    );
+
     error NotTokenOwner(uint256 tokenId);
     error StillVesting(uint256 tokenId);
     error WithdrawalTooSoon(uint256 tokenId, uint256 nextAllowed);
@@ -87,6 +111,15 @@ interface IVaultNFT is IERC721 {
     error NotPendingMintOwner(uint256 pendingMintId);
     error PendingMintNotFound(uint256 pendingMintId);
     error NoPendingMints();
+
+    // Delegation errors
+    error ZeroAddress();
+    error CannotDelegateSelf();
+    error InvalidPercentage(uint256 percentage);
+    error ExceedsDelegationLimit();
+    error DelegateNotActive(uint256 tokenId, address delegate);
+    error NotActiveDelegate(uint256 tokenId, address delegate);
+    error WithdrawalPeriodNotMet(uint256 tokenId, address delegate);
 
     function mint(
         address treasureContract,
@@ -158,4 +191,30 @@ interface IVaultNFT is IERC721 {
     function getClaimValue(address holder, uint256 tokenId) external view returns (uint256);
 
     function mintingWindowEnd() external view returns (uint256);
+
+    // ========== Withdrawal Delegation Functions ==========
+    
+    function grantWithdrawalDelegate(
+        uint256 tokenId,
+        address delegate,
+        uint256 percentageBPS
+    ) external;
+
+    function revokeWithdrawalDelegate(uint256 tokenId, address delegate) external;
+
+    function revokeAllWithdrawalDelegates(uint256 tokenId) external;
+
+    function withdrawAsDelegate(uint256 tokenId) external returns (uint256 withdrawnAmount);
+
+    function canDelegateWithdraw(uint256 tokenId, address delegate)
+        external
+        view
+        returns (bool canWithdraw, uint256 amount);
+
+    function getDelegatePermission(uint256 tokenId, address delegate)
+        external
+        view
+        returns (DelegatePermission memory);
+
+    function totalDelegatedBPS(uint256 tokenId) external view returns (uint256);
 }

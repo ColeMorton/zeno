@@ -1,12 +1,13 @@
 # BTCNFT Protocol Technical Specification
 
-> **Version:** 2.1
+> **Version:** 2.2
 > **Status:** Draft
-> **Last Updated:** 2025-12-16
+> **Last Updated:** 2025-12-19
 > **Related Documents:**
 > - [Product Specification](./Product_Specification.md)
 > - [Quantitative Validation](./Quantitative_Validation.md)
 > - [Market Analysis](../issuer/Market_Analysis.md)
+> - [Withdrawal Delegation](./Withdrawal_Delegation.md)
 
 ---
 
@@ -18,7 +19,8 @@
    - 1.3 [Dynamic Minting Windows](#13-dynamic-minting-windows)
    - 1.4 [Vesting Period](#14-vesting-period)
    - 1.5 [Post-Vesting Withdrawals](#15-post-vesting-withdrawals)
-   - 1.6 [Early Redemption](#16-early-redemption)
+   - 1.6 [Withdrawal Delegation](#16-withdrawal-delegation)
+   - 1.7 [Early Redemption](#17-early-redemption)
 2. [Collateral Separation (vestedBTC)](#2-collateral-separation-btctoken)
    - 2.1 [Purpose](#21-purpose)
    - 2.2 [vestedBTC Properties](#22-btctoken-properties)
@@ -52,6 +54,43 @@
    - 6.2 [L2 Deployment Considerations](#62-l2-deployment-considerations)
    - 6.3 [Withdrawal Automation](#63-withdrawal-automation)
 7. [Design Decisions](#7-design-decisions)
+
+---
+
+## 0. Immutability Architecture
+
+### Core Guarantee
+
+The BTCNFT Protocol is deployed as an **immutable smart contract** with no admin functions, no upgrade mechanism, and no governance parameters for core protocol behavior.
+
+| Property | Implementation |
+|----------|----------------|
+| Admin functions | **None** - no owner, no multi-sig, no governance |
+| Upgrade mechanism | **None** - no proxy pattern, bytecode is final |
+| Parameter modification | **Impossible** - `immutable` keyword in Solidity |
+
+### Why This Matters
+
+Users trust **code**, not operators. No entity can:
+- Change withdrawal rates
+- Modify vesting periods
+- Access user collateral
+- Cancel executed operations
+
+This is not policy—it is technical impossibility.
+
+### Technical Implementation
+
+Immutability is enforced through Solidity's `immutable` keyword, which stores values in contract bytecode rather than storage slots:
+
+```solidity
+// These values are embedded in deployed bytecode - cannot be modified
+immutable uint256 VESTING_PERIOD = 1093 days;
+immutable uint256 WITHDRAWAL_PERIOD = 30 days;
+immutable uint256 WITHDRAWAL_RATE = 875; // 0.875% = 875/100000
+```
+
+**Verification:** Anyone can read these values from the deployed contract. They match the bytecode and cannot differ from what was compiled.
 
 ---
 
@@ -649,7 +688,23 @@ error ZeroCollateral();
 - **Amount:** 0.875% of remaining collateral (10.5% annually)
 - **Property:** Collateral never fully depletes (Zeno's paradox)
 
-### 1.6 Early Redemption
+### 1.6 Withdrawal Delegation
+
+- **Purpose:** Enable vault holders to grant withdrawal permissions to other addresses
+- **Delegation Type:** Percentage-based share of the cumulative 0.875% monthly withdrawal
+- **Control:** Fully revocable by vault owner at any time (single or bulk revoke)
+- **Independence:** Delegates have separate 30-day withdrawal periods
+- **Cumulative Limit:** The 0.875% monthly withdrawal is shared among owner + all delegates
+
+**Key Properties:**
+- Multiple delegates supported per vault
+- Total delegation cannot exceed 100%
+- Delegate actions update vault activity (prevent dormancy)
+- Compatible with all existing features (vestedBTC, dormancy, etc.)
+
+For detailed implementation, see [Withdrawal Delegation Specification](./Withdrawal_Delegation.md).
+
+### 1.7 Early Redemption
 
 - Available at any time during vesting
 - Burns (permanently destroys) the Vault NFT including the stored Treasure
@@ -941,7 +996,7 @@ uint256 amount = (numerator * multiplier) / denominator; // Solidity default: fl
 
 ## 4. Contract Parameters
 
-### 4.1 Immutable Parameters (Set at Deployment)
+### 4.1 Immutable Parameters (Technically Unchangeable After Deployment)
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
@@ -1089,13 +1144,13 @@ A Vault is **dormant-eligible** when ALL conditions are met:
                                          │ - BTC collateral│
                                          │   (directly)    │
                                          │                 │
-                                         │ Original gets:  │
-                                         │ - Treasure      │
+                                         │ Treasure NFT:   │
+                                         │ - Burned        │
                                          │                 │
                                          │ Vault NFT:      │
                                          │ - Burned        │
                                          │                 │
-                                         │ vestedBTC:           │
+                                         │ vestedBTC:      │
                                          │ - Burned        │
                                          └─────────────────┘
 ```
@@ -1232,9 +1287,9 @@ function claimDormantCollateral(uint256 tokenId) external {
     // Step 1: Burn vestedBTC from claimer (permanent destruction)
     vestedBTC.burnFrom(msg.sender, requiredStableBTC);
 
-    // Step 2: Extract Treasure and return to original owner
+    // Step 2: Burn Treasure NFT (commitment mechanism)
     (address treasureContract, uint256 treasureTokenId) = getTreasure(tokenId);
-    _extractTreasure(tokenId, originalOwner);
+    _burnTreasure(tokenId);
 
     // Step 3: Transfer BTC collateral to claimer
     collateralToken[tokenId].transfer(msg.sender, collateralToClaim);
@@ -1364,6 +1419,10 @@ Case 2: claimDormantCollateral() executes first
 |-----------|-----------|----------------|-----------------|
 | Mint Vault NFT | ~250,000 | ~$15 | ~$50 |
 | Withdraw BTC | ~80,000 | ~$5 | ~$16 |
+| Grant Delegation | ~60,000 | ~$4 | ~$12 |
+| Revoke Delegation | ~40,000 | ~$2.50 | ~$8 |
+| Withdraw as Delegate | ~85,000 | ~$5 | ~$17 |
+| Revoke All Delegations | ~45,000 | ~$3 | ~$9 |
 | mintVestedBTC | ~120,000 | ~$7 | ~$24 |
 | returnVestedBTC | ~100,000 | ~$6 | ~$20 |
 | claimRedistribution | ~90,000 | ~$5 | ~$18 |
@@ -1405,6 +1464,8 @@ Case 2: claimDormantCollateral() executes first
 
 **Automation Considerations:**
 - Withdrawals are permissionless (Vault owner only)
+- Delegation enables automated withdrawals without key custody
+- Delegates can be smart contracts for programmable withdrawals
 - No state changes required for automation setup
 - Third-party services can trigger withdrawals on behalf of owner
 - Gas costs are borne by transaction initiator
@@ -1432,8 +1493,12 @@ Case 2: claimDormantCollateral() executes first
 | Grace period | 30 days | One withdrawal period; reasonable response time |
 | Poke mechanism | Anyone can initiate | Decentralized detection, no privileged actor |
 | Owner notification | Grace period before claim | Fair warning to recover position |
-| Treasure on dormant claim | Returned to original owner | Preserves user's original property |
+| Treasure on dormant claim | Burned | Commitment mechanism; disincentivizes dormancy |
 | vestedBTC on dormant claim | Burned | Economic equivalence with normal recombination |
 | Collateral on dormant claim | Transferred to claimer | Claimer receives BTC directly |
-| Vault NFT on dormant claim | Burned | Empty shell after extraction - no value |
+| Vault NFT on dormant claim | Burned | No remaining value after collateral transfer |
 | Claim amount required | Original vestedBTCAmount | Full amount ensures economic fairness |
+| Withdrawal delegation | Percentage-based | Flexible treasury management without custody transfer |
+| Delegate independence | Separate cooldowns | Prevents withdrawal conflicts between owner and delegates |
+| Delegation limits | Max 100% total | Prevents over-allocation of withdrawal rights |
+| Delegation revocation | Owner-only, immediate | Maintains owner sovereignty over vault |

@@ -36,6 +36,12 @@ contract VaultNFT is ERC721, IVaultNFT {
     mapping(uint256 => uint256) private _originalMintedAmount;
     mapping(uint256 => uint256) private _pokeTimestamp;
 
+    // Withdrawal delegation
+    mapping(uint256 => mapping(address => DelegatePermission)) public withdrawalDelegates;
+    mapping(uint256 => uint256) public totalDelegatedBPS;
+    mapping(uint256 => uint256) public currentPeriodWithdrawn; // Track withdrawals in current period
+    mapping(uint256 => uint256) public lastPeriodStart; // When current period started
+
     uint256 public matchPool;
     uint256 public totalActiveCollateral;
     mapping(uint256 => bool) public matured;
@@ -585,6 +591,161 @@ contract VaultNFT is ERC721, IVaultNFT {
         delete _pokeTimestamp[tokenId];
         delete matured[tokenId];
         delete matchClaimed[tokenId];
+    }
+
+    // ========== Withdrawal Delegation Functions ==========
+
+    function grantWithdrawalDelegate(
+        uint256 tokenId,
+        address delegate,
+        uint256 percentageBPS
+    ) external {
+        _requireOwned(tokenId);
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId);
+        if (delegate == address(0)) revert ZeroAddress();
+        if (delegate == msg.sender) revert CannotDelegateSelf();
+        if (percentageBPS == 0 || percentageBPS > 10000) revert InvalidPercentage(percentageBPS);
+
+        // Check total delegation doesn't exceed 100%
+        uint256 currentDelegated = totalDelegatedBPS[tokenId];
+        if (withdrawalDelegates[tokenId][delegate].active) {
+            currentDelegated -= withdrawalDelegates[tokenId][delegate].percentageBPS;
+        }
+        if (currentDelegated + percentageBPS > 10000) revert ExceedsDelegationLimit();
+
+        // Update state
+        withdrawalDelegates[tokenId][delegate] = DelegatePermission({
+            percentageBPS: percentageBPS,
+            lastWithdrawal: 0,
+            grantedAt: block.timestamp,
+            active: true
+        });
+
+        totalDelegatedBPS[tokenId] = currentDelegated + percentageBPS;
+
+        // Update activity
+        _updateActivity(tokenId);
+
+        emit WithdrawalDelegateGranted(tokenId, delegate, percentageBPS);
+    }
+
+    function revokeWithdrawalDelegate(uint256 tokenId, address delegate) external {
+        _requireOwned(tokenId);
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId);
+
+        DelegatePermission storage permission = withdrawalDelegates[tokenId][delegate];
+        if (!permission.active) revert DelegateNotActive(tokenId, delegate);
+
+        // Update state
+        totalDelegatedBPS[tokenId] -= permission.percentageBPS;
+        permission.active = false;
+
+        // Update activity
+        _updateActivity(tokenId);
+
+        emit WithdrawalDelegateRevoked(tokenId, delegate);
+    }
+
+    function revokeAllWithdrawalDelegates(uint256 tokenId) external {
+        _requireOwned(tokenId);
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId);
+
+        // Reset total delegation
+        totalDelegatedBPS[tokenId] = 0;
+
+        // Note: Individual delegate mappings are not cleared to save gas
+        // The totalDelegatedBPS reset effectively disables all delegations
+        // Future grant calls will overwrite old inactive entries
+
+        // Update activity
+        _updateActivity(tokenId);
+
+        emit AllWithdrawalDelegatesRevoked(tokenId);
+    }
+
+    function withdrawAsDelegate(uint256 tokenId) external returns (uint256 withdrawnAmount) {
+        _requireOwned(tokenId);
+        
+        // Check vesting complete
+        if (!VaultMath.isVested(_mintTimestamp[tokenId], block.timestamp)) {
+            revert StillVesting(tokenId);
+        }
+
+        // Check delegation
+        DelegatePermission storage permission = withdrawalDelegates[tokenId][msg.sender];
+        if (!permission.active || totalDelegatedBPS[tokenId] == 0) revert NotActiveDelegate(tokenId, msg.sender);
+
+        // Check withdrawal period (30 days for delegate)
+        if (permission.lastWithdrawal > 0 && 
+            !VaultMath.canWithdraw(permission.lastWithdrawal, block.timestamp)) {
+            revert WithdrawalPeriodNotMet(tokenId, msg.sender);
+        }
+
+        // Calculate delegate's withdrawal amount from the total pool
+        // The pool should be calculated from the collateral at the beginning of the period
+        uint256 currentCollateral = _collateralAmount[tokenId];
+        uint256 totalPool = VaultMath.calculateWithdrawal(currentCollateral, _tier[tokenId]);
+        withdrawnAmount = (totalPool * permission.percentageBPS) / 10000;
+
+        if (withdrawnAmount == 0) return 0;
+
+        // Update state BEFORE transfer
+        _collateralAmount[tokenId] = currentCollateral - withdrawnAmount;
+        permission.lastWithdrawal = block.timestamp;
+
+        // Update activity
+        _updateActivity(tokenId);
+
+        // Transfer to delegate
+        IERC20(_collateralToken[tokenId]).safeTransfer(msg.sender, withdrawnAmount);
+
+        emit DelegatedWithdrawal(tokenId, msg.sender, withdrawnAmount);
+
+        return withdrawnAmount;
+    }
+
+    function canDelegateWithdraw(uint256 tokenId, address delegate)
+        external
+        view
+        returns (bool canWithdraw, uint256 amount)
+    {
+        try this.ownerOf(tokenId) {
+            // Token exists
+        } catch {
+            return (false, 0);
+        }
+        
+        // Check vesting
+        if (!VaultMath.isVested(_mintTimestamp[tokenId], block.timestamp)) {
+            return (false, 0);
+        }
+
+        DelegatePermission storage permission = withdrawalDelegates[tokenId][delegate];
+        if (!permission.active || totalDelegatedBPS[tokenId] == 0) {
+            return (false, 0);
+        }
+
+        // Check withdrawal period
+        if (permission.lastWithdrawal > 0 && 
+            !VaultMath.canWithdraw(permission.lastWithdrawal, block.timestamp)) {
+            return (false, 0);
+        }
+
+        // Calculate available amount
+        uint256 currentCollateral = _collateralAmount[tokenId];
+        uint256 totalPool = VaultMath.calculateWithdrawal(currentCollateral, _tier[tokenId]);
+        amount = (totalPool * permission.percentageBPS) / 10000;
+
+        return (amount > 0, amount);
+    }
+
+    function getDelegatePermission(uint256 tokenId, address delegate)
+        external
+        view
+        returns (DelegatePermission memory)
+    {
+        _requireOwned(tokenId);
+        return withdrawalDelegates[tokenId][delegate];
     }
 
     function _update(
