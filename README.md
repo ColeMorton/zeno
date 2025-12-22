@@ -1,72 +1,115 @@
-# BTCNFT Protocol Research
+# BTCNFT Protocol
 
-> **Version:** 1.5
-> **Status:** Draft
-> **Last Updated:** 2025-12-12
+[![Solidity](https://img.shields.io/badge/Solidity-0.8.24-363636?logo=solidity)](https://soliditylang.org/)
+[![Foundry](https://img.shields.io/badge/Foundry-Build-F7931A?logo=ethereum)](https://book.getfoundry.sh/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-≥18-339933?logo=node.js)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
+
+> **Version:** 1.0
+
+Immutable, permissionless smart contracts for perpetual BTC withdrawals.
 
 ---
 
-## Executive Summary
+## What is BTCNFT Protocol?
 
-BTCNFT Protocol provides perpetual withdrawals through percentage-based collateral access, designed to maintain USD-denominated value stability based on historical Bitcoin performance.
+BTCNFT Protocol enables perpetual withdrawals through percentage-based collateral access. Vault your Treasure NFT + BTC collateral to receive a composable Vault NFT. After a 1093-day vesting period, withdraw a percentage of remaining BTC every 30 days—collateral never depletes.
 
-**Key Mechanism:**
-1. Vault your Treasure NFT + BTC → Receive Vault NFT (ERC-998)
-2. 1093-day vesting period (no withdrawals)
-3. Post-vesting: Withdraw X% of remaining BTC per 30-day period
-4. Collateral never depletes (percentage-based)
+**Core innovation:** vestedBTC (vBTC) ERC-20 tokens enable separation of collateral claims from the Vault NFT, creating tradeable principal positions.
 
-**Core Innovation:** btcToken (ERC-20) enables separation of collateral claim from withdrawal rights, creating tradeable principal-only positions branded as **vBTC** for Conservative-tier tokens.
+---
+
+## Key Features
+
+- **ERC-998 Composable Vaults** — Hold Treasure NFT + BTC collateral in a single transferable NFT
+- **Perpetual Withdrawals** — Percentage-based withdrawals ensure collateral never depletes
+- **vestedBTC (vBTC)** — Fungible ERC-20 tokens representing separated collateral claims
+- **Withdrawal Delegation** — Grant third parties permission to withdraw on your behalf
+- **Achievement System** — ERC-5192 soulbound badges for protocol participation
+- **Auction Support** — Dutch and English auction mechanics for vault distribution
+
+---
+
+## Quick Start
+
+```bash
+# Protocol contracts
+cd contracts/protocol && forge build && forge test
+
+# Issuer contracts
+cd contracts/issuer && forge build && forge test
+
+# TypeScript SDK
+cd packages/vault-analytics && npm install && npm run build
+
+# CLI (local network)
+./cli/btcnft setup && ./cli/btcnft status 1
+```
+
+---
+
+## Repository Structure
+
+```
+├── contracts/
+│   ├── protocol/           # Immutable core (VaultNFT, BtcToken)
+│   └── issuer/             # Templates (TreasureNFT, AchievementNFT, AuctionController)
+├── packages/
+│   └── vault-analytics/    # TypeScript SDK (@btcnft/vault-analytics)
+├── cli/                    # Bash CLI tools (20+ commands)
+└── docs/                   # Documentation layers
+    ├── protocol/           # Developer/auditor specs
+    ├── issuer/             # Integration guides
+    └── sdk/                # SDK documentation
+```
+
+---
+
+## Protocol Parameters
+
+| Parameter | Value |
+|-----------|-------|
+| Vesting Period | 1093 days (~3 years) |
+| Withdrawal Rate | 0.875%/month (10.5%/year) |
+| Withdrawal Period | 30 days |
+| Dormancy Threshold | 1093 days |
+| BTC Decimals | 8 |
+
+All parameters are immutable—encoded in bytecode with no admin functions.
+
+---
+
+## Token Standards
+
+| Component | Standard | Purpose |
+|-----------|----------|---------|
+| Vault NFT | ERC-998 | Composable vault holding Treasure + collateral |
+| Treasure NFT | ERC-721 | Issuer-branded collectible wrapped in vault |
+| vestedBTC | ERC-20 | Fungible collateral claim token |
+| Achievement NFT | ERC-5192 | Soulbound participation attestation |
 
 ---
 
 ## Documentation
 
-### Protocol Layer (Developer-focused)
+| Audience | Entry Point |
+|----------|-------------|
+| **Developers** | [Technical Specification](./docs/protocol/Technical_Specification.md) |
+| **Auditors** | [Technical Specification](./docs/protocol/Technical_Specification.md) |
+| **Issuers** | [Integration Guide](./docs/issuer/Integration_Guide.md) |
+| **End Users** | [Holder Experience](./docs/issuer/Holder_Experience.md) |
 
-| Document | Audience | Description |
-|----------|----------|-------------|
-| [Product Specification](./docs/protocol/Product_Specification.md) | Business, Investors | What it is, withdrawal tiers, vBTC branding |
-| [Technical Specification](./docs/protocol/Technical_Specification.md) | Developers, Auditors | Token lifecycle, btcToken mechanics, contract parameters |
-| [Quantitative Validation](./docs/protocol/Quantitative_Validation.md) | Researchers, Risk | Historical data analysis, stability constraints |
-| [Collateral Matching](./docs/protocol/Collateral_Matching.md) | Tokenomics, Incentives | Forfeited BTC → match pool for vested holder rewards |
-
-### Issuer Layer (Organization-focused)
-
-| Document | Audience | Description |
-|----------|----------|-------------|
-| [DAO Design](./docs/issuer/DAO_Design.md) | Protocol, Governance | POL DAO, achievements, campaigns, gamification |
-| [E2E Competitive Flow](./docs/issuer/E2E_Competitive_Flow.md) | Strategy, DeFi | Capital flows, user journeys, Olympus-style bonding |
-| [Market Analysis](./docs/issuer/Market_Analysis.md) | Business Development | Competitive positioning vs STRC/SATA |
-| [Holder Guide](./docs/issuer/Holder_Guide.md) | End Users | User-facing documentation |
+See [docs/README.md](./docs/README.md) for complete navigation and [docs/GLOSSARY.md](./docs/GLOSSARY.md) for terminology.
 
 ---
 
-## Quick Reference
+## Contributing
 
-### Withdrawal Tiers
+Report issues at [GitHub Issues](https://github.com/anthropics/btcnft-protocol/issues).
 
-| Tier | Monthly | Annual | Historical Yearly Stability |
-|------|---------|--------|----------------------------|
-| Conservative | 0.875% | 10.5% | **100%** (2017-2025 data) |
-| Balanced | 1.14% | 14.6% | **100%** (2017-2025 data) |
-| Aggressive | 1.59% | 20.8% | 74% (2017-2025 data) |
+---
 
-> **Note:** vBTC is BTC-denominated. "Historical stability" refers to periods where USD value was maintained. Past performance does not guarantee future results.
+## License
 
-### Token Standards
-
-| Component | Standard |
-|-----------|----------|
-| Vault NFT | ERC-998 (Composable) |
-| Treasure NFT | ERC-721 |
-| BTC Collateral | ERC-20 (WBTC/cbBTC) |
-| btcToken | ERC-20 (Fungible) |
-
-### Historical Performance (1093-Day MA)
-
-| Metric | Value |
-|--------|-------|
-| Mean Return | 313.07% |
-| Min Return | 77.78% |
-| Data Points | 2,930 days |
+MIT

@@ -1,0 +1,221 @@
+#!/bin/bash
+# BTCNFT Protocol CLI - Main Entrypoint
+# Usage: ./btcnft [--network <network>] <command> [args...]
+
+set -e
+
+CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$CLI_DIR/lib/network.sh"
+
+# Version
+readonly VERSION="1.0.0"
+
+# Show help
+show_help() {
+    cat << EOF
+BTCNFT Protocol CLI v${VERSION}
+
+Usage: ./btcnft [--network <network>] <command> [args...]
+
+Options:
+  --network <network>   Target network: local, sepolia, holesky (default: local)
+  --help, -h           Show this help message
+  --version, -v        Show version
+
+Commands:
+  Setup & Deployment:
+    setup              Deploy contracts (local only)
+
+  Vault Creation:
+    mint               Create vault directly (permissionless)
+
+  Auctions (Issuer Layer):
+    auction-create-dutch   Create Dutch auction (owner)
+    auction-create-english Create English auction (owner)
+    auction-purchase       Purchase from Dutch auction
+    auction-bid            Place bid on English auction slot
+    auction-settle         Settle English auction slot
+    auction-status         Query auction details
+
+  Withdrawals:
+    withdraw           Withdraw collateral (owner)
+    delegate-grant     Grant withdrawal delegation
+    delegate-revoke    Revoke withdrawal delegation
+    delegate-withdraw  Withdraw as delegate
+
+  vBTC Token:
+    separate           Mint vBTC from vault
+    recombine          Return vBTC to vault
+
+  Redemption:
+    early-redeem       Early exit with penalty
+    claim-match        Claim match pool share
+
+  Dormancy:
+    poke               Initiate dormancy claim
+    prove-activity     Prove vault activity
+    claim-dormant      Claim dormant collateral
+
+  Queries:
+    status             Show vault status
+    delegates          Show vault delegates
+
+  Development (local only):
+    time-skip          Fast-forward time
+
+Examples:
+  ./btcnft setup                           # Deploy contracts locally
+  ./btcnft mint 1 100000000 0              # Mint vault with 1 BTC, conservative tier
+  ./btcnft --network sepolia status 1      # Check vault 1 status on Sepolia
+  ./btcnft delegate-grant 1 0x... 5000     # Grant 50% withdrawal rights
+
+EOF
+}
+
+# Show version
+show_version() {
+    echo "BTCNFT Protocol CLI v${VERSION}"
+}
+
+# Main entrypoint
+main() {
+    # Handle global flags
+    case "${1:-}" in
+        --help|-h)
+            show_help
+            exit 0
+            ;;
+        --version|-v)
+            show_version
+            exit 0
+            ;;
+    esac
+
+    # Parse network flag and get remaining args
+    local args
+    args=$(parse_network_args "$@")
+
+    # Convert to array
+    read -ra ARGS <<< "$args"
+
+    # Get command
+    local command="${ARGS[0]:-}"
+
+    if [[ -z "$command" ]]; then
+        show_help
+        exit 1
+    fi
+
+    # Remove command from args
+    REMAINING_ARGS=("${ARGS[@]:1}")
+    export REMAINING_ARGS
+    export CURRENT_NETWORK
+    export COMMAND_NAME="btcnft $command"
+
+    # Route to appropriate script
+    case "$command" in
+        # Setup
+        setup)
+            if ! is_local_network; then
+                echo "Error: setup is only available on local network" >&2
+                exit 1
+            fi
+            exec "$CLI_DIR/commands/setup.sh" "${REMAINING_ARGS[@]}"
+            ;;
+
+        # Vault Creation
+        mint)
+            exec "$CLI_DIR/commands/mint.sh" "${REMAINING_ARGS[@]}"
+            ;;
+
+        # Auctions (Issuer Layer)
+        auction-create-dutch)
+            exec "$CLI_DIR/commands/auction-create-dutch.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        auction-create-english)
+            exec "$CLI_DIR/commands/auction-create-english.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        auction-purchase)
+            exec "$CLI_DIR/commands/auction-purchase.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        auction-bid)
+            exec "$CLI_DIR/commands/auction-bid.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        auction-settle)
+            exec "$CLI_DIR/commands/auction-settle.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        auction-status)
+            exec "$CLI_DIR/queries/auction-status.sh" "${REMAINING_ARGS[@]}"
+            ;;
+
+        # Withdrawals
+        withdraw)
+            exec "$CLI_DIR/commands/withdraw.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        delegate-grant)
+            exec "$CLI_DIR/commands/delegate-grant.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        delegate-revoke)
+            exec "$CLI_DIR/commands/delegate-revoke.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        delegate-withdraw)
+            exec "$CLI_DIR/commands/delegate-withdraw.sh" "${REMAINING_ARGS[@]}"
+            ;;
+
+        # vBTC Token
+        separate)
+            exec "$CLI_DIR/commands/separate.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        recombine)
+            exec "$CLI_DIR/commands/recombine.sh" "${REMAINING_ARGS[@]}"
+            ;;
+
+        # Redemption
+        early-redeem)
+            exec "$CLI_DIR/commands/early-redeem.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        claim-match)
+            exec "$CLI_DIR/commands/claim-match.sh" "${REMAINING_ARGS[@]}"
+            ;;
+
+        # Dormancy
+        poke)
+            exec "$CLI_DIR/commands/poke.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        prove-activity)
+            exec "$CLI_DIR/commands/prove-activity.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        claim-dormant)
+            exec "$CLI_DIR/commands/claim-dormant.sh" "${REMAINING_ARGS[@]}"
+            ;;
+
+        # Queries
+        status)
+            exec "$CLI_DIR/queries/status.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        delegates)
+            exec "$CLI_DIR/queries/delegates.sh" "${REMAINING_ARGS[@]}"
+            ;;
+        batch-status)
+            exec "$CLI_DIR/queries/batch-status.sh" "${REMAINING_ARGS[@]}"
+            ;;
+
+        # Development
+        time-skip)
+            if ! is_local_network; then
+                echo "Error: time-skip is only available on local network" >&2
+                exit 1
+            fi
+            exec "$CLI_DIR/dev/time-skip.sh" "${REMAINING_ARGS[@]}"
+            ;;
+
+        # Unknown command
+        *)
+            echo "Error: Unknown command '$command'" >&2
+            echo "Run './btcnft --help' for usage" >&2
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

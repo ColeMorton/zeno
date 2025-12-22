@@ -4,8 +4,8 @@
 > **Status:** Draft
 > **Last Updated:** 2025-12-16
 > **Related Documents:**
-> - [Issuer Guide](../Issuer_Guide.md)
-> - [Issuer Integration](../../protocol/Issuer_Integration.md)
+> - [Integration Guide](../Integration_Guide.md)
+> - [Technical Specification](../../protocol/Technical_Specification.md)
 
 ---
 
@@ -17,19 +17,20 @@ This directory contains example implementation patterns for different issuer typ
 
 ## Live Implementations
 
-### [BRAND_NAME]
+### Personal Brand Example
 
-Personal brand with badge-gated entry and series model.
+Personal brand with achievement-based recognition and series model.
 
-**Documentation:** [/docs/[BRAND_NAME]/](../../[BRAND_NAME]/)
+**Documentation:** [personal-brand/](./personal-brand/)
 
 | Aspect | Implementation |
 |--------|----------------|
-| Entry | Badge-gated (soulbound Entry Badges) |
+| Entry | Open (Treasure acquired via auction or direct mint) |
+| Achievements | Soulbound NFTs claimed after on-chain actions |
 | Series | Ongoing (Bitcoin Series) + future Limited Editions |
 | Governance | Sole issuer |
 | Withdrawal Rate | 10.5% annual (0.875% monthly) |
-| Stacking | Protocol achievements → additional Vaults |
+| Stacking | MINTER + MATURED achievements → additional Vaults |
 
 ---
 
@@ -127,7 +128,7 @@ Individual creator with audience engagement model.
 
 **Use Case:**
 - YouTuber/podcaster/writer with audience
-- Subscribers earn Entry Badges
+- Subscribers receive access to Treasure NFTs
 - Exclusive Treasure art for supporters
 - vestedBTC unlocks premium content
 
@@ -181,7 +182,8 @@ When designing your issuer implementation:
 
 ### 7. Technical
 
-- [ ] BadgeRedemptionController deployment
+- [ ] AchievementMinter deployment
+- [ ] AchievementNFT deployment
 - [ ] Treasure contract deployment
 - [ ] Frontend/dApp development
 
@@ -202,6 +204,6 @@ To add a new example implementation:
 
 | Document | Purpose |
 |----------|---------|
-| [Issuer Guide](../Issuer_Guide.md) | How to become an issuer |
-| [Issuer Integration](../../protocol/Issuer_Integration.md) | Protocol integration patterns |
+| [Integration Guide](../Integration_Guide.md) | Complete issuer integration |
+| [Technical Specification](../../protocol/Technical_Specification.md) | Protocol mechanics |
 | [Holder Experience](../Holder_Experience.md) | User journey |

@@ -10,3 +10,7 @@ broadcast/
 
 # Claude Code session data
 .claude/
+
+# Node.js
+node_modules/
+dist/

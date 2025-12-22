@@ -39,10 +39,11 @@ An issuer is any entity that creates minting opportunities for the BTCNFT Protoc
 
 ### For New Issuers
 
-1. **[Issuer Guide](./Issuer_Guide.md)** - How to become an issuer
+1. **[Integration Guide](./Integration_Guide.md)** - Complete issuer integration
    - Registration, minting modes, entry strategies
    - Revenue models, Treasure strategy
    - Achievement integration, gamification options
+   - Technical implementation patterns
 
 2. **[Holder Experience](./Holder_Experience.md)** - What your users experience
    - User journey, withdrawal mechanics
@@ -52,13 +53,16 @@ An issuer is any entity that creates minting opportunities for the BTCNFT Protoc
    - Target markets, differentiators
    - Competitive analysis
 
+4. **[Vault Percentile Specification](./Vault_Percentile_Specification.md)** - Analytics specification
+   - Vault ranking by collateral
+   - Filtering and display patterns
+
 ### Protocol Reference
 
 | Document | Purpose |
 |----------|---------|
 | [Technical Specification](../protocol/Technical_Specification.md) | Contract mechanics |
 | [Product Specification](../protocol/Product_Specification.md) | Product definition |
-| [Issuer Integration](../protocol/Issuer_Integration.md) | Integration patterns |
 | [Collateral Matching](../protocol/Collateral_Matching.md) | Match pool mechanics |
 
 ---
@@ -115,6 +119,6 @@ protocol.registerIssuer();
 
 | Layer | Documents |
 |-------|-----------|
-| **Protocol** | [Technical Spec](../protocol/Technical_Specification.md), [Product Spec](../protocol/Product_Specification.md), [Issuer Integration](../protocol/Issuer_Integration.md) |
-| **Issuer (Generic)** | [Issuer Guide](./Issuer_Guide.md), [Holder Experience](./Holder_Experience.md), [Competitive Positioning](./Competitive_Positioning.md) |
+| **Protocol** | [Technical Spec](../protocol/Technical_Specification.md), [Product Spec](../protocol/Product_Specification.md) |
+| **Issuer** | [Integration Guide](./Integration_Guide.md), [Holder Experience](./Holder_Experience.md), [Competitive Positioning](./Competitive_Positioning.md), [Vault Percentile Spec](./Vault_Percentile_Specification.md) |
 | **Examples** | [examples/README.md](./examples/README.md) |

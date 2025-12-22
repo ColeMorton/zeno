@@ -87,11 +87,12 @@ Your BTC sits in **YOUR** Vault NFT. Only you can withdraw it.
 3. Approve transfers
 4. Call mint → Receive Vault NFT
 
-**Badge-Gated Minting (if applicable):**
-1. Engage with issuer
-2. Earn Entry Badge
-3. Acquire BTC
-4. Redeem Badge + BTC → Receive Vault NFT with unique Treasure
+**With Issuer's Treasure (for achievements):**
+1. Acquire BTC (WBTC or cbBTC)
+2. Acquire issuer's Treasure NFT (via auction or direct mint)
+3. Approve transfers
+4. Call protocol mint → Receive Vault NFT
+5. Claim MINTER achievement → Receive soulbound achievement NFT
 
 ### Phase 2: Vesting (Days 1-1093)
 
@@ -99,20 +100,20 @@ Your BTC sits in **YOUR** Vault NFT. Only you can withdraw it.
 
 | Activity | Description |
 |----------|-------------|
-| Earn achievements | Duration badges as you hold |
+| Claim duration achievements | Soulbound badges as you hold |
 | Transfer Vault | Sell or gift your position |
 | Mint vestedBTC | Separate collateral claim (post-vesting only) |
 
 **Achievement Milestones:**
 
-| Achievement | Requirement |
-|-------------|-------------|
-| First Month | Hold 30 days |
-| Quarter Stack | Hold 91 days |
-| Half Year | Hold 182 days |
-| Annual | Hold 365 days |
-| Diamond Hands | Hold 730 days |
-| Hodler Supreme | Hold 1093 days |
+| Achievement | Requirement | Claim Function |
+|-------------|-------------|----------------|
+| FIRST_MONTH | Hold 30 days | `claimDurationAchievement(vaultId, FIRST_MONTH)` |
+| QUARTER_STACK | Hold 91 days | `claimDurationAchievement(vaultId, QUARTER_STACK)` |
+| HALF_YEAR | Hold 182 days | `claimDurationAchievement(vaultId, HALF_YEAR)` |
+| ANNUAL | Hold 365 days | `claimDurationAchievement(vaultId, ANNUAL)` |
+| DIAMOND_HANDS | Hold 730 days | `claimDurationAchievement(vaultId, DIAMOND_HANDS)` |
+| HODLER_SUPREME | Hold 1093 days | Unlocks `mintHodlerSupremeVault()` |
 
 ### Phase 3: Maturity (Day 1093)
 
@@ -200,7 +201,7 @@ To redeem your Vault and reclaim underlying collateral, you must return the full
 
 | Risk | Severity | Reality |
 |------|----------|---------|
-| **BTC price crash** | Real | Collateral is BTC. It can go down. Historical 1093-day analysis shows 100% positive returns, but past ≠ future. |
+| **BTC price crash** | Real | Collateral is BTC. Price can go down. Historical 1093-day analysis shows 100% positive returns, but past ≠ future. |
 | **Smart contract** | Real | Code is audited, but bugs can exist. Non-custodial - your keys, your responsibility. |
 | **Early exit penalty** | Real | Leave before 1093 days = forfeit portion of BTC + lose Treasure forever. |
 | **Liquidation** | None | Unlike CDPs, you cannot be liquidated. Position is yours regardless of BTC price. |
@@ -228,7 +229,7 @@ If you separate vestedBTC and sell it, AND become inactive for 1093+ days, your 
 1. Anyone can "poke" your Vault
 2. You have 30 days to respond
 3. If you don't respond, vestedBTC holder can claim your collateral
-4. You receive your Treasure back; they receive the BTC
+4. Your Treasure is burned; they receive the BTC
 
 **Prevention:** Interact with your Vault at least once every 3 years. A simple withdrawal is enough.
 
@@ -255,8 +256,17 @@ No. 1093-day lock is absolute. You can only redeem early (with penalty).
 **Can I sell my position?**
 Yes. The Vault NFT is transferable. Sell on any NFT marketplace.
 
-**Do I earn anything during vesting?**
-You earn achievements as you hold. Achievements can be used as Treasures for future Vaults.
+**How do achievements work?**
+You claim achievements by calling functions on the AchievementMinter contract. Each achievement verifies on-chain state (vault ownership, duration held, etc.) before minting a soulbound NFT to your wallet.
+
+**How do I claim an achievement?**
+Call the appropriate function on the AchievementMinter:
+- `claimMinterAchievement(vaultId)` - After minting with issuer's Treasure
+- `claimDurationAchievement(vaultId, achievementType)` - After holding for required duration
+- `claimMaturedAchievement(vaultId)` - After vault is vested and match claimed
+
+**Are achievements transferable?**
+No. All achievements are soulbound (ERC-5192). They permanently attest your on-chain actions and cannot be sold or transferred.
 
 ### Post-Vesting
 
