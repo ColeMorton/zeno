@@ -83,7 +83,7 @@ contract VaultNFTTest is Test {
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
-        uint256 expectedWithdrawal = (ONE_BTC * 875) / 100000;
+        uint256 expectedWithdrawal = (ONE_BTC * 1000) / 100000;
         uint256 aliceBalanceBefore = wbtc.balanceOf(alice);
 
         vm.prank(alice);
@@ -128,7 +128,7 @@ contract VaultNFTTest is Test {
         uint256 remainingCollateral = ONE_BTC;
 
         for (uint256 i = 0; i < 3; i++) {
-            uint256 expectedWithdrawal = (remainingCollateral * 875) / 100000;
+            uint256 expectedWithdrawal = (remainingCollateral * 1000) / 100000;
 
             vm.prank(alice);
             uint256 withdrawn = vault.withdraw(tokenId);
@@ -447,7 +447,7 @@ contract VaultNFTTest is Test {
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
-        uint256 expected = (ONE_BTC * 875) / 100000;
+        uint256 expected = (ONE_BTC * 1000) / 100000;
         assertEq(vault.getWithdrawableAmount(tokenId), expected);
 
         vm.prank(alice);
@@ -458,7 +458,7 @@ contract VaultNFTTest is Test {
         vm.warp(block.timestamp + WITHDRAWAL_PERIOD);
 
         uint256 remaining = ONE_BTC - expected;
-        uint256 nextExpected = (remaining * 875) / 100000;
+        uint256 nextExpected = (remaining * 1000) / 100000;
         assertEq(vault.getWithdrawableAmount(tokenId), nextExpected);
     }
 
@@ -490,7 +490,7 @@ contract VaultNFTTest is Test {
         vm.prank(alice);
         uint256 withdrawn = vault.withdraw(tokenId);
 
-        uint256 expected = (collateral * 875) / 100000;
+        uint256 expected = (collateral * 1000) / 100000;
         assertEq(withdrawn, expected);
     }
 

@@ -201,7 +201,7 @@ contract MatchPoolTest is Test {
 
         vm.warp(block.timestamp + WITHDRAWAL_PERIOD);
 
-        uint256 expectedWithdrawal = (bobCollateralAfter * 875) / 100000;
+        uint256 expectedWithdrawal = (bobCollateralAfter * 1000) / 100000;
 
         vm.prank(bob);
         uint256 withdrawn = vault.withdraw(bobToken);

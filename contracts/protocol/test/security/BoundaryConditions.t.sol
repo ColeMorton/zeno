@@ -251,10 +251,10 @@ contract BoundaryConditionsTest is Test {
 
     function test_MinimumCollateral_Withdrawal() public {
         // Mint with minimum collateral that produces non-zero withdrawal
-        // rate = 875, basis = 100000
-        // collateral * 875 / 100000 >= 1
-        // collateral >= 121 satoshis
-        uint256 minCollateral = 121;
+        // rate = 1000, basis = 100000
+        // collateral * 1000 / 100000 >= 1
+        // collateral >= 100 satoshis
+        uint256 minCollateral = 100;
 
         vm.prank(alice);
         uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), minCollateral);

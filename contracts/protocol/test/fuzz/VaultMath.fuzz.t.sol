@@ -11,7 +11,7 @@ contract VaultMathFuzzTest is Test {
     uint256 internal constant DORMANCY_THRESHOLD = 1129 days;
     uint256 internal constant GRACE_PERIOD = 30 days;
     uint256 internal constant BASIS_POINTS = 100000;
-    uint256 internal constant WITHDRAWAL_RATE = 875;
+    uint256 internal constant WITHDRAWAL_RATE = 1000;
 
     // ========== calculateWithdrawal Fuzz Tests ==========
 
@@ -23,8 +23,8 @@ contract VaultMathFuzzTest is Test {
     }
 
     function testFuzz_CalculateWithdrawal_NonZero(uint256 collateral) public pure {
-        // Minimum collateral for non-zero withdrawal: 100000 / 875 = 115
-        collateral = bound(collateral, 115, type(uint128).max);
+        // Minimum collateral for non-zero withdrawal: 100000 / 1000 = 100
+        collateral = bound(collateral, 100, type(uint128).max);
 
         uint256 result = VaultMath.calculateWithdrawal(collateral);
 
@@ -37,20 +37,20 @@ contract VaultMathFuzzTest is Test {
     function test_CalculateWithdrawal_DustAmount() public pure {
         // Test with 1 satoshi
         uint256 result = VaultMath.calculateWithdrawal(1);
-        // 1 * 875 / 100000 = 0 (rounding down)
+        // 1 * 1000 / 100000 = 0 (rounding down)
         assertEq(result, 0);
 
         // Minimum amount for non-zero withdrawal
-        // collateral * 875 / 100000 >= 1
-        // collateral >= 100000 / 875 = 114.3 -> 115
-        result = VaultMath.calculateWithdrawal(115);
+        // collateral * 1000 / 100000 >= 1
+        // collateral >= 100000 / 1000 = 100
+        result = VaultMath.calculateWithdrawal(100);
         assertGt(result, 0);
     }
 
     function test_CalculateWithdrawal_OneBTC() public pure {
         uint256 result = VaultMath.calculateWithdrawal(ONE_BTC);
-        // 1e8 * 875 / 100000 = 875000 satoshis = 0.00875 BTC
-        assertEq(result, 875000);
+        // 1e8 * 1000 / 100000 = 1000000 satoshis = 0.01 BTC
+        assertEq(result, 1000000);
     }
 
     function testFuzz_CalculateWithdrawal_RoundingLoss(uint256 collateral) public pure {

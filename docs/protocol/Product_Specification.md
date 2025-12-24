@@ -52,10 +52,10 @@ BTCNFT Protocol provides perpetual withdrawals through percentage-based collater
 |-------|--------|
 | **Mint** | Vault your Treasure NFT + BTC → Receive Vault NFT |
 | **Vesting** | 1129-day lock (no withdrawals) |
-| **Post-Vesting** | Withdraw 0.875% of remaining BTC per 30-day period (10.5% annually) |
+| **Post-Vesting** | Withdraw 1.0% of remaining BTC per 30-day period (12% annually) |
 | **Perpetual** | Percentage-based withdrawal ensures collateral never depletes |
 
-> **Note:** The 10.5% annual withdrawal rate was selected based on quantitative validation showing 100% historical yearly stability (2017-2025). See [Quantitative Validation](./Quantitative_Validation.md) for analysis.
+> **Note:** The 12% annual withdrawal rate was selected based on quantitative validation showing 100% historical yearly stability (2017-2025). See [Quantitative Validation](./Quantitative_Validation.md) for analysis.
 
 ### 1.3 Token Standard
 
@@ -145,11 +145,11 @@ See [Technical Specification Section 1.3](./Technical_Specification.md#13-dynami
 
 **Key Features:**
 - **Non-custodial delegation**: Vault ownership never transfers
-- **Percentage allocation**: Grant share of the cumulative 0.875% monthly withdrawal
+- **Percentage allocation**: Grant share of the cumulative 1.0% monthly withdrawal
 - **Multiple delegates**: Support for multi-party treasury management
 - **Revocable permissions**: Owner maintains full control (single or bulk revoke)
 - **Independent periods**: Each delegate has separate 30-day cooldowns
-- **Cumulative withdrawals**: The 0.875% monthly limit is shared among all parties
+- **Cumulative withdrawals**: The 1.0% monthly limit is shared among all parties
 
 **Use Case Examples:**
 
@@ -162,14 +162,14 @@ See [Technical Specification Section 1.3](./Technical_Specification.md#13-dynami
 
 **Delegation Flow:**
 ```
-Vault with 1 BTC: Monthly Withdrawal Pool = 0.00875 BTC (0.875%)
+Vault with 1 BTC: Monthly Withdrawal Pool = 0.01 BTC (1.0%)
 ├─ Owner retains vault ownership + withdrawal rights
-└─ Grants percentage shares of the 0.00875 BTC pool:
-    ├─ Delegate A: 60% = 0.00525 BTC monthly
-    ├─ Delegate B: 30% = 0.00263 BTC monthly
-    └─ Delegate C: 10% = 0.00087 BTC monthly
-    
-Total: 100% of 0.00875 BTC distributed
+└─ Grants percentage shares of the 0.01 BTC pool:
+    ├─ Delegate A: 60% = 0.006 BTC monthly
+    ├─ Delegate B: 30% = 0.003 BTC monthly
+    └─ Delegate C: 10% = 0.001 BTC monthly
+
+Total: 100% of 0.01 BTC distributed
 ```
 
 **Benefits:**
@@ -191,9 +191,9 @@ For technical implementation details, see [Withdrawal Delegation Specification](
 | Property | vestedBTC |
 |----------|-----------|
 | Source | Vault NFT collateral claim token |
-| Withdrawal rate | -10.5% annually (0.875%/mo) |
+| Withdrawal rate | -12% annually (1.0%/mo) |
 | Historical BTC appreciation | +63.11% annually (mean, 2017-2025) |
-| Net expected return | ~+52% annually |
+| Net expected return | ~+51% annually |
 | Historical stability | **100%** yearly, **100%** 1129-day (2017-2025 data) |
 
 > **Note:** vestedBTC is BTC-denominated (not pegged to USD). "Stability" refers to historical patterns, not a forward-looking guarantee.
@@ -331,16 +331,16 @@ vestedBTC represents a claim on BTC collateral. Pairing exclusively with WBTC/cb
 
 ```
 Base: Vault NFT
-├─ BTC Withdrawals: 10.5% annually
+├─ BTC Withdrawals: 12% annually
 │
 Separation: mintVestedBTC() → vestedBTC
-├─ Retain: Withdrawal rights (10.5%)
+├─ Retain: Withdrawal rights (12%)
 ├─ vestedBTC → Curve LP → Convex boost
 │   └─ LP fees: ~2-5% APY
 │   └─ CRV rewards: ~3-8% APY
 │   └─ CVX boost: ~2-4% APY
 │
-Total Stack: 10.5% + 7-17% = 17.5-27.5% APY
+Total Stack: 12% + 7-17% = 19-29% APY
 ```
 
 ### 4.3 DeFi Use Cases
@@ -410,7 +410,7 @@ Total Stack: 10.5% + 7-17% = 17.5-27.5% APY
 | Treasure NFT | Required at mint | Provides identity/art to backing |
 | Treasure on early redemption | Burned with Vault NFT | Commitment mechanism; disincentivizes early exit |
 | BTC collateral | WBTC or cbBTC | Widely available wrapped BTC |
-| Withdrawal rate | 10.5% annually (0.875%/mo) | 100% historical positive windows |
+| Withdrawal rate | 12% annually (1.0%/mo) | 100% historical positive windows |
 | Vesting period | 1129 days | Full BTC market cycle coverage |
 | Dormancy threshold | 1129 days | Matches vesting period; full inactivity cycle |
 | Grace period | 30 days | Fair warning; one withdrawal period |

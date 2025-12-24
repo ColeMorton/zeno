@@ -31,7 +31,7 @@
 | Property | vestedBTC |
 |----------|-----------|
 | Source | Vault NFT collateral claim token |
-| Withdrawal rate | -10.5% annually (0.875%/mo) |
+| Withdrawal rate | -12% annually (1.0%/mo) |
 | Historical BTC appreciation | +63.11% annually (mean, 2017-2025) |
 | Net expected return | ~+52% annually |
 | Historical stability | **100%** yearly, **100%** 1129-day (2017-2025 data) |
@@ -84,7 +84,7 @@
 |---------|-----------|------|------|------|
 | **Issuer** | Smart Contract | Strategy Inc. | Strategy Inc. | Strategy Inc. |
 | **Type** | ERC-20 Token | Perpetual Preferred | Perpetual Preferred | Perpetual Preferred |
-| **Withdrawal/Dividend** | BTC - 10.5% withdrawal | 9% initial (variable) | 8% cumulative | 10% fixed |
+| **Withdrawal/Dividend** | BTC - 12% withdrawal | 9% initial (variable) | 8% cumulative | 10% fixed |
 | **BTC Backing** | Direct (1:1) | Indirect (balance sheet) | Indirect | Indirect |
 | **Liquidation Risk** | None | Corporate credit | Corporate credit | Corporate credit |
 | **Conversion** | Return to Vault | None | Convertible to MSTR | None |
@@ -99,7 +99,7 @@
 |---------|-----------|------|
 | **Issuer** | Smart Contract | Strive, Inc. |
 | **Type** | ERC-20 Token | Variable Rate Preferred |
-| **Withdrawal/Dividend** | BTC - 10.5% withdrawal | 12% initial (~13% effective) |
+| **Withdrawal/Dividend** | BTC - 12% withdrawal | 12% initial (~13% effective) |
 | **BTC Backing** | Direct (1:1) | Indirect (corporate treasury) |
 | **Tax Treatment** | Property transfer | Expected ROC dividends |
 | **Liquidity** | DEX 24/7 | Nasdaq hours |
@@ -111,7 +111,7 @@
 
 | Feature | BTCNFT Protocol | Just Hold BTC |
 |---------|-----------------|---------------|
-| Withdrawals | 10.5% annually | None |
+| Withdrawals | 12% annually | None |
 | Discipline | Forced HODL (3yr vest) | Easy to panic sell |
 | Collateral matching | Bonus from quitters | None |
 | Liquidity | Locked (or penalty) | Instant |

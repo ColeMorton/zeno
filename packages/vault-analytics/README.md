@@ -162,7 +162,7 @@ import type {
 ```typescript
 import {
   VESTING_PERIOD,        // 1129 days in seconds
-  WITHDRAWAL_RATE,       // 875 (0.875%)
+  WITHDRAWAL_RATE,       // 1000 (1.0%)
   DORMANCY_THRESHOLD,    // 1129 days in seconds
   GRACE_PERIOD,          // 30 days in seconds
   BTC_DECIMALS,          // 8

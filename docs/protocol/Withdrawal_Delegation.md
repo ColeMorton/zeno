@@ -29,7 +29,7 @@
 
 The Withdrawal Delegation feature allows Vault NFT holders to grant withdrawal permissions to other wallets. This enables flexible treasury management while maintaining security through owner-controlled, revocable permissions.
 
-**Important: The 0.875% monthly withdrawal limit is cumulative - it represents the TOTAL amount that can be withdrawn by the owner and all delegates combined, not a per-wallet amount.**
+**Important: The 1.0% monthly withdrawal limit is cumulative - it represents the TOTAL amount that can be withdrawn by the owner and all delegates combined, not a per-wallet amount.**
 
 ### Key Features
 
@@ -323,29 +323,29 @@ function getActiveDelegates(uint256 tokenId)
 
 ### 3.4 Withdrawal Calculations
 
-**CRITICAL: The 0.875% monthly withdrawal is CUMULATIVE across all parties (owner + delegates combined).**
+**CRITICAL: The 1.0% monthly withdrawal is CUMULATIVE across all parties (owner + delegates combined).**
 
 For a vault with 1 BTC collateral after vesting:
 
-**Total Monthly Withdrawal Pool: 0.00875 BTC (0.875% of 1 BTC)**
+**Total Monthly Withdrawal Pool: 0.01 BTC (1.0% of 1 BTC)**
 
 | Actor | Delegation % | Share of Monthly Pool | Annual Impact |
 |-------|--------------|----------------------|---------------|
 | Owner | 0% (if 100% delegated) | 0 BTC | 0 BTC |
-| Delegate A | 60% | 0.00525 BTC | 0.063 BTC |
-| Delegate B | 40% | 0.00350 BTC | 0.042 BTC |
-| **TOTAL** | **100%** | **0.00875 BTC** | **0.105 BTC** |
+| Delegate A | 60% | 0.006 BTC | 0.072 BTC |
+| Delegate B | 40% | 0.004 BTC | 0.048 BTC |
+| **TOTAL** | **100%** | **0.01 BTC** | **0.12 BTC** |
 
 **Key Points:**
-- The 0.875% (0.00875 BTC) is the TOTAL monthly withdrawal available
+- The 1.0% (0.01 BTC) is the TOTAL monthly withdrawal available
 - This amount is SHARED among owner and all delegates based on percentages
 - Each wallet (owner/delegate) has its OWN 30-day cooldown period
 - Percentages apply to the withdrawal pool, NOT the vault's total collateral
 - If owner delegates 100%, they cannot withdraw until revoking some delegation
 
 **Example Timeline:**
-- Day 1: Delegate A withdraws 0.00525 BTC (their 60% share)
-- Day 15: Delegate B withdraws 0.00350 BTC (their 40% share)
+- Day 1: Delegate A withdraws 0.006 BTC (their 60% share)
+- Day 15: Delegate B withdraws 0.004 BTC (their 40% share)
 - Day 31: Delegate A can withdraw again (30-day cooldown satisfied)
 - Day 45: Delegate B can withdraw again (30-day cooldown satisfied)
 
@@ -420,16 +420,16 @@ _updateActivity(tokenId);
 // Grant 60% to treasury committee multisig
 grantWithdrawalDelegate(1234, treasuryMultisig, 6000);
 
-// Grant 30% to operations wallet  
+// Grant 30% to operations wallet
 grantWithdrawalDelegate(1234, operationsWallet, 3000);
 
 // Grant 10% to emergency fund
 grantWithdrawalDelegate(1234, emergencyWallet, 1000);
 
 // Monthly withdrawals available:
-// - Treasury: 0.0525 BTC (60% of 0.0875)
-// - Operations: 0.02625 BTC (30% of 0.0875)
-// - Emergency: 0.00875 BTC (10% of 0.0875)
+// - Treasury: 0.06 BTC (60% of 0.1)
+// - Operations: 0.03 BTC (30% of 0.1)
+// - Emergency: 0.01 BTC (10% of 0.1)
 ```
 
 ### 6.2 Revocation Flow

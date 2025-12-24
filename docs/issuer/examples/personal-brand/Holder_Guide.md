@@ -60,7 +60,7 @@ This achievement is permanently bound to your wallet and cannot be transferred.
 | Vault NFT | ERC-998 containing your position |
 | Treasure | Unique art based on your Entry Badge type |
 | BTC Collateral | Your locked BTC |
-| Withdrawal Rate | 10.5% annual (0.875% monthly) |
+| Withdrawal Rate | 12% annual (1.0% monthly) |
 
 ### Vesting Period
 
@@ -74,7 +74,7 @@ During vesting, you can:
 ### Post-Vesting
 
 After 1129 days:
-- **Withdraw** 0.875% of BTC monthly
+- **Withdraw** 1.0% of BTC monthly
 - **Claim** collateral matching from early quitters
 - **Mint vestedBTC** for liquidity access
 
@@ -127,7 +127,7 @@ Mint Vault #1 → Claim MINTER achievement
 |----------|-------|
 | Status | Ongoing |
 | Entry | Badge-gated |
-| Withdrawal Rate | 10.5% annual |
+| Withdrawal Rate | 12% annual |
 | Treasure | Unique art per badge type |
 
 ### Future Series

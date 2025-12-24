@@ -68,7 +68,7 @@ All core parameters are embedded in bytecode using Solidity's `immutable` keywor
 
 ```solidity
 immutable uint256 VESTING_PERIOD = 1129 days;
-immutable uint256 WITHDRAWAL_RATE = 875; // 0.875%
+immutable uint256 WITHDRAWAL_RATE = 1000; // 1.0%
 ```
 
 No function exists to modify these values.

@@ -12,7 +12,7 @@
 
 ## Executive Summary
 
-The BTCNFT Protocol's economic model depends on Bitcoin appreciating at least **10.5% annually** to maintain USD value stability. This research analyzes whether this assumption is sustainable as Bitcoin matures from a speculative asset to an established asset class.
+The BTCNFT Protocol's economic model depends on Bitcoin appreciating at least **12% annually** to maintain USD value stability. This research analyzes whether this assumption is sustainable as Bitcoin matures from a speculative asset to an established asset class.
 
 **Key Findings:**
 
@@ -22,7 +22,7 @@ The BTCNFT Protocol's economic model depends on Bitcoin appreciating at least **
 
 3. **Institutional maturation**: Bitcoin is transitioning from speculative to institutional asset, with volatility compressing and return profiles moderating.
 
-4. **Protocol vulnerability**: If Bitcoin's mean annual return compresses to 8% or below, USD value stability breaks.
+4. **Protocol vulnerability**: If Bitcoin's mean annual return compresses to below 12%, USD value stability breaks.
 
 ---
 
@@ -44,28 +44,28 @@ The BTCNFT Protocol's economic model depends on Bitcoin appreciating at least **
 From `contracts/protocol/src/libraries/VaultMath.sol`:
 
 ```solidity
-uint256 internal constant WITHDRAWAL_RATE = 875;  // 0.875% monthly
+uint256 internal constant WITHDRAWAL_RATE = 1000;  // 1.0% monthly
 uint256 internal constant BASIS_POINTS = 100000;
 ```
 
-**Annual withdrawal rate:** 0.875% × 12 = **10.5%**
+**Annual withdrawal rate:** 1.0% × 12 = **12%**
 
 For USD value stability:
 
 ```
 Required: BTC_appreciation ≥ withdrawal_rate
-         g ≥ 10.5%/year
+         g ≥ 12%/year
 ```
 
 ### Historical Performance (2017-2025)
 
 | Metric | Value | Margin Over Breakeven |
 |--------|-------|----------------------|
-| Mean annual return | +63.11% | 6.01× |
-| Minimum 1129-day annualized | +22.6% | 2.15× |
-| Breakeven threshold | +10.5% | 1.00× |
+| Mean annual return | +63.11% | 5.26× |
+| Minimum 1129-day annualized | +22.6% | 1.88× |
+| Breakeven threshold | +12% | 1.00× |
 
-**Current margin of safety:** 2.15× above worst-case historical scenario.
+**Current margin of safety:** 1.88× above worst-case historical scenario.
 
 ### The Unanswered Question
 
@@ -95,7 +95,7 @@ Gold's transition from freed asset (1971) to established store of value provides
 | 2020s (partial) | ~14% | Third bull market |
 | **Full period (1971-2024)** | **~8%** | **Long-term equilibrium** |
 
-**Key Insight:** Gold's long-term CAGR (~8%) is below the protocol's 10.5% breakeven threshold.
+**Key Insight:** Gold's long-term CAGR (~8%) is below the protocol's 12% breakeven threshold.
 
 #### Pattern Recognition
 
@@ -222,18 +222,7 @@ For each return scenario, calculate:
 **Assessment:** Marginally positive. USD value grows slowly.
 **Probability:** Moderate (25-35%). Consistent with gold's 2000s performance.
 
-#### Scenario D: Breakeven (10.5% CAGR)
-
-| Year | BTC Remaining | Price Multiple | USD Value |
-|------|---------------|----------------|-----------|
-| 0 | 100% | 1.00× | 100% |
-| 5 | 59% | 1.64× | 97% |
-| 10 | 35% | 2.69× | 94% |
-
-**Assessment:** Slight erosion due to compounding mismatch.
-**Probability:** Low-Moderate (15-20%). Below most projections.
-
-#### Scenario E: Gold Equilibrium (8% CAGR)
+#### Scenario D: Gold Equilibrium (8% CAGR)
 
 | Year | BTC Remaining | Price Multiple | USD Value |
 |------|---------------|----------------|-----------|
@@ -245,7 +234,7 @@ For each return scenario, calculate:
 **Assessment:** Sustained USD value erosion. Model fails.
 **Probability:** Low-Moderate (10-15%). Possible in mature phase.
 
-#### Scenario F: Extended Bear Market (0% CAGR)
+#### Scenario E: Extended Bear Market (0% CAGR)
 
 | Year | BTC Remaining | Price Multiple | USD Value |
 |------|---------------|----------------|-----------|
@@ -260,12 +249,12 @@ For each return scenario, calculate:
 
 | Scenario | Annual Return | 10-Year USD Value | Model Status |
 |----------|---------------|-------------------|--------------|
-| Historical | 63% | 3,955% | Works excellently |
-| Moderated | 25% | 326% | Works well |
-| Mature | 15% | 142% | Works marginally |
-| **Breakeven** | **10.5%** | **94%** | **Borderline** |
-| Gold Equilibrium | 8% | 76% | **Fails** |
-| Extended Bear | 0% | 35% | **Fails catastrophically** |
+| Historical | 63% | 3,402% | Works excellently |
+| Moderated | 25% | 280% | Works well |
+| Mature | 15% | 105% | Works marginally |
+| **Breakeven** | **12%** | **100%** | **Stable** |
+| Gold Equilibrium | 8% | 64% | **Fails** |
+| Extended Bear | 0% | 30% | **Fails catastrophically** |
 
 ---
 
@@ -278,14 +267,14 @@ Based on precedent analysis and current market dynamics:
 | Return Regime | Probability | Model Outcome |
 |---------------|-------------|---------------|
 | >15% CAGR | 50-60% | Healthy |
-| 10.5-15% CAGR | 20-25% | Marginal |
-| <10.5% CAGR | 15-25% | Fails |
+| 12-15% CAGR | 20-25% | Marginal |
+| <12% CAGR | 15-25% | Fails |
 
 **Combined failure probability: 15-25%**
 
 ### Regime Change Catalysts
 
-**Factors that could compress returns below 10.5%:**
+**Factors that could compress returns below 12%:**
 
 1. **Adoption saturation**: S-curve flattening as institutional allocation stabilizes
 2. **Regulatory integration**: Reduced volatility removes black-swan upside
@@ -293,7 +282,7 @@ Based on precedent analysis and current market dynamics:
 4. **Competition**: Other digital assets or CBDCs capturing marginal demand
 5. **Market efficiency**: Arbitrage eliminating mispricings
 
-**Factors supporting continued >10.5% returns:**
+**Factors supporting continued >12% returns:**
 
 1. **Monetary debasement**: Fiat inflation driving hard asset demand
 2. **Emerging market adoption**: Billions of unbanked entering via BTC
@@ -316,7 +305,7 @@ Based on precedent analysis and current market dynamics:
 
 ### Primary Finding
 
-The 10.5% breakeven threshold is **achievable but not guaranteed** in the medium term (5-10 years). In the long term (15+ years), return compression toward gold's equilibrium (~8%) represents a material risk.
+The 12% breakeven threshold is **achievable but not guaranteed** in the medium term (5-10 years). In the long term (15+ years), return compression toward gold's equilibrium (~8%) represents a material risk.
 
 ### Quantified Risk
 
@@ -332,12 +321,12 @@ The 10.5% breakeven threshold is **achievable but not guaranteed** in the medium
 |-------|----------------------|---------------|
 | Historical validation | 100% of 1129-day windows positive | Confirms (2017-2025 data) |
 | Future sustainability | "Emergent, not guaranteed" | Quantifies: 75-85% success probability |
-| Failure threshold | 10.5% stated | Validated with stress testing |
+| Failure threshold | 12% stated | Validated with stress testing |
 | Regime change risk | Acknowledged but not quantified | 15-25% probability in 10 years |
 
 ### Implications for Protocol Design
 
-1. **The 10.5% rate is reasonable** given current market dynamics and 5-10 year horizon
+1. **The 12% rate is reasonable** given current market dynamics and 5-10 year horizon
 2. **Immutability creates tail risk** if BTC returns compress toward gold equilibrium
 3. **Documentation accurately disclaims** forward guarantees (no changes needed)
 4. **Holder education critical**: Users must understand BTC appreciation dependency

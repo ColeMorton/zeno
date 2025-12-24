@@ -1,7 +1,7 @@
 # Withdrawal Tier Research
 
 > **Status:** Archived Research
-> **Decision:** Protocol uses fixed Conservative rate (0.875%/month, 10.5%/year)
+> **Decision:** Protocol uses fixed rate (1.0%/month, 12%/year)
 
 This document preserves research on withdrawal tier options that were considered during protocol design. The protocol implements a single fixed withdrawal rate.
 
@@ -11,14 +11,14 @@ This document preserves research on withdrawal tier options that were considered
 
 | Tier | Annual Rate | Monthly Rate | Solidity Constant |
 |------|-------------|--------------|-------------------|
-| Conservative | 10.5% | 0.875% | 875 |
+| **Conservative** | **12%** | **1.0%** | **1000** |
 | Balanced | 14.6% | ~1.22% | 1140 |
 | Aggressive | 20.8% | ~1.73% | 1590 |
 
 ### Basis Points Calculation
 
 All rates use `BASIS_POINTS = 100000` as denominator:
-- Conservative: `875 / 100000 = 0.00875 = 0.875%`
+- Conservative: `1000 / 100000 = 0.01 = 1.0%`
 - Balanced: `1140 / 100000 = 0.0114 = 1.14%`
 - Aggressive: `1590 / 100000 = 0.0159 = 1.59%`
 
@@ -32,28 +32,28 @@ Each tier requires different BTC appreciation to maintain USD value:
 
 | Tier | Required Annual BTC Return |
 |------|---------------------------|
-| Conservative | +10.5% |
+| Conservative | +12% |
 | Balanced | +14.6% |
 | Aggressive | +20.8% |
 
 ### Sensitivity Analysis
 
-| Scenario | BTC Return | Conservative Tier | Net Impact |
-|----------|------------|-------------------|------------|
-| Historical mean | +63.11% | -10.5% withdrawal | **+52.6%** |
-| 50% of mean | +31.6% | -10.5% withdrawal | **+21.1%** |
-| 25% of mean | +15.8% | -10.5% withdrawal | **+5.3%** |
-| Breakeven | +10.5% | -10.5% withdrawal | **0%** |
-| Below breakeven | <+10.5% | -10.5% withdrawal | **Negative** |
+| Scenario | BTC Return | Current Rate | Net Impact |
+|----------|------------|--------------|------------|
+| Historical mean | +63.11% | -12% withdrawal | **+51.1%** |
+| 50% of mean | +31.6% | -12% withdrawal | **+19.6%** |
+| 25% of mean | +15.8% | -12% withdrawal | **+3.8%** |
+| Breakeven | +12% | -12% withdrawal | **0%** |
+| Below breakeven | <+12% | -12% withdrawal | **Negative** |
 
 ---
 
 ## 3. Historical Validation (2017-2025)
 
-### Would Conservative Tier Hold USD Value?
+### Would Current Rate Hold USD Value?
 
-| Period | BTC Annual Return | Result |
-|--------|-------------------|--------|
+| Period | BTC Annual Return | Result (12% threshold) |
+|--------|-------------------|------------------------|
 | 2018 (bear) | -73% | No |
 | 2019 | +95% | Yes |
 | 2020 | +303% | Yes |
@@ -62,7 +62,7 @@ Each tier requires different BTC appreciation to maintain USD value:
 | 2023 | +155% | Yes |
 | 2024 | +121% | Yes |
 
-**Yearly stability:** 5/7 years (71%) exceeded 10.5% threshold
+**Yearly stability:** 5/7 years (71%) exceeded 12% threshold
 
 ### 1129-Day Window Analysis
 
@@ -72,17 +72,17 @@ Each tier requires different BTC appreciation to maintain USD value:
 | Rolling samples | 1,837 |
 | Mean return | 313.07% |
 | Min return | 77.78% |
-| Stability | 100% (all samples > 10.5%) |
+| Stability | 100% (all samples > 12%) |
 
-The 1129-day vesting period smooths volatility, achieving 100% historical yearly stability for the Conservative tier.
+The 1129-day vesting period smooths volatility, achieving 100% historical yearly stability for the current rate.
 
 ---
 
 ## 4. Decision Rationale
 
-### Why Conservative Only?
+### Why Single Rate Only?
 
-1. **100% historical yearly stability** - All 1129-day rolling windows exceeded the 10.5% threshold
+1. **100% historical yearly stability** - All 1129-day rolling windows exceeded the 12% threshold
 2. **Simplicity** - Single rate eliminates user confusion and mint-time decisions
 3. **Protocol integrity** - Fixed rate matches immutable vesting period philosophy
 4. **Reduced attack surface** - No tier selection logic to exploit
@@ -98,7 +98,7 @@ The 1129-day vesting period smooths volatility, achieving 100% historical yearly
 **Higher default rates:**
 - Balanced (14.6%): 92% yearly stability
 - Aggressive (20.8%): 71% yearly stability
-- Neither achieved Conservative's 100% stability
+- Neither achieved the current rate's 100% stability
 
 ---
 

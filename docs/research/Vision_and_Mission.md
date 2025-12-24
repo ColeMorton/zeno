@@ -90,8 +90,8 @@ The 1129-day SMA is a statistical observation. It cannot be "held" directly. The
 │         │ Early exit                       │ Perpetual          │
 │         ▼ (forfeiture)                     ▼ withdrawals        │
 │  ┌──────────────┐               ┌──────────────────────────┐   │
-│  │ Match Pool   │               │ 0.875%/month forever     │   │
-│  │ (flywheel)   │               │ (10.5% annually)         │   │
+│  │ Match Pool   │               │ 1.0%/month forever       │   │
+│  │ (flywheel)   │               │ (12% annually)           │   │
 │  └──────────────┘               └──────────────────────────┘   │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -155,7 +155,7 @@ Every early exit:
 | Dimension | Treasury Bonds | BTCNFT Protocol |
 |-----------|---------------|-----------------|
 | Counterparty | Government | Immutable code |
-| Yield | ~4-5% nominal | 10.5% + BTC appreciation |
+| Yield | ~4-5% nominal | 12% + BTC appreciation |
 | Inflation hedge | No | Yes (BTC denominated) |
 | Liquidity | High | Vault NFT tradeable |
 | Lock period | Variable | 1129 days fixed |
@@ -176,7 +176,7 @@ Every early exit:
 | Counterparty | Corporate | None (permissionless) |
 | Collateral | Unsecured promise | Over-collateralized BTC |
 | Redemption | Issuer discretion | On-chain, trustless |
-| Yield | 8% fixed | 10.5% + appreciation |
+| Yield | 8% fixed | 12% + appreciation |
 | Default risk | Corporate bankruptcy | Smart contract only |
 
 ---

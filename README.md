@@ -71,7 +71,7 @@ cd packages/vault-analytics && npm install && npm run build
 | Parameter | Value |
 |-----------|-------|
 | Vesting Period | 1129 days (~3.09 years) |
-| Withdrawal Rate | 0.875%/month (10.5%/year) |
+| Withdrawal Rate | 1.0%/month (12%/year) |
 | Withdrawal Period | 30 days |
 | Dormancy Threshold | 1129 days |
 | BTC Decimals | 8 |

@@ -84,7 +84,7 @@ An issuer is any entity that creates minting opportunities for BTCNFT Protocol. 
 | Achievement extensions | Custom achievements | - |
 | Gamification | Leaderboards, tiers | - |
 | Governance | Multisig, DAO, centralized | - |
-| Withdrawal rate | - | 10.5% annually (0.875% monthly) |
+| Withdrawal rate | - | 12% annually (1.0% monthly) |
 | Vesting period | - | 1129 days |
 | Collateral matching | - | Pro-rata distribution |
 | Dormancy mechanism | - | 1129-day inactivity threshold |

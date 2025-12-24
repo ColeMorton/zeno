@@ -208,8 +208,8 @@ contract IntegrationTest is Test {
         vm.prank(alice);
         uint256 withdrawn = vault.withdraw(tokenId);
 
-        // Fixed rate: 0.875% = 875/100000
-        assertEq(withdrawn, (ONE_BTC * 875) / 100000);
+        // Fixed rate: 1.0% = 1000/100000
+        assertEq(withdrawn, (ONE_BTC * 1000) / 100000);
     }
 
     function test_CollateralNeverDepletes_ZenoParadox() public {

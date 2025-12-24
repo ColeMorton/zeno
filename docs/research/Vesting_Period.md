@@ -260,12 +260,12 @@ Forfeited collateral from early redeemers flows to the match pool, distributed p
 
 ### Post-Vesting Withdrawal Economics
 
-After the 1129-day vesting period, holders can withdraw 0.875% of remaining collateral every 30 days (10.5% annually). This creates a perpetual yield stream that never depletes (Zeno's paradox):
+After the 1129-day vesting period, holders can withdraw 1.0% of remaining collateral every 30 days (12% annually). This creates a perpetual yield stream that never depletes (Zeno's paradox):
 
 ```
-Conservative Tier Sustainability:
+Current Rate Sustainability:
 
-BTC Appreciation Required: +10.5% annually (breakeven)
+BTC Appreciation Required: +12% annually (breakeven)
 Historical Mean Return:    +63.11% annually
 Historical Minimum:        +14.75% annually (still above breakeven)
 

@@ -11,8 +11,8 @@ export const VESTING_PERIOD_DAYS = 1129n;
 /** Withdrawal period in seconds (30 days) */
 export const WITHDRAWAL_PERIOD = 30n * 24n * 60n * 60n;
 
-/** Withdrawal rate in basis points × 100 (0.875% = 875/100000) */
-export const WITHDRAWAL_RATE = 875n;
+/** Withdrawal rate in basis points × 100 (1.0% = 1000/100000) */
+export const WITHDRAWAL_RATE = 1000n;
 
 /** Withdrawal rate denominator */
 export const WITHDRAWAL_RATE_DENOMINATOR = 100000n;

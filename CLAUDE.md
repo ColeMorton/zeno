@@ -67,4 +67,4 @@ cd contracts/issuer && forge build && forge test
 - **vestedBTC (vBTC)**: ERC-20 fungible token representing collateral claims
 - **Treasure NFT (ERC-721)**: NFT wrapped within a Vault
 - **1129-day vesting**: Lock period before withdrawals are enabled
-- **Withdrawal rate**: 10.5% annually (0.875% monthly)
+- **Withdrawal rate**: 12% annually (1.0% monthly)

@@ -12,11 +12,11 @@
 
 ## Executive Summary
 
-**Research Question:** Is the 10.5% annual withdrawal rate optimal for achieving stable USD-denominated withdrawals?
+**Research Question:** What is the optimal annual withdrawal rate for achieving stable USD-denominated withdrawals?
 
-**Finding:** No. The 10.5% rate was calibrated for **worst-case survivability**, not USD stability optimization. The optimal rate targeting stable USD withdrawals over a 20-year horizon is **12% annual (1.0% monthly)**.
+**Finding:** The **12% annual (1.0% monthly)** rate provides optimal USD stability calibrated to conservative expected BTC appreciation (~12% CAGR), replacing the previous 10.5% rate that was calibrated for worst-case survivability.
 
-**Recommendation:** 12% annual (1.0% monthly) provides the best balance of:
+**Current Rate:** 12% annual (1.0% monthly) provides the best balance of:
 - USD stability at median expected BTC appreciation (~12% CAGR)
 - Acceptable decline (-32%) at gold equilibrium (~8% CAGR)
 - Strong upside capture if appreciation exceeds expectations
@@ -60,14 +60,14 @@ w = 1 - (1+g)^(-1/12)
 |-----------------|---------------------|---------------------|
 | 8% (Gold equilibrium) | 0.641% | 7.69% |
 | 10% | 0.797% | 9.57% |
-| 10.5% (Current) | 0.836% | 10.03% |
-| **12% (Recommended)** | **0.948%** | **11.39%** |
+| 10.5% (Previous) | 0.836% | 10.03% |
+| **12% (Current)** | **0.948%** | **11.39%** |
 | 15% | 1.171% | 14.05% |
 | 20% | 1.530% | 18.36% |
 | 25% | 1.876% | 22.51% |
 | 63% (Historical mean) | 4.131% | 49.57% |
 
-**Key Insight:** The current 0.875% monthly rate corresponds to ~10.5% annual BTC appreciation for USD stability—exactly the breakeven threshold.
+**Key Insight:** The current 1.0% monthly rate (12% annually) corresponds to the expected BTC appreciation for USD stability at conservative projections.
 
 ---
 
@@ -131,12 +131,12 @@ For sustainability over 20 years, use 25th percentile (conservative): **~10-12% 
 
 ### Scenario Analysis by Rate
 
-| Scenario | CAGR | USD @ 10yr (10.5% rate) | USD @ 10yr (12% rate) |
-|----------|------|-------------------------|------------------------|
+| Scenario | CAGR | USD @ 10yr (10.5% rate - previous) | USD @ 10yr (12% rate - current) |
+|----------|------|-------------------------------------|----------------------------------|
 | Historical | 63% | +3,955% | +4,200% |
 | Moderated | 25% | +326% | +280% |
 | Mature | 15% | +142% | +105% |
-| Breakeven (10.5%) | 10.5% | -6% | -15% |
+| Breakeven (12%) | 12% | +6% | 0% |
 | Gold equilibrium | 8% | -24% | -32% |
 
 ---
@@ -171,10 +171,10 @@ Annualized: 0.948% × 12 = 11.38% ≈ 12%
 - Assumes premature gold-like maturation
 - Holders under-withdrawn if CAGR exceeds 12%
 
-**Why not 10.5% (current)?**
+**Why not 10.5% (previous rate)?**
 - Calibrated for survivability, not stability
 - Suboptimal: neither maximizes safety nor capture
-- Breakeven threshold, not target
+- Below the target for USD stability optimization
 
 **Why not 15%?**
 - Fails if BTC matures toward gold (~8% CAGR)
@@ -190,8 +190,8 @@ Annualized: 0.948% × 12 = 11.38% ≈ 12%
 | Rate | Monthly | Survivability | USD Stability | Upside Capture | Risk Profile |
 |------|---------|---------------|---------------|----------------|--------------|
 | 8% | 0.64% | Excellent | Below optimal | Poor | Ultra-conservative |
-| 10.5% | 0.875% | Good | Breakeven | Moderate | Conservative |
-| **12%** | **1.0%** | **Good** | **Optimal** | **Good** | **Balanced** |
+| 10.5% | 0.875% | Good | Below optimal | Moderate | Conservative |
+| **12%** | **1.0%** | **Good** | **Optimal (Current)** | **Good** | **Balanced** |
 | 15% | 1.25% | Marginal | Above optimal | Excellent | Aggressive |
 | 18% | 1.5% | Poor | Above optimal | Maximum | Very aggressive |
 
@@ -201,52 +201,52 @@ Annualized: 0.948% × 12 = 11.38% ≈ 12%
 |------|--------------------------|----------------------|----------------------|
 | 8% | 95% | <1% | <0.1% |
 | 10.5% | 80% | 5% | 1% |
-| **12%** | **75%** | **10%** | **2%** |
+| **12% (Current)** | **75%** | **10%** | **2%** |
 | 15% | 60% | 20% | 5% |
 
 ---
 
 ## 6. Comparison to Current Rate
 
-### Current 10.5% Rate Calibration
+### Previous 10.5% Rate Calibration
 
-The existing rate was derived from:
+The previous rate was derived from:
 - Minimum 1129-day return: +77.78% (annualized ~22.6%)
 - Safety buffer: 2.15x
 - Result: 22.6% / 2.15 = 10.5%
 
-**This optimizes for:** 100% historical survivability
-**This does NOT optimize for:** USD stability at expected future CAGR
+**This optimized for:** 100% historical survivability
+**This did NOT optimize for:** USD stability at expected future CAGR
 
-### 12% Rate Calibration
+### Current 12% Rate Calibration
 
-The recommended rate is derived from:
+The current rate is derived from:
 - 25th percentile expected 20-year CAGR: ~12%
 - Stability formula: w = 1 - (1.12)^(-1/12)
 - Result: 0.948% monthly ≈ 1.0% monthly = 12% annual
 
 **This optimizes for:** USD stability at conservative expected CAGR
-**Trade-off:** Accepts ~10% higher failure probability vs. 10.5%
+**Trade-off:** Accepts ~10% higher failure probability vs. previous 10.5% rate
 
 ---
 
 ## 7. Implementation Considerations
 
-### If Implementing 12% Rate
+### Current 12% Rate Implementation
 
-**Contract constant change:**
+**Contract constant:**
 ```solidity
-// Current
-uint256 internal constant WITHDRAWAL_RATE = 875;  // 0.875%
-
-// Proposed
+// Current implementation
 uint256 internal constant WITHDRAWAL_RATE = 1000; // 1.0%
+
+// Previous value
+// uint256 internal constant WITHDRAWAL_RATE = 875;  // 0.875%
 ```
 
 ### Impact Analysis
 
-| Metric | 10.5% Rate | 12% Rate | Delta |
-|--------|------------|----------|-------|
+| Metric | 10.5% Rate (Previous) | 12% Rate (Current) | Delta |
+|--------|------------------------|---------------------|-------|
 | Year 1 withdrawal | 10.0% of initial | 11.4% of initial | +14% |
 | Year 10 BTC remaining | 34.8% | 30.1% | -4.7% |
 | Year 20 BTC remaining | 12.1% | 9.1% | -3.0% |
@@ -258,11 +258,11 @@ uint256 internal constant WITHDRAWAL_RATE = 1000; // 1.0%
 
 ### Primary Finding
 
-The 10.5% rate is **defensible but not optimal** for USD stability. It was calibrated for worst-case survivability with a 2.15x safety margin.
+The **12% annual (1.0% monthly)** rate is the current implementation, optimized for USD stability rather than worst-case survivability. The previous 10.5% rate was calibrated for survivability with a 2.15x safety margin.
 
-### Recommendation
+### Current Implementation
 
-**12% annual (1.0% monthly)** is the optimal withdrawal rate for a 20-year horizon because it:
+**12% annual (1.0% monthly)** is the current withdrawal rate for a 20-year horizon because it:
 
 1. Targets USD stability at the conservative expected CAGR (~12%)
 2. Accepts a tolerable -32% decline at gold equilibrium (8% CAGR)
@@ -273,7 +273,7 @@ The 10.5% rate is **defensible but not optimal** for USD stability. It was calib
 
 | Claim | Confidence |
 |-------|------------|
-| 10.5% is not optimal | High |
+| 12% is optimal for USD stability | Medium-High |
 | 12% balances trade-offs | Medium-High |
 | BTC 20-year CAGR will be 10-15% | Medium |
 | BTC will not compress below 8% | Low-Medium |

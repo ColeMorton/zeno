@@ -7,7 +7,7 @@ library VaultMath {
     uint256 internal constant DORMANCY_THRESHOLD = 1129 days;
     uint256 internal constant GRACE_PERIOD = 30 days;
     uint256 internal constant BASIS_POINTS = 100000;
-    uint256 internal constant WITHDRAWAL_RATE = 875;
+    uint256 internal constant WITHDRAWAL_RATE = 1000;
 
     function calculateWithdrawal(uint256 collateral) internal pure returns (uint256) {
         return (collateral * WITHDRAWAL_RATE) / BASIS_POINTS;

@@ -8,7 +8,7 @@ import pandas as pd
 
 # Protocol constant from VaultMath.sol
 VESTING_PERIOD_DAYS = 1129
-WITHDRAWAL_RATE_ANNUAL = 0.105  # 10.5%
+WITHDRAWAL_RATE_ANNUAL = 0.12  # 12%
 
 
 @dataclass
@@ -78,7 +78,7 @@ def calculate_1129_day_stats(df: pd.DataFrame) -> RollingWindowStats:
 
     # Annualized breakeven threshold
     # For 1129 days (~3.09 years), need cumulative return of:
-    # (1 + 0.105)^3.09 - 1 ≈ 36.4%
+    # (1 + 0.12)^3.09 - 1 ≈ 43.5%
     years = VESTING_PERIOD_DAYS / 365.25
     breakeven_cumulative = (1 + WITHDRAWAL_RATE_ANNUAL) ** years - 1
 

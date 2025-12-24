@@ -37,7 +37,7 @@
 |----------|-------|
 | Availability | Ongoing |
 | Entry | Badge-gated |
-| Withdrawal rate | 10.5% annual (0.875% monthly) |
+| Withdrawal rate | 12% annual (1.0% monthly) |
 | Treasure | Unique art per badge type |
 
 ### Future Series
@@ -229,7 +229,7 @@ Entry Badge + BTC → Vault #1 → Achievements → Achievement + BTC → Vault 
 |--------|---------------------|
 | Entry | Badge-gated (soulbound Entry Badges) |
 | Series | Ongoing (Bitcoin Series) + Limited Editions |
-| Withdrawal rate | 10.5% annual (0.875% monthly) |
+| Withdrawal rate | 12% annual (1.0% monthly) |
 | Stacking | Protocol achievements → additional Vaults |
 | Gamification | Merit leaderboards + vanity cosmetics |
 | Governance | Sole issuer |

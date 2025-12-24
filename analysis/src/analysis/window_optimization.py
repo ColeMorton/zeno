@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 
-WITHDRAWAL_RATE_ANNUAL = 0.105  # 10.5%
+WITHDRAWAL_RATE_ANNUAL = 0.12  # 12%
 
 
 @dataclass

@@ -81,10 +81,10 @@ From `contracts/protocol/src/libraries/VaultMath.sol`:
 | Constant | Value | Purpose |
 |----------|-------|---------|
 | `VESTING_PERIOD` | 1129 days | Lock before withdrawals |
-| `WITHDRAWAL_RATE` | 875 (0.875%) | Monthly withdrawal rate |
+| `WITHDRAWAL_RATE` | 1000 (1.0%) | Monthly withdrawal rate |
 | `WITHDRAWAL_PERIOD` | 30 days | Interval between withdrawals |
 
-Annual withdrawal rate: 0.875% × 12 = **10.5%**
+Annual withdrawal rate: 1.0% × 12 = **12%**
 
 ## Analysis Outputs
 

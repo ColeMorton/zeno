@@ -81,14 +81,14 @@ Where:
 
 | Scenario | Yearly Return | Conservative Tier | Impact |
 |----------|---------------|-------------------|--------|
-| Historical mean | +63.11% | -10.5% withdrawal | **Net +52.6%** |
-| 50% of mean | +31.6% | -10.5% withdrawal | **Net +21.1%** |
-| 25% of mean | +15.8% | -10.5% withdrawal | **Net +5.3%** |
-| Breakeven | +10.5% | -10.5% withdrawal | **Net 0%** |
-| Below breakeven | <+10.5% | -10.5% withdrawal | **Net negative** |
+| Historical mean | +63.11% | -12% withdrawal | **Net +51.1%** |
+| 50% of mean | +31.6% | -12% withdrawal | **Net +19.6%** |
+| 25% of mean | +15.8% | -12% withdrawal | **Net +3.8%** |
+| Breakeven | +12% | -12% withdrawal | **Net 0%** |
+| Below breakeven | <+12% | -12% withdrawal | **Net negative** |
 
 **Breakeven Analysis:**
-- The fixed withdrawal rate requires **+10.5%** annual BTC appreciation to maintain USD value
+- The fixed withdrawal rate requires **+12%** annual BTC appreciation to maintain USD value
 
 > For tier research history, see [Withdrawal Tier Research](../research/Withdrawal_Tier.md)
 

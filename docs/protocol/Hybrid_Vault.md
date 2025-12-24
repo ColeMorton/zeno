@@ -147,14 +147,14 @@ function withdraw(uint256 tokenId) external {
 ### Withdrawal Phases
 
 ```
-Phase 1: vBTC Exhaustion (~69 months)
-├─ Monthly withdrawal: 0.875% of total collateral
+Phase 1: vBTC Exhaustion (~60 months)
+├─ Monthly withdrawal: 1.0% of total collateral
 ├─ Source: 100% from vBTC portion
 ├─ LP portion: Untouched (continues earning fees)
 └─ Ends when: vBTC depleted
 
 Phase 2: LP Withdrawal (perpetual)
-├─ Monthly withdrawal: 0.875% of remaining LP
+├─ Monthly withdrawal: 1.0% of remaining LP
 ├─ Source: 100% from LP portion
 ├─ User receives: LP tokens (can unwrap to vBTC + WBTC)
 └─ Continues: Perpetually (Zeno's paradox)
@@ -166,14 +166,14 @@ Phase 2: LP Withdrawal (perpetual)
 Initial:     60% vBTC │ 40% LP
              ████████████████│██████████
 
-Month 35:    ~30% vBTC │ 40% LP (unchanged)
+Month 30:    ~30% vBTC │ 40% LP (unchanged)
              ████████│██████████
 
-Month 69:    0% vBTC │ 40% LP
+Month 60:    0% vBTC │ 40% LP
              │██████████ (vBTC exhausted)
 
-Month 120:   0% vBTC │ ~24% LP
-             │██████ (LP being withdrawn)
+Month 120:   0% vBTC │ ~22% LP
+             │█████ (LP being withdrawn)
 ```
 
 ---

@@ -29,7 +29,7 @@ Personal brand with achievement-based recognition and series model.
 | Achievements | Soulbound NFTs claimed after on-chain actions |
 | Series | Ongoing (Bitcoin Series) + future Limited Editions |
 | Governance | Sole issuer |
-| Withdrawal Rate | 10.5% annual (0.875% monthly) |
+| Withdrawal Rate | 12% annual (1.0% monthly) |
 | Stacking | MINTER + MATURED achievements → additional Vaults |
 
 ---
@@ -72,7 +72,7 @@ Institutional-grade implementation for corporate BTC allocation.
 | Treasures | Corporate-branded NFTs |
 | Series | Single ongoing series |
 | Governance | Corporate board |
-| Withdrawal Rate | 10.5% annual (regulatory comfort) |
+| Withdrawal Rate | 12% annual (regulatory comfort) |
 
 **Use Case:**
 - Corporation wants BTC treasury exposure
@@ -82,7 +82,7 @@ Institutional-grade implementation for corporate BTC allocation.
 
 **Key Decisions:**
 - Badge-gated entry with KYC verification
-- Fixed withdrawal rate (10.5% annually) for stability
+- Fixed withdrawal rate (12% annually) for stability
 - Corporate governance for accountability
 - Branded Treasures for corporate identity
 

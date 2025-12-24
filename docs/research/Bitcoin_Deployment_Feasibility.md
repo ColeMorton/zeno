@@ -22,7 +22,7 @@ Bitcoin's native scripting language, Bitcoin Script, is intentionally non-Turing
 - Timelock primitives: OP_CHECKLOCKTIMEVERIFY (CLTV), OP_CHECKSEQUENCEVERIFY (CSV)
 - Hash-based conditions: OP_HASH160, OP_SHA256
 
-**Critical Limitation for BTCNFT**: Bitcoin Script cannot perform the percentage-based calculations central to the withdrawal mechanism (0.875% monthly). The formula `withdrawal = (collateral * 875) / 100000` requires arithmetic operations beyond Script's capabilities.
+**Critical Limitation for BTCNFT**: Bitcoin Script cannot perform the percentage-based calculations central to the withdrawal mechanism (1.0% monthly). The formula `withdrawal = (collateral * 1000) / 100000` requires arithmetic operations beyond Script's capabilities.
 
 ### 1.2 Ordinals Theory and Inscriptions
 
@@ -331,7 +331,7 @@ Cons:
 function withdraw(uint256 tokenId) external {
     require(block.timestamp >= mintTimestamp + 1129 days);
     require(block.timestamp >= lastWithdrawal + 30 days);
-    uint256 amount = (collateral * 875) / 100000;
+    uint256 amount = (collateral * 1000) / 100000;
     collateral -= amount;
     lastWithdrawal = block.timestamp;
     IERC20(collateralToken).safeTransfer(msg.sender, amount);
@@ -340,17 +340,17 @@ function withdraw(uint256 tokenId) external {
 
 **Bitcoin Implementation Challenge:**
 
-Bitcoin Script cannot perform `(collateral * 875) / 100000`. Three approaches exist:
+Bitcoin Script cannot perform `(collateral * 1000) / 100000`. Three approaches exist:
 
 **Approach A: Pre-Computed Withdrawal Schedule**
 
 At vault creation, generate all future withdrawal transactions:
 ```
-Month 1: 0.00875 BTC (0.875% of 1.0)
-Month 2: 0.00867 BTC (0.875% of 0.99125)
-Month 3: 0.00860 BTC (0.875% of 0.98258)
+Month 1: 0.01 BTC (1.0% of 1.0)
+Month 2: 0.0099 BTC (1.0% of 0.99)
+Month 3: 0.0098 BTC (1.0% of 0.9801)
 ...
-Month 600: 0.00047 BTC (0.875% of 0.05391)
+Month 600: 0.00024 BTC (1.0% of 0.0024)
 ```
 
 Pre-sign all 600+ transactions with CSV time-locks.
@@ -374,7 +374,7 @@ Federation calculates withdrawal amounts, holder co-signs:
 ```
 1. Holder requests withdrawal
 2. Federation verifies: time elapsed, current collateral
-3. Federation computes: amount = collateral * 0.00875
+3. Federation computes: amount = collateral * 0.01
 4. Federation + Holder 2-of-2 multisig releases funds
 ```
 
@@ -396,7 +396,7 @@ Holder claims withdrawal, fraud window allows challenges:
 ```
 1. Holder inscribes withdrawal claim: {vaultId, amount, proof}
 2. 7-day challenge period
-3. Anyone can submit fraud proof if calculation wrong
+3. Anyone can submit fraud proof if calculation wrong (1.0% verification)
 4. After period: withdrawal finalizes
 ```
 
@@ -832,7 +832,7 @@ Layer 2 (Indexer Network):
 |---------|--------------------|-----------------------|
 | Vault creation | Taproot multisig | 95% |
 | 1129-day vesting | CLTV | 100% |
-| 0.875% withdrawal | Federation computation | 80% (trust trade-off) |
+| 1.0% withdrawal | Federation computation | 80% (trust trade-off) |
 | Match pool | Epoch-based, 1-year cycles | 60% |
 | vestedBTC | Runes + trusted minter | 70% |
 | Delegation | MuSig2 + coordinator | 75% |
@@ -878,7 +878,7 @@ Bridge:
 |---------|--------------------|-----------------------|
 | Vault creation | RGB contract | 95% |
 | 1129-day vesting | RGB + CLTV anchor | 100% |
-| 0.875% withdrawal | RGB computation, BTC settlement | 95% |
+| 1.0% withdrawal | RGB computation, BTC settlement | 95% |
 | Match pool | RGB global state (coordinator-assisted) | 85% |
 | vestedBTC | RGB20 asset | 95% |
 | Delegation | RGB state machine | 95% |
@@ -1040,7 +1040,7 @@ RGB provides the optimal balance of:
 
 **Preserve (Core Protocol Identity):**
 - 1129-day vesting period (exact, enforceable via CLTV)
-- 0.875% monthly withdrawal rate (via RGB computation)
+- 1.0% monthly withdrawal rate (via RGB computation)
 - vestedBTC collateral separation (RGB20 asset)
 - Soulbound achievements (non-transferable RGB/Ordinals)
 - Immutable parameters (no admin functions)
@@ -1094,4 +1094,4 @@ The recommended hybrid approach—RGB contracts for logic with Bitcoin settlemen
 
 For organizations prioritizing "true Bitcoin" exposure over EVM convenience, this deployment path offers a compelling architecture. The emerging RGB ecosystem, combined with potential future Bitcoin softforks (OP_CTV, OP_CAT), may enable even higher fidelity implementations in subsequent protocol versions.
 
-**Final Assessment**: Proceed with RGB hybrid deployment, accepting coordinator dependencies as acceptable trade-offs for native BTC backing. The 1129-day vesting period, 0.875% withdrawal rate, and vestedBTC mechanics can be faithfully implemented, preserving the protocol's core economic properties while eliminating wrapped token bridge risk.
+**Final Assessment**: Proceed with RGB hybrid deployment, accepting coordinator dependencies as acceptable trade-offs for native BTC backing. The 1129-day vesting period, 1.0% withdrawal rate, and vestedBTC mechanics can be faithfully implemented, preserving the protocol's core economic properties while eliminating wrapped token bridge risk.

@@ -40,7 +40,7 @@
 
 | Monthly | Annual | Historical Yearly Stability |
 |---------|--------|---------------------------|
-| 0.875% | 10.5% | 100% (2017-2025 data) |
+| 1.0% | 12% | 100% (2017-2025 data) |
 
 > **Important:** Historical analysis, not a guarantee. BTC-denominated (not pegged to USD). Past performance does not guarantee future results.
 
@@ -166,7 +166,7 @@ Day 1130+ (Post-Vesting)
        ↓
 Call withdraw(vaultId)
        ↓
-Contract calculates: remainingCollateral × 0.875%
+Contract calculates: remainingCollateral × 1.0%
        ↓
 BTC transferred to your wallet
        ↓

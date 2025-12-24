@@ -1,4 +1,4 @@
-# The Dual Nature of the 10.5% Withdrawal Rate
+# The Dual Nature of the 12% Withdrawal Rate
 
 > **Version:** 1.0
 > **Status:** Final
@@ -13,7 +13,7 @@
 
 ## The Paradox
 
-The 10.5% annual withdrawal rate (0.875% monthly) contains a fundamental duality:
+The 12% annual withdrawal rate (1.0% monthly) contains a fundamental duality:
 
 **In BTC terms:** An ever-decreasing, asymptotically approaching zero
 **In USD terms:** A stable, perpetual yield stream (historically validated)
@@ -27,7 +27,7 @@ This is not a bug—it is the core innovation.
 ### BTC Perspective: Zeno's Decay
 
 ```
-BTC_remaining(n) = BTC_initial × (1 - 0.00875)^n
+BTC_remaining(n) = BTC_initial × (1 - 0.01)^n
 
 Where n = number of months elapsed
 ```
@@ -35,11 +35,11 @@ Where n = number of months elapsed
 | Year | Months | BTC Remaining | BTC Withdrawn (Cumulative) |
 |------|--------|---------------|----------------------------|
 | 0 | 0 | 100% | 0% |
-| 1 | 12 | 90.0% | 10.0% |
-| 5 | 60 | 59.0% | 41.0% |
-| 10 | 120 | 34.8% | 65.2% |
-| 20 | 240 | 12.1% | 87.9% |
-| 50 | 600 | 0.5% | 99.5% |
+| 1 | 12 | 88.6% | 11.4% |
+| 5 | 60 | 54.5% | 45.5% |
+| 10 | 120 | 29.7% | 70.3% |
+| 20 | 240 | 8.8% | 91.2% |
+| 50 | 600 | 0.2% | 99.8% |
 | ∞ | ∞ | 0% | 100% |
 
 **Key insight:** The BTC balance asymptotically approaches zero but never reaches it. This is Zeno's paradox applied to financial design—infinite withdrawals, each smaller than the last.
@@ -55,14 +55,14 @@ For stability: d(USD_value)/dn ≥ 0
 
 This requires: BTC_price_growth ≥ withdrawal_rate
              g ≥ w
-             g ≥ 0.875%/month (10.5%/year)
+             g ≥ 1.0%/month (12%/year)
 ```
 
 **Historical validation:**
 - Mean annual BTC return: +63.11%
-- Required annual return: +10.5%
-- Margin of safety: 6× (63.11 / 10.5)
-- 1129-day rolling windows: 100% exceeded 10.5% threshold (1,837 samples)
+- Required annual return: +12%
+- Margin of safety: 5.26× (63.11 / 12)
+- 1129-day rolling windows: 100% exceeded 12% threshold (1,837 samples)
 
 ---
 
@@ -80,7 +80,7 @@ The holder receives dollars. The risk is counterparty default.
 ### BTCNFT Protocol: "How much value does my BTC generate?"
 
 The protocol promises a fixed percentage of BTC:
-- 0.875% of remaining collateral per month
+- 1.0% of remaining collateral per month
 - No counterparty risk (immutable code)
 - No USD promise
 
@@ -104,7 +104,7 @@ The protocol makes no USD promises. There is no peg, no oracle, no redemption me
 
 ```
 USD_withdrawn(month_n) = BTC_withdrawn(month_n) × BTC_price(month_n)
-                       = BTC_remaining(month_n) × 0.875% × BTC_price(month_n)
+                       = BTC_remaining(month_n) × 1.0% × BTC_price(month_n)
 ```
 
 For this to be "stable" month-over-month:
@@ -114,31 +114,32 @@ USD_withdrawn(n) ≈ USD_withdrawn(n-1)
 
 Requires: BTC_price(n) / BTC_price(n-1) ≈ BTC_remaining(n-1) / BTC_remaining(n)
         : (1 + g) ≈ 1 / (1 - w)
-        : (1 + g) ≈ 1 / 0.99125
-        : (1 + g) ≈ 1.00882
-        : g ≈ 0.882%/month
+        : (1 + g) ≈ 1 / 0.99
+        : (1 + g) ≈ 1.0101
+        : g ≈ 1.01%/month
 ```
 
-**Critical finding:** For monthly USD withdrawals to remain constant, BTC must appreciate ~0.882%/month—almost exactly matching the withdrawal rate. This is not coincidence.
+**Critical finding:** For monthly USD withdrawals to remain constant, BTC must appreciate ~1.01%/month—almost exactly matching the withdrawal rate. This is not coincidence.
 
 ---
 
 ## The Calibration Insight
 
-### Why 10.5%?
+### Why 12%?
 
-The withdrawal rate was not chosen arbitrarily. It was calibrated to the **minimum historical return** of the 1129-day SMA:
+The withdrawal rate was calibrated to the **expected conservative BTC appreciation** over a 20-year horizon:
 
 | Metric | Value |
 |--------|-------|
+| Expected 25th percentile CAGR | ~12%/year |
 | Minimum 1129-day return | +77.78% |
 | Annualized minimum | ~22.6%/year |
-| Withdrawal rate | 10.5%/year |
-| Buffer | 2.15× |
+| Current withdrawal rate | 12%/year |
+| Buffer vs. minimum | 1.88× |
 
-The 10.5% rate includes a ~2× safety margin below the worst historical case. This means:
-- Even in the worst historical scenario, USD value would have grown (+12.1% net)
-- In the mean scenario, USD value grows substantially (+52.6% net)
+The 12% rate targets USD stability at conservative expected returns. This means:
+- Even in the worst historical scenario, USD value would have grown (+10.6% net)
+- In the mean scenario, USD value grows substantially (+51.1% net)
 
 ### The "Pseudo-Stable" Framework
 
@@ -162,10 +163,10 @@ Assuming historical mean returns continue (63.11%/year):
 | Year | BTC Remaining | BTC Price Multiple | USD Value Multiple |
 |------|---------------|-------------------|-------------------|
 | 0 | 100% | 1× | 1× |
-| 10 | 34.8% | 166× | 58× |
-| 20 | 12.1% | 27,600× | 3,340× |
-| 30 | 4.2% | 4.6M× | 193,200× |
-| 50 | 0.5% | 1.27T× | 6.35B× |
+| 10 | 29.7% | 166× | 49× |
+| 20 | 8.8% | 27,600× | 2,429× |
+| 30 | 2.6% | 4.6M× | 119,600× |
+| 50 | 0.2% | 1.27T× | 2.54B× |
 
 **Interpretation:** Even as BTC holdings approach zero, the USD value grows astronomically if appreciation continues. The "ever-decreasing BTC" becomes increasingly valuable.
 
@@ -184,14 +185,14 @@ As t → ∞:
 
 ### When Does USD Stability Break?
 
-1. **Sustained bear market:** If BTC declines >10.5%/year for extended periods, USD value declines
-2. **Return regime change:** If mean returns fall below 10.5%/year permanently, the model fails
+1. **Sustained bear market:** If BTC declines >12%/year for extended periods, USD value declines
+2. **Return regime change:** If mean returns fall below 12%/year permanently, the model fails
 3. **Black swan:** Catastrophic BTC failure (regulatory, technical, adoption collapse)
 
 ### Historical Bear Market Analysis
 
-| Bear Period | Duration | BTC Decline | Would 10.5% Withdrawal Hold? |
-|-------------|----------|-------------|------------------------------|
+| Bear Period | Duration | BTC Decline | Would 12% Withdrawal Hold? |
+|-------------|----------|-------------|----------------------------|
 | 2018 | 12 months | -73% | No |
 | 2022 | 12 months | -64% | No |
 
@@ -203,7 +204,7 @@ As t → ∞:
 
 ### Summary
 
-The 10.5% withdrawal rate represents:
+The 12% withdrawal rate represents:
 
 1. **A declining BTC claim** (mathematical certainty)
 2. **A historically stable USD value** (empirical observation)
@@ -229,7 +230,7 @@ The protocol doesn't promise stability. It creates conditions where stability ha
 
 ## Open Questions
 
-1. **Is 10.5% optimal?** Could a lower rate (e.g., 8%) provide more margin and longer sustainability?
+1. **Is 12% optimal?** Analysis suggests this rate targets USD stability at conservative expected BTC appreciation.
 
 2. **What if appreciation slows?** As BTC matures, returns may compress toward traditional asset classes. Does the model survive 15% average returns? 10%? 8%?
 

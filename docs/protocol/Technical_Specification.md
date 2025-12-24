@@ -87,7 +87,7 @@ Immutability is enforced through Solidity's `immutable` keyword, which stores va
 // These values are embedded in deployed bytecode - cannot be modified
 immutable uint256 VESTING_PERIOD = 1129 days;
 immutable uint256 WITHDRAWAL_PERIOD = 30 days;
-immutable uint256 WITHDRAWAL_RATE = 875; // 0.875% = 875/100000
+immutable uint256 WITHDRAWAL_RATE = 1000; // 1.0% = 1000/100000
 ```
 
 **Verification:** Anyone can read these values from the deployed contract. They match the bytecode and cannot differ from what was compiled.
@@ -155,16 +155,16 @@ See [Issuer Integration Guide](../issuer/Integration_Guide.md#4-minting-modes) f
 ### 1.4 Post-Vesting Withdrawals
 
 - **Frequency:** Once per 30-day period
-- **Amount:** 0.875% of remaining collateral (10.5% annually)
+- **Amount:** 1.0% of remaining collateral (12% annually)
 - **Property:** Collateral never fully depletes (Zeno's paradox)
 
 ### 1.5 Withdrawal Delegation
 
 - **Purpose:** Enable vault holders to grant withdrawal permissions to other addresses
-- **Delegation Type:** Percentage-based share of the cumulative 0.875% monthly withdrawal
+- **Delegation Type:** Percentage-based share of the cumulative 1.0% monthly withdrawal
 - **Control:** Fully revocable by vault owner at any time (single or bulk revoke)
 - **Independence:** Delegates have separate 30-day withdrawal periods
-- **Cumulative Limit:** The 0.875% monthly withdrawal is shared among owner + all delegates
+- **Cumulative Limit:** The 1.0% monthly withdrawal is shared among owner + all delegates
 
 **Key Properties:**
 - Multiple delegates supported per vault
@@ -224,8 +224,8 @@ Over time:
 
 | Time Window | BTC Appreciation | Withdrawal Impact | Net USD Stability |
 |-------------|------------------|-------------------|-------------------|
-| Monthly | +4.61% mean | -0.875% | Variable |
-| Yearly | +63.11% mean | -10.5% | **100%** (2017-2025 data) |
+| Monthly | +4.61% mean | -1.0% | Variable |
+| Yearly | +63.11% mean | -12% | **100%** (2017-2025 data) |
 | 1129-Day | +313.07% mean | -27%* | **100%** (2017-2025 data) |
 
 *Cumulative withdrawal impact accounting for compounding
@@ -412,23 +412,23 @@ Separate vestedBTC to stack yields while retaining withdrawal rights:
 
 ```
 Base: Vault NFT
-├─ BTC Withdrawals: 10.5% annually
+├─ BTC Withdrawals: 12% annually
 │
 Separation: mintBtcToken() → vBTC
-├─ Retain: Withdrawal rights (10.5%)
+├─ Retain: Withdrawal rights (12%)
 ├─ vBTC → Curve LP → Convex boost
 │   ├─ LP fees: ~2-5% APY
 │   ├─ CRV rewards: ~3-8% APY
 │   └─ CVX boost: ~2-4% APY
 │
-Total Stack: 10.5% + 7-17% = 17.5-27.5% APY
+Total Stack: 12% + 7-17% = 19-29% APY
 ```
 
 ### 2.9 Price Discovery & Discount Dynamics
 
 vestedBTC structurally trades below WBTC due to:
 
-1. **Shrinking Collateral** - Underlying BTC decreases at 0.875%/month due to withdrawals
+1. **Shrinking Collateral** - Underlying BTC decreases at 1.0%/month due to withdrawals
 2. **Forfeited Upside** - Separators lose collateral matching benefits
 3. **Redemption Friction** - Requires recombination with specific Vault NFT
 
@@ -570,7 +570,7 @@ uint256 amount = (numerator * multiplier) / denominator; // Solidity default: fl
 |-----------|------|-------------|
 | `vestingPeriod` | uint256 | 1129 days (constant) |
 | `withdrawalPeriod` | uint256 | 30 days (constant) |
-| `withdrawalRate` | uint256 | 875 (basis points × 100, = 0.875% per period) |
+| `withdrawalRate` | uint256 | 1000 (basis points × 100, = 1.0% per period) |
 | `penaltyDestinationType` | enum | ISSUER, TREASURY, SERIES_HOLDERS, ALL_HOLDERS |
 | `penaltyDestinationAddress` | address | Target for ISSUER/TREASURY types |
 | `acceptedBTCTokens` | address[] | [WBTC, cbBTC] accepted collateral tokens |

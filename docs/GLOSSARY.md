@@ -58,7 +58,7 @@ Time before Vault holders can begin withdrawals. Immutable.
 
 | Value | Description |
 |-------|-------------|
-| 0.875%/month | 10.5%/year |
+| 1.0%/month | 12%/year |
 
 Maximum BTC that can be withdrawn each period. Immutable.
 
