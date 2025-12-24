@@ -64,7 +64,7 @@ This achievement is permanently bound to your wallet and cannot be transferred.
 
 ### Vesting Period
 
-**1093 days (~3 years)** - no withdrawals during this period.
+**1129 days (~3.09 years)** - no withdrawals during this period.
 
 During vesting, you can:
 - Earn achievements
@@ -73,7 +73,7 @@ During vesting, you can:
 
 ### Post-Vesting
 
-After 1093 days:
+After 1129 days:
 - **Withdraw** 0.875% of BTC monthly
 - **Claim** collateral matching from early quitters
 - **Mint vestedBTC** for liquidity access

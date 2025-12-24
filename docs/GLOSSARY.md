@@ -50,7 +50,7 @@ Fungible token representing a claim on BTC collateral. Created by separating col
 
 | Value | Description |
 |-------|-------------|
-| 1093 days | ~3 years |
+| 1129 days | ~3.09 years |
 
 Time before Vault holders can begin withdrawals. Immutable.
 
@@ -74,7 +74,7 @@ Interval between withdrawal opportunities.
 
 | Value | Description |
 |-------|-------------|
-| 1093 days | Inactivity period |
+| 1129 days | Inactivity period |
 
 Time without activity before a separated Vault becomes dormant-eligible.
 
@@ -157,3 +157,31 @@ Process by which vestedBTC holders claim collateral from abandoned (dormant) Vau
 | `mintBtcToken()` | Separation | Function to create vestedBTC |
 | `returnBtcToken()` | Recombination | Function to restore Vault rights |
 | `vBTC` | vestedBTC | Token symbol |
+
+---
+
+## Visual & Tier System
+
+### Display Tier
+
+Wealth-based visual tier (Bronze/Silver/Gold/Diamond/Whale) dynamically computed from collateral percentile. Unlike achievements which are merit-based, display tiers reflect relative collateral position within the protocol.
+
+| Tier | Percentile Range |
+|------|-----------------|
+| Bronze | 0–50th |
+| Silver | 50–75th |
+| Gold | 75–90th |
+| Diamond | 90–99th |
+| Whale | 99th+ |
+
+**Note:** Thresholds are keeper-updated based on current collateral distribution.
+
+### Keeper
+
+Authorized address that periodically updates on-chain tier thresholds based on current collateral distribution. Ensures Display Tiers remain calibrated to actual protocol TVL.
+
+### ERC-4906
+
+Metadata update extension (EIP-4906). Defines `MetadataUpdate` and `BatchMetadataUpdate` events for signaling NFT metadata changes to marketplaces and indexers.
+
+**Usage:** Emitted when tier thresholds change, triggering marketplace cache invalidation.

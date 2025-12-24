@@ -85,7 +85,7 @@ Immutability is enforced through Solidity's `immutable` keyword, which stores va
 
 ```solidity
 // These values are embedded in deployed bytecode - cannot be modified
-immutable uint256 VESTING_PERIOD = 1093 days;
+immutable uint256 VESTING_PERIOD = 1129 days;
 immutable uint256 WITHDRAWAL_PERIOD = 30 days;
 immutable uint256 WITHDRAWAL_RATE = 875; // 0.875% = 875/100000
 ```
@@ -134,8 +134,7 @@ function mint(
     address treasureContract,
     uint256 treasureTokenId,
     address collateralToken,
-    uint256 collateralAmount,
-    uint8 tier
+    uint256 collateralAmount
 ) external returns (uint256 vaultTokenId);
 ```
 
@@ -149,7 +148,7 @@ See [Issuer Integration Guide](../issuer/Integration_Guide.md#4-minting-modes) f
 
 ### 1.3 Vesting Period
 
-- **Duration:** 1093 days (~3 years)
+- **Duration:** 1129 days (~3.09 years)
 - **Withdrawals:** Not permitted during vesting
 - **Rationale:** Ensures holder experiences at least one full BTC market cycle
 
@@ -219,7 +218,7 @@ vestedBTC USD Value = remaining_collateral × BTC_price
 
 Over time:
 ├─ remaining_collateral ↓ (withdrawals reduce it)
-├─ BTC_price ↑ (historical expectation: +313% mean over 1093 days)
+├─ BTC_price ↑ (historical expectation: +313% mean over 1129 days)
 └─ Net effect: USD value expected to remain stable or grow
 ```
 
@@ -227,7 +226,7 @@ Over time:
 |-------------|------------------|-------------------|-------------------|
 | Monthly | +4.61% mean | -0.875% | Variable |
 | Yearly | +63.11% mean | -10.5% | **100%** (2017-2025 data) |
-| 1093-Day | +313.07% mean | -27%* | **100%** (2017-2025 data) |
+| 1129-Day | +313.07% mean | -27%* | **100%** (2017-2025 data) |
 
 *Cumulative withdrawal impact accounting for compounding
 
@@ -450,7 +449,7 @@ vestedBTC structurally trades below WBTC due to:
 |------|-------------|------------|
 | Discount widening | Reduced confidence → vBTC trades at larger discount | BTC backing provides intrinsic floor; arbitrage compresses discount |
 | Low volume | Less arbitrage → fewer LP fees, slower mean-reversion | Deep liquidity pools reduce slippage |
-| BTC price crash | Underlying value declines | Historical 1093-day periods show 100% positive returns |
+| BTC price crash | Underlying value declines | Historical 1129-day periods show 100% positive returns |
 
 **Structural Risks:**
 
@@ -476,11 +475,11 @@ vestedBTC structurally trades below WBTC due to:
 ### 3.1 Linear Unlock Formula
 
 ```
-redeemable(d) = collateral × (d / 1093)
-forfeited(d) = collateral × (1 - d / 1093)
+redeemable(d) = collateral × (d / 1129)
+forfeited(d) = collateral × (1 - d / 1129)
 ```
 
-Where `d` = days since mint (0 to 1093)
+Where `d` = days since mint (0 to 1129)
 
 ### 3.2 Redemption Schedule
 
@@ -492,7 +491,7 @@ Where `d` = days since mint (0 to 1093)
 | 547 | ~18 mo | 50.0% | 50.0% |
 | 730 | ~2 yr | 33.2% | 66.8% |
 | 912 | ~2.5 yr | 16.6% | 83.4% |
-| 1093 | ~3 yr | 0% | 100% |
+| 1129 | ~3.09 yr | 0% | 100% |
 
 ### 3.3 Forfeited Collateral Destination
 
@@ -569,7 +568,7 @@ uint256 amount = (numerator * multiplier) / denominator; // Solidity default: fl
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `vestingPeriod` | uint256 | 1093 days (constant) |
+| `vestingPeriod` | uint256 | 1129 days (constant) |
 | `withdrawalPeriod` | uint256 | 30 days (constant) |
 | `withdrawalRate` | uint256 | 875 (basis points × 100, = 0.875% per period) |
 | `penaltyDestinationType` | enum | ISSUER, TREASURY, SERIES_HOLDERS, ALL_HOLDERS |
@@ -601,7 +600,7 @@ uint256 amount = (numerator * multiplier) / denominator; // Solidity default: fl
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `DORMANCY_THRESHOLD` | uint256 | 1093 days (constant) - Inactivity period before dormant-eligible |
+| `DORMANCY_THRESHOLD` | uint256 | 1129 days (constant) - Inactivity period before dormant-eligible |
 | `GRACE_PERIOD` | uint256 | 30 days (immutable) - Time for owner to respond after poke |
 | `lastActivity` | mapping(uint256 => uint256) | Per-token timestamp of last activity |
 | `pokeTimestamp` | mapping(uint256 => uint256) | Per-token timestamp when poked (0 = not poked) |
@@ -617,7 +616,7 @@ Prevents permanently locked BTC by allowing vestedBTC holders to claim abandoned
 When a Vault holder:
 1. Separates collateral into vestedBTC (vestedBTC)
 2. Sells or transfers the vestedBTC away
-3. Becomes inactive for an extended period (1093+ days)
+3. Becomes inactive for an extended period (1129+ days)
 
 The underlying BTC collateral becomes inaccessible - the Vault holder cannot redeem (lacks vestedBTC), and vestedBTC holders cannot recombine (lack the Vault). This mechanism allows vestedBTC holders to reclaim dormant positions.
 
@@ -629,7 +628,7 @@ A Vault is **dormant-eligible** when ALL conditions are met:
 |-----------|-------------|-----------|
 | vestedBTC Exists | `vestedBTCAmount[tokenId] > 0` | Collateral must be separated |
 | vestedBTC Not at Owner | `vestedBTC.balanceOf(owner) < vestedBTCAmount[tokenId]` | Owner sold/transferred their claim |
-| Inactivity Period | `block.timestamp >= lastActivity[tokenId] + DORMANCY_THRESHOLD` | 1093 days without any interaction |
+| Inactivity Period | `block.timestamp >= lastActivity[tokenId] + DORMANCY_THRESHOLD` | 1129 days without any interaction |
 
 ### 5.3 State Machine
 
@@ -641,7 +640,7 @@ A Vault is **dormant-eligible** when ALL conditions are met:
                                                      │
                                                      ▼
 ┌─────────────────┐                         ┌─────────────────┐
-│                 │   1093+ days inactive   │                 │
+│                 │   1129+ days inactive   │                 │
 │     ACTIVE      │   + vestedBTC separated  │ DORMANT_ELIGIBLE│
 │                 │ ◄────────────────────── │ (logical state) │
 │  lastActivity   │                         │                 │
@@ -744,7 +743,7 @@ function isDormantEligible(uint256 tokenId) public view
         return (false, DormancyState.ACTIVE);
     }
 
-    // Requirement 3: No activity for DORMANCY_THRESHOLD (1093 days)
+    // Requirement 3: No activity for DORMANCY_THRESHOLD (1129 days)
     if (block.timestamp < lastActivity[tokenId] + DORMANCY_THRESHOLD) {
         return (false, DormancyState.ACTIVE);
     }
@@ -1017,7 +1016,7 @@ Case 2: claimDormantCollateral() executes first
 | vestedBTC withdrawal rights | None | Clear separation of principal from withdrawal rights |
 | vestedBTC recombination | All-or-nothing | Prevents partial redemption gaming |
 | Redemption lock mechanism | Requires full vestedBTC balance | Prevents unauthorized collateral redemption |
-| Dormancy threshold | 1093 days (same as vesting) | Full market cycle of inactivity |
+| Dormancy threshold | 1129 days (same as vesting) | Full market cycle of inactivity |
 | Grace period | 30 days | One withdrawal period; reasonable response time |
 | Poke mechanism | Anyone can initiate | Decentralized detection, no privileged actor |
 | Owner notification | Grace period before claim | Fair warning to recover position |

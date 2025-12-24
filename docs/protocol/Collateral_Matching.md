@@ -24,7 +24,7 @@
 
 ### Purpose
 
-The Collateral Matching mechanism utilizes forfeited BTC from early redemptions to reward Vault holders who complete the full 1093-day vesting period.
+The Collateral Matching mechanism utilizes forfeited BTC from early redemptions to reward Vault holders who complete the full 1129-day vesting period.
 
 ### Core Principle
 
@@ -38,7 +38,7 @@ Match amounts are derived deterministically from on-chain state at claim time.
 │                                                                 │
 │  Early Redemptions                   Vested Holders             │
 │  ┌──────────┐                       ┌──────────────────┐       │
-│  │ Forfeit  │                       │ Complete 1093    │       │
+│  │ Forfeit  │                       │ Complete 1129    │       │
 │  │ BTC      │──────► Match Pool ───►│ days → claim     │       │
 │  └──────────┘         (accrues)     │ pro-rata share   │       │
 │                                     └──────────────────┘       │
@@ -149,7 +149,7 @@ function _onRedeem(uint256 tokenId, uint256 daysHeld) internal {
     }
 
     // Forfeited amount flows to matchPool
-    uint256 forfeited = collateralAmount[tokenId] * (1093 - daysHeld) / 1093;
+    uint256 forfeited = collateralAmount[tokenId] * (1129 - daysHeld) / 1129;
     matchPool += forfeited;
 }
 
@@ -204,29 +204,29 @@ Day 547: Dave mints with 0.5 BTC
          totalActiveCollateral = 4.0 BTC
 
 Day 912: Dave redeems early (365 days held)
-         - Dave returns: 0.5 × (365/1093) = 0.167 BTC
-         - Dave forfeits: 0.5 × (728/1093) = 0.333 BTC → matchPool
+         - Dave returns: 0.5 × (365/1129) = 0.162 BTC
+         - Dave forfeits: 0.5 × (764/1129) = 0.338 BTC → matchPool
          totalActiveCollateral = 3.5 BTC
-         matchPool = 0.333 BTC
+         matchPool = 0.338 BTC
 
-Day 1093: Alice vests, calls claimMatch()
+Day 1129: Alice vests, calls claimMatch()
           denominator (snapshot) = 3.5 BTC
-          matchAmount = 0.333 × (1.0 / 3.5) = 0.095 BTC
-          Alice's collateral: 1.0 + 0.095 = 1.095 BTC
-          matchPool = 0.238 BTC
+          matchAmount = 0.338 × (1.0 / 3.5) = 0.097 BTC
+          Alice's collateral: 1.0 + 0.097 = 1.097 BTC
+          matchPool = 0.241 BTC
           totalActiveCollateral = 2.5 BTC (after self-mature)
 
-Day 1093: Bob vests, calls claimMatch()
+Day 1129: Bob vests, calls claimMatch()
           denominator (snapshot) = 2.5 BTC
-          matchAmount = 0.238 × (0.5 / 2.5) = 0.048 BTC
+          matchAmount = 0.241 × (0.5 / 2.5) = 0.048 BTC
           Bob's collateral: 0.5 + 0.048 = 0.548 BTC
-          matchPool = 0.190 BTC
+          matchPool = 0.193 BTC
           totalActiveCollateral = 2.0 BTC (Carol remains)
 
-Day 1458: Carol vests, calls claimMatch()
+Day 1494: Carol vests, calls claimMatch()
           denominator (snapshot) = 2.0 BTC
-          matchAmount = 0.190 × (2.0 / 2.0) = 0.190 BTC
-          Carol's collateral: 2.0 + 0.190 = 2.190 BTC
+          matchAmount = 0.193 × (2.0 / 2.0) = 0.193 BTC
+          Carol's collateral: 2.0 + 0.193 = 2.193 BTC
           matchPool = 0 BTC
 ```
 

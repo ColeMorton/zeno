@@ -2,7 +2,7 @@
 
 > **Version:** 1.0
 > **Status:** Draft
-> **Last Updated:** 2025-12-16
+> **Last Updated:** 2025-12-22
 
 ---
 
@@ -25,13 +25,56 @@ An issuer is any entity that creates minting opportunities for the BTCNFT Protoc
 | Capability | Protocol Control | Issuer Control |
 |------------|------------------|----------------|
 | Withdrawal rates | Fixed by protocol | - |
-| Vesting period | Fixed (1093 days) | - |
+| Vesting period | Fixed (1129 days) | - |
 | Collateral matching | Protocol-managed | - |
 | Entry requirements | - | Open vs badge-gated |
 | Treasure design | - | Art, metadata, series |
 | Minting windows | - | Timing, campaigns |
 | Achievements | Protocol provides | Issuer can extend |
-| Gamification | - | Leaderboards, tiers |
+| Campaigns | - | Seasonal events, time-limited |
+
+---
+
+## Token Taxonomy
+
+The issuer layer uses three distinct token types with orthogonal concerns:
+
+| Token | Standard | Transferable | Visual Role | Tier Basis |
+|-------|----------|--------------|-------------|------------|
+| **Achievement NFT** | ERC-5192 | No (soulbound) | Tier 0 base blueprint | Merit (actions) |
+| **Treasure NFT** | ERC-721 | Yes | Materialized artwork | Wealth (collateral %) |
+| **Vault NFT** | ERC-998 | Yes | Container (holds Treasure) | N/A |
+
+> Visual implementation details: [Visual_Assets_Guide.md](./Visual_Assets_Guide.md) (SVG/on-chain) | [Pixel_Art_Guide.md](./Pixel_Art_Guide.md) (raster/off-chain)
+
+**Key Principle:** Merit (achievements) and wealth (percentile display) are orthogonal systems.
+
+### Visual Hierarchy
+
+```
+Achievement NFT (Tier 0)
+├─ Simplest visual form (base SVG)
+├─ Earned through actions (soulbound)
+└─ Defines visual vocabulary
+         │
+         ▼ informs base design
+
+Treasure NFT (Materialized)
+├─ Stored inside Vault
+├─ Tradeable (ERC-721)
+└─ Display tier = f(collateral percentile)
+         │
+         ▼ collateral percentile determines
+
+Display Tier (Wealth-Based)
+├─ Bronze (0-50th percentile)
+├─ Silver (50-75th)
+├─ Gold (75-90th)
+├─ Diamond (90-99th)
+└─ Whale (99th+)
+```
+
+> **Implementation:** Achievement badges (Section 2), Tier frames (Section 3), Metadata schemas (Section 5) in [Visual_Assets_Guide.md](./Visual_Assets_Guide.md)
 
 ---
 
@@ -42,18 +85,22 @@ An issuer is any entity that creates minting opportunities for the BTCNFT Protoc
 1. **[Integration Guide](./Integration_Guide.md)** - Complete issuer integration
    - Registration, minting modes, entry strategies
    - Revenue models, Treasure strategy
-   - Achievement integration, gamification options
    - Technical implementation patterns
 
-2. **[Holder Experience](./Holder_Experience.md)** - What your users experience
+2. **[Achievements Specification](./Achievements_Specification.md)** - Achievement system
+   - Achievement types, claiming mechanics
+   - Gamification, campaigns, leaderboards
+   - Extension points for custom achievements
+
+3. **[Holder Experience](./Holder_Experience.md)** - What your users experience
    - User journey, withdrawal mechanics
    - FAQ, common questions
 
-3. **[Competitive Positioning](./Competitive_Positioning.md)** - Market context
+4. **[Competitive Positioning](./Competitive_Positioning.md)** - Market context
    - Target markets, differentiators
    - Competitive analysis
 
-4. **[Vault Percentile Specification](./Vault_Percentile_Specification.md)** - Analytics specification
+5. **[Vault Percentile Specification](./Vault_Percentile_Specification.md)** - Analytics specification
    - Vault ranking by collateral
    - Filtering and display patterns
 
@@ -115,10 +162,23 @@ protocol.registerIssuer();
 
 ---
 
+## Glossary
+
+| Term | Definition |
+|------|------------|
+| **Tier 0** | Base visual form (Achievement NFT) without wealth-based embellishments |
+| **Display Tier** | Bronze/Silver/Gold/Diamond/Whale ranking based on collateral percentile |
+| **Merit** | Achievement system basis (actions, holding duration) |
+| **Wealth** | Display tier basis (collateral amount relative to protocol TVL) |
+| **Orthogonal** | Merit and wealth systems are independent; one does not affect the other |
+| **Soulbound** | Non-transferable token bound permanently to the earning wallet (ERC-5192) |
+
+---
+
 ## Related Documentation
 
 | Layer | Documents |
 |-------|-----------|
 | **Protocol** | [Technical Spec](../protocol/Technical_Specification.md), [Product Spec](../protocol/Product_Specification.md) |
-| **Issuer** | [Integration Guide](./Integration_Guide.md), [Holder Experience](./Holder_Experience.md), [Competitive Positioning](./Competitive_Positioning.md), [Vault Percentile Spec](./Vault_Percentile_Specification.md) |
+| **Issuer** | [Integration Guide](./Integration_Guide.md), [Achievements Specification](./Achievements_Specification.md), [Holder Experience](./Holder_Experience.md), [Visual Assets Guide](./Visual_Assets_Guide.md), [Pixel Art Guide](./Pixel_Art_Guide.md), [Vault Percentile Spec](./Vault_Percentile_Specification.md) |
 | **Examples** | [examples/README.md](./examples/README.md) |

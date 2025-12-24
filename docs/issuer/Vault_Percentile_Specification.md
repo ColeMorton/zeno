@@ -37,6 +37,22 @@ Display Vault NFT collections with percentile rankings based on BTC collateral a
 | **Health Monitoring** | Track vesting progress and separation rates |
 | **Dormancy Detection** | Identify at-risk vaults requiring holder engagement |
 
+### Relationship to Achievement System
+
+Display tiers are **orthogonal** to achievements:
+
+| System | Basis | Persistence | Applied To |
+|--------|-------|-------------|------------|
+| **Achievements** | Merit (actions, duration) | Permanent (soulbound) | Achievement NFT |
+| **Display Tiers** | Wealth (collateral %) | Dynamic (recalculated) | Treasure NFT visuals |
+
+A holder can earn DIAMOND_HANDS achievement (730 days held) while their Treasure displays as "Bronze" tier (low collateral percentile). These are independent systems that serve different purposes:
+
+- **Achievements** recognize commitment and actions (what you've done)
+- **Display Tiers** reflect relative position (how you compare to others)
+
+See [Achievements Specification](./Achievements_Specification.md) for the merit-based achievement system.
+
 ---
 
 ## 2. Data Model
@@ -61,7 +77,7 @@ Display Vault NFT collections with percentile rankings based on BTC collateral a
 
 | Field | Derivation | Description |
 |-------|------------|-------------|
-| `vestingEndsAt` | `mintTimestamp + 1093 days` | When vesting completes |
+| `vestingEndsAt` | `mintTimestamp + 1129 days` | When vesting completes |
 | `isVested` | `block.timestamp >= vestingEndsAt` | Vesting complete |
 | `isSeparated` | `vestedBTCAmount > 0` | Collateral separated to vestedBTC |
 | `dormancyState` | See [Section 4.3](#43-dormancy-status) | Active, Poke Pending, Claimable |
@@ -83,14 +99,17 @@ Where:
 
 ### Display Tiers
 
-| Tier | Percentile Range | Badge |
-|------|------------------|-------|
-| Top 1% | ≥ 99th percentile | Whale |
-| Top 5% | ≥ 95th percentile | Diamond |
-| Top 10% | ≥ 90th percentile | Gold |
-| Top 25% | ≥ 75th percentile | Silver |
-| Top 50% | ≥ 50th percentile | Bronze |
-| Bottom 50% | < 50th percentile | - |
+| Tier | Percentile | Frame Color | Visual Enhancement |
+|------|------------|-------------|-------------------|
+| **Whale** | 99th+ | `#e0e0ff` | Unique frame + leaderboard feature |
+| **Diamond** | 90-99th | `#b9f2ff` | Diamond frame + effects |
+| **Gold** | 75-90th | `#ffd700` | Gold frame |
+| **Silver** | 50-75th | `#c0c0c0` | Silver frame |
+| **Bronze** | 0-50th | `#cd7f32` | Standard frame |
+
+> **Note:** Display tiers are **VISUAL ONLY** - they provide no rate/reward advantages. Tiers are applied to Treasure NFT artwork based on the vault's collateral percentile.
+
+> Frame SVG templates: [Visual_Assets_Guide.md](./Visual_Assets_Guide.md) Section 3.3
 
 ### Ranking Rules
 
@@ -119,8 +138,8 @@ Display: "Top 5%" (≥ 95th percentile tier)
 
 | Value | Condition | Description |
 |-------|-----------|-------------|
-| `vesting` | `block.timestamp < mintTimestamp + 1093 days` | Still in vesting period |
-| `vested` | `block.timestamp >= mintTimestamp + 1093 days` | Vesting complete |
+| `vesting` | `block.timestamp < mintTimestamp + 1129 days` | Still in vesting period |
+| `vested` | `block.timestamp >= mintTimestamp + 1129 days` | Vesting complete |
 | `all` | - | No filter applied |
 
 ### 4.2 Separation Status
@@ -141,9 +160,9 @@ Display: "Top 5%" (≥ 95th percentile tier)
 | `all` | - | No filter applied |
 
 **Dormant-Eligible Criteria:**
-- Vault is vested (`block.timestamp >= mintTimestamp + 1093 days`)
+- Vault is vested (`block.timestamp >= mintTimestamp + 1129 days`)
 - Collateral is separated (`vestedBTCAmount > 0`)
-- Inactive for threshold period (`block.timestamp >= lastActivity + 1093 days`)
+- Inactive for threshold period (`block.timestamp >= lastActivity + 1129 days`)
 
 ### 4.4 Scope
 
@@ -152,15 +171,6 @@ Display: "Top 5%" (≥ 95th percentile tier)
 | `all` | All protocol vaults (default) |
 | `issuer:<address>` | Vaults minted through windows created by issuer |
 | `treasure:<contract>` | Vaults containing Treasures from specific contract |
-
-### 4.5 Withdrawal Tier
-
-| Value | Annual Rate | Monthly Rate |
-|-------|-------------|--------------|
-| `conservative` | 10.5% | 0.875% |
-| `balanced` | 14.6% | ~1.22% |
-| `aggressive` | 20.8% | ~1.73% |
-| `all` | - | No filter applied |
 
 ---
 
@@ -174,7 +184,6 @@ Display: "Top 5%" (≥ 95th percentile tier)
 | Token ID | uint256 | Yes | Vault NFT token ID |
 | Collateral | string | Yes | BTC amount (formatted with 8 decimals) |
 | Percentile | string | - | Tier badge (e.g., "Top 5%") |
-| Tier | string | Yes | Withdrawal tier name |
 | Status | string | Yes | Vesting + Separation combined status |
 | Owner | address | Yes | Wallet address (truncated) |
 
@@ -230,6 +239,8 @@ Display: "0.12345678 BTC"
 4. Sort by collateralAmount DESC
 5. Calculate rank and percentile
 ```
+
+> **Metadata Service:** These query patterns feed the Custom API metadata service for dynamic tier frame composition. See [Integration_Guide.md](./Integration_Guide.md) Section 13 for implementation requirements.
 
 ### Scope Filtering
 

@@ -51,7 +51,7 @@ BTCNFT Protocol provides perpetual withdrawals through percentage-based collater
 | Phase | Action |
 |-------|--------|
 | **Mint** | Vault your Treasure NFT + BTC → Receive Vault NFT |
-| **Vesting** | 1093-day lock (no withdrawals) |
+| **Vesting** | 1129-day lock (no withdrawals) |
 | **Post-Vesting** | Withdraw 0.875% of remaining BTC per 30-day period (10.5% annually) |
 | **Perpetual** | Percentage-based withdrawal ensures collateral never depletes |
 
@@ -194,7 +194,7 @@ For technical implementation details, see [Withdrawal Delegation Specification](
 | Withdrawal rate | -10.5% annually (0.875%/mo) |
 | Historical BTC appreciation | +63.11% annually (mean, 2017-2025) |
 | Net expected return | ~+52% annually |
-| Historical stability | **100%** yearly, **100%** 1093-day (2017-2025 data) |
+| Historical stability | **100%** yearly, **100%** 1129-day (2017-2025 data) |
 
 > **Note:** vestedBTC is BTC-denominated (not pegged to USD). "Stability" refers to historical patterns, not a forward-looking guarantee.
 
@@ -230,7 +230,7 @@ The dormant claim mechanism allows vestedBTC holders to recover abandoned positi
 |-----------|-------------|
 | vestedBTC separated | vestedBTC must exist for the Vault |
 | vestedBTC not at owner | Owner no longer holds sufficient vestedBTC |
-| Extended inactivity | No activity for 1093+ days |
+| Extended inactivity | No activity for 1129+ days |
 
 **Recovery Flow:**
 ```
@@ -271,7 +271,7 @@ The mechanism ensures fair treatment for all parties:
 **For Original Owner:**
 - Treasure burned (commitment mechanism; disincentivizes dormancy)
 - Already received value when selling vestedBTC
-- Had 1093+ days of inactivity + 30-day warning to respond
+- Had 1129+ days of inactivity + 30-day warning to respond
 
 **For Claimer:**
 - Burns vestedBTC equal to original minted amount
@@ -410,9 +410,9 @@ Total Stack: 10.5% + 7-17% = 17.5-27.5% APY
 | Treasure NFT | Required at mint | Provides identity/art to backing |
 | Treasure on early redemption | Burned with Vault NFT | Commitment mechanism; disincentivizes early exit |
 | BTC collateral | WBTC or cbBTC | Widely available wrapped BTC |
-| Withdrawal rate | 10.5% annually (0.875%/mo) | 100% historical yearly stability (2017-2025) |
-| Vesting period | 1093 days | Full BTC market cycle coverage |
-| Dormancy threshold | 1093 days | Matches vesting period; full inactivity cycle |
+| Withdrawal rate | 10.5% annually (0.875%/mo) | 100% historical positive windows |
+| Vesting period | 1129 days | Full BTC market cycle coverage |
+| Dormancy threshold | 1129 days | Matches vesting period; full inactivity cycle |
 | Grace period | 30 days | Fair warning; one withdrawal period |
 | Treasure on claim | Burned | Commitment mechanism; disincentivizes dormancy |
 | Collateral on claim | Transferred to claimer | Claimer receives BTC directly |

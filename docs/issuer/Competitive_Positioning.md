@@ -34,7 +34,7 @@
 | Withdrawal rate | -10.5% annually (0.875%/mo) |
 | Historical BTC appreciation | +63.11% annually (mean, 2017-2025) |
 | Net expected return | ~+52% annually |
-| Historical stability | **100%** yearly, **100%** 1093-day (2017-2025 data) |
+| Historical stability | **100%** yearly, **100%** 1129-day (2017-2025 data) |
 
 > **Note:** vestedBTC is BTC-denominated (not pegged to USD). "Stability" refers to historical patterns, not a forward-looking guarantee.
 

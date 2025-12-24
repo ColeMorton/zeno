@@ -64,8 +64,8 @@ Based on protocol vesting, seasons align with major milestones:
 |--------|------|-------|
 | 1 (Genesis) | 0-365 | Early adopter recognition |
 | 2 (Conviction) | 366-730 | Retention and community building |
-| 3 (Maturity) | 731-1093 | First maturity events |
-| 4+ (Perpetual) | 1094+ | Sustainable growth |
+| 3 (Maturity) | 731-1129 | First maturity events |
+| 4+ (Perpetual) | 1130+ | Sustainable growth |
 
 ---
 
@@ -83,7 +83,7 @@ Based on protocol vesting, seasons align with major milestones:
 
 | Milestone | Description | Recognition |
 |-----------|-------------|-------------|
-| First Maturity | First Vault completes 1093 days | "Witness" badge |
+| First Maturity | First Vault completes 1129 days | "Witness" badge |
 | First Withdrawal | First post-vesting withdrawal | Community announcement |
 | First Match Claim | First collateral matching claim | Documentation |
 

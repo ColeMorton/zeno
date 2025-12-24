@@ -1,0 +1,17 @@
+{
+  "full": {
+    "observations": 4115,
+    "optimal_99.5%": 1093,
+    "optimal_100%": 1107
+  },
+  "early": {
+    "observations": 1932,
+    "optimal_99.5%": 778,
+    "optimal_100%": 792
+  },
+  "recent": {
+    "observations": 2548,
+    "optimal_99.5%": 1100,
+    "optimal_100%": 1107
+  }
+}

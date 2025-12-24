@@ -1,0 +1,43 @@
+{
+  "data_range": {
+    "start": "2014-09-17 00:00:00",
+    "end": "2025-12-22 00:00:00",
+    "observations": 4115
+  },
+  "monthly_30_day": {
+    "window_days": 30,
+    "sample_count": 4085,
+    "mean_return": 0.06385297754491166,
+    "min_return": -0.6031682535784076,
+    "max_return": 1.9269237009183602,
+    "std_dev": 0.23177727200490997,
+    "positive_count": 2317,
+    "positive_pct": 56.719706242350064,
+    "exceeds_breakeven_count": 2241,
+    "exceeds_breakeven_pct": 54.85924112607099
+  },
+  "yearly_365_day": {
+    "window_days": 365,
+    "sample_count": 3750,
+    "mean_return": 1.553702599259063,
+    "min_return": -0.833165496622196,
+    "max_return": 23.840396158108653,
+    "std_dev": 2.72601033690406,
+    "positive_count": 2903,
+    "positive_pct": 77.41333333333333,
+    "exceeds_breakeven_count": 2823,
+    "exceeds_breakeven_pct": 75.28
+  },
+  "vesting_1093_day": {
+    "window_days": 1093,
+    "sample_count": 3022,
+    "mean_return": 8.010315607137736,
+    "min_return": -0.1001182873908384,
+    "max_return": 74.26992832002445,
+    "std_dev": 10.569481782970977,
+    "positive_count": 3013,
+    "positive_pct": 99.70218398411647,
+    "exceeds_breakeven_count": 2796,
+    "exceeds_breakeven_pct": 92.52150893448048
+  }
+}

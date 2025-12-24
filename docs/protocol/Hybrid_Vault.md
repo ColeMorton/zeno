@@ -38,7 +38,7 @@ HybridNFTProtocol (Extension)
 ├─ Collateral: 60% vBTC + 40% LP
 ├─ Vested Token: vestedHybrid (vHybrid)
 ├─ Withdrawal: Priority (vBTC first, then LP)
-├─ Launch: Post-vesting (Day 1093+)
+├─ Launch: Post-vesting (Day 1129+)
 └─ Role: Balanced yield, sustainable LP commitment
 ```
 
@@ -51,7 +51,7 @@ HybridNFTProtocol (Extension)
 | **IL exposure** | 0% | 40% |
 | **Bootstrap** | Self-sufficient | Requires BTC-Vault |
 | **Ground truth** | BTC | vBTC (60%) |
-| **Launch timing** | Genesis (Day 0) | Post-vesting (Day 1093+) |
+| **Launch timing** | Genesis (Day 0) | Post-vesting (Day 1129+) |
 
 ---
 
@@ -67,11 +67,11 @@ Day 0:        BTC-Vaults launch (genesis)
               Users deposit BTC → Vault NFT
               NO vBTC exists yet
 
-Day 1093:     First BTC-Vaults vest
+Day 1129:     First BTC-Vaults vest
               mintVestedBTC() becomes callable
               vBTC enters circulation
 
-Day 1093+:    vBTC/WBTC LP pools can form
+Day 1129+:    vBTC/WBTC LP pools can form
               Hybrid-Vaults become possible
               Self-coordination by issuers
 ```
@@ -188,7 +188,7 @@ vBTC is **deflationary**. Understanding supply dynamics is critical for ratio se
 
 | Event | Mechanism | When |
 |-------|-----------|------|
-| `mintVestedBTC()` | Vault holder separation | After 1093-day vesting |
+| `mintVestedBTC()` | Vault holder separation | After 1129-day vesting |
 
 ### Supply Sinks (Destruction)
 
@@ -250,4 +250,4 @@ Year 10+:
 | User Goal | Vault Type | Available |
 |-----------|------------|-----------|
 | Simple BTC exposure | BTC-Vault | Genesis (Day 0) |
-| Balanced yield + LP | Hybrid-Vault | Post-vesting (Day 1093+) |
+| Balanced yield + LP | Hybrid-Vault | Post-vesting (Day 1129+) |

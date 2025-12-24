@@ -26,7 +26,7 @@
 
 ## 1. Data Source
 
-**1093-Day Moving Average Analysis**
+**1129-Day Moving Average Analysis**
 
 | Metric | Value |
 |--------|-------|
@@ -34,7 +34,7 @@
 | Total data points | 2,930 daily observations |
 | Monthly samples | 96 |
 | Yearly samples (rolling) | 2,565 |
-| 1093-Day samples (rolling) | 1,837 |
+| 1129-Day samples (rolling) | 1,837 |
 
 ---
 
@@ -59,7 +59,7 @@ Where:
 |--------|---------|------|-----|-----|
 | Monthly | 96 | 4.61% | 0.18% | 35.54% |
 | Yearly | 2,565 | 63.11% | 14.75% | 346.81% |
-| 1093-Day | 1,837 | 313.07% | 77.78% | 902.96% |
+| 1129-Day | 1,837 | 313.07% | 77.78% | 902.96% |
 
 ---
 
@@ -69,9 +69,9 @@ Where:
 |--------|------|---------|----------------|----------------|
 | Monthly | 4.61% | 5.08% | -0.47% | -5.56% |
 | Yearly | 63.11% | 57.25% | 5.86% | -51.39% |
-| 1093-Day | 313.07% | 163.39% | 149.68% | -13.72% |
+| 1129-Day | 313.07% | 163.39% | 149.68% | -13.72% |
 
-**Key Finding:** The 1093-day MA smoothing eliminates all tail events below SD thresholds for Monthly and Yearly windows.
+**Key Finding:** The 1129-day MA smoothing eliminates all tail events below SD thresholds for Monthly and Yearly windows.
 
 ---
 
@@ -88,9 +88,9 @@ Where:
 | Below breakeven | <+10.5% | -10.5% withdrawal | **Net negative** |
 
 **Breakeven Analysis:**
-- Conservative tier requires **+10.5%** annual BTC appreciation to maintain USD value
-- Balanced tier requires **+14.6%** annual BTC appreciation
-- Aggressive tier requires **+20.8%** annual BTC appreciation
+- The fixed withdrawal rate requires **+10.5%** annual BTC appreciation to maintain USD value
+
+> For tier research history, see [Withdrawal Tier Research](../research/Withdrawal_Tier.md)
 
 ### Historical Context
 
@@ -104,7 +104,7 @@ Where:
 | 2023 | +155% | Yes |
 | 2024 | +121% | Yes |
 
-**Note:** Individual years can show negative returns. The 1093-day vesting period is designed to smooth volatility across market cycles.
+**Note:** Individual years can show negative returns. The 1129-day vesting period is designed to smooth volatility across market cycles.
 
 ---
 

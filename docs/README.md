@@ -67,7 +67,7 @@ See [GLOSSARY.md](./GLOSSARY.md) for standardized terminology.
 - **Vault NFT**: ERC-998 composable NFT holding Treasure + BTC collateral
 - **Treasure NFT**: ERC-721 NFT wrapped within a Vault
 - **vestedBTC (vBTC)**: ERC-20 token representing fungible collateral claims
-- **Vesting Period**: 1093 days before withdrawals are enabled
+- **Vesting Period**: 1129 days before withdrawals are enabled
 
 ---
 

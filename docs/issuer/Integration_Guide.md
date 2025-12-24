@@ -4,6 +4,7 @@
 > **Status:** Draft
 > **Last Updated:** 2025-12-21
 > **Related Documents:**
+> - [Achievements Specification](./Achievements_Specification.md)
 > - [Technical Specification](../protocol/Technical_Specification.md)
 > - [Product Specification](../protocol/Product_Specification.md)
 > - [Holder Experience](./Holder_Experience.md)
@@ -16,18 +17,16 @@
 2. [Issuer Registration](#2-issuer-registration)
 3. [Entry Strategies](#3-entry-strategies)
 4. [Minting Modes](#4-minting-modes)
-5. [Badge-Gated Minting](#5-badge-gated-minting)
-6. [Redemption Controller](#6-redemption-controller)
-7. [Treasure Strategy](#7-treasure-strategy)
-8. [Achievement Integration](#8-achievement-integration)
-9. [Campaign System](#9-campaign-system)
-10. [Gamification](#10-gamification)
-11. [Governance Options](#11-governance-options)
-12. [Revenue Models](#12-revenue-models)
-13. [Capital Flow Architecture](#13-capital-flow-architecture)
-14. [Bonding Integration](#14-bonding-integration)
-15. [Liquidity Bootstrapping](#15-liquidity-bootstrapping)
-16. [Analytics](#16-analytics)
+5. [Achievement System](#5-achievement-system)
+6. [Treasure Strategy](#6-treasure-strategy)
+7. [Campaigns & Gamification](#7-campaigns--gamification)
+8. [Governance Options](#8-governance-options)
+9. [Revenue Models](#9-revenue-models)
+10. [Capital Flow Architecture](#10-capital-flow-architecture)
+11. [Bonding Integration](#11-bonding-integration)
+12. [Liquidity Bootstrapping](#12-liquidity-bootstrapping)
+13. [Display Tier Integration](#13-display-tier-integration)
+14. [Analytics](#14-analytics)
 
 ---
 
@@ -86,9 +85,9 @@ An issuer is any entity that creates minting opportunities for BTCNFT Protocol. 
 | Gamification | Leaderboards, tiers | - |
 | Governance | Multisig, DAO, centralized | - |
 | Withdrawal rate | - | 10.5% annually (0.875% monthly) |
-| Vesting period | - | 1093 days |
+| Vesting period | - | 1129 days |
 | Collateral matching | - | Pro-rata distribution |
-| Dormancy mechanism | - | 1093-day inactivity threshold |
+| Dormancy mechanism | - | 1129-day inactivity threshold |
 | vestedBTC mechanics | - | ERC-20, 1:1 with collateral |
 
 **Key Insight:** No admin, no DAO, no governance mechanism can alter protocol parameters. The functions to modify them do not exist in the contract.
@@ -198,7 +197,7 @@ Issuer creates auction → Price starts high → Decays linearly → User purcha
 ```
 
 **Flow:**
-1. Issuer calls `createDutchAuction(maxSupply, collateralToken, tier, config)`
+1. Issuer calls `createDutchAuction(maxSupply, collateralToken, config)`
 2. Price decays from `startPrice` to `floorPrice` based on `decayRate`
 3. Users call `purchaseDutch(auctionId)` at any time to purchase at current price
 4. Payment becomes collateral for the minted Vault
@@ -212,7 +211,7 @@ Issuer creates auction → Users bid on slots → Highest bids win → Settlemen
 ```
 
 **Flow:**
-1. Issuer calls `createEnglishAuction(maxSupply, collateralToken, tier, config)`
+1. Issuer calls `createEnglishAuction(maxSupply, collateralToken, config)`
 2. Users call `placeBid(auctionId, slot, amount)` to bid on specific slots
 3. Higher bids refund previous bidders automatically
 4. After auction ends, anyone calls `settleSlot(auctionId, slot)` to mint Vault for winner
@@ -229,163 +228,48 @@ Issuer creates auction → Users bid on slots → Highest bids win → Settlemen
 
 ---
 
-## 5. Achievement-Based Recognition
+## 5. Achievement System
 
-### Achievement System Overview
+The protocol includes a comprehensive achievement system for recognizing holder milestones.
 
-The protocol is **open** - anyone can mint Vaults directly. Achievements are **post-hoc recognition** for on-chain actions, not access gates.
+### Overview
 
 | Property | Value |
 |----------|-------|
 | Standard | ERC-5192 (Soulbound) |
 | Transferable | No |
 | Purpose | Recognize and attest wallet actions |
-| Claiming | User-initiated, contract verifies state |
+| Principle | Merit-based, cosmetic-only |
 
-### Achievement Types
+### Integration Points
 
-| Achievement | Criteria | Claiming Function |
-|-------------|----------|-------------------|
-| MINTER | Owns vault with issuer's Treasure | `claimMinterAchievement(vaultId)` |
-| MATURED | MINTER + vault vested + match claimed | `claimMaturedAchievement(vaultId)` |
-| HODLER_SUPREME | MINTER + MATURED (composite) | `mintHodlerSupremeVault(...)` |
-| FIRST_MONTH | Hold vault 30+ days | `claimDurationAchievement(vaultId, type)` |
-| QUARTER_STACK | Hold vault 91+ days | `claimDurationAchievement(vaultId, type)` |
-| HALF_YEAR | Hold vault 182+ days | `claimDurationAchievement(vaultId, type)` |
-| ANNUAL | Hold vault 365+ days | `claimDurationAchievement(vaultId, type)` |
-| DIAMOND_HANDS | Hold vault 730+ days | `claimDurationAchievement(vaultId, type)` |
+Issuers interact with achievements through:
+- **AchievementMinter**: Claim logic and verification
+- **AchievementNFT**: Soulbound token storage
 
-### Achievement Flow
+For complete achievement types, claiming mechanics, dependency graphs, and gamification, see [Achievements Specification](./Achievements_Specification.md).
 
-```
-1. User mints Vault on PROTOCOL with issuer's TreasureNFT
-   └─ No achievement yet (just protocol action)
+### Issuer Customization
 
-2. User calls ISSUER claimMinterAchievement(vaultId)
-   ├─ Contract verifies: vault uses issuer's Treasure
-   ├─ Contract verifies: caller owns the vault
-   └─ Mints "MINTER" soulbound to wallet
-
-3. User holds vault, claims duration achievements as milestones pass
-   └─ claimDurationAchievement(vaultId, FIRST_MONTH) after 30 days
-   └─ claimDurationAchievement(vaultId, QUARTER_STACK) after 91 days
-   └─ ... and so on
-
-4. After vesting (1093 days), user claims MATURED
-   ├─ Contract verifies: wallet has MINTER
-   ├─ Contract verifies: vault.isVested() && vault.matchClaimed
-   └─ Mints "MATURED" soulbound to wallet
-
-5. User calls mintHodlerSupremeVault() for composite reward
-   ├─ Contract verifies: has MINTER AND MATURED
-   ├─ Mints "HODLER_SUPREME" soulbound + Treasure + Vault
-   └─ All atomic in single transaction
-```
-
-### Vault Stacking Flywheel
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    VAULT STACKING FLYWHEEL                      │
-│                                                                 │
-│  ┌──────────┐   ┌─────────────┐   ┌─────────────┐               │
-│  │ Mint     │──▶│ Vault #1    │──▶│ Claim       │               │
-│  │ Vault    │   │ + Treasure  │   │ Achievements│               │
-│  └──────────┘   └─────────────┘   └──────┬──────┘               │
-│       ▲                                  │                      │
-│       │                                  ▼                      │
-│       │         ┌─────────────────────────────────┐             │
-│       └─────────│ mintHodlerSupremeVault()        │             │
-│                 │ → Requires MINTER + MATURED     │             │
-│                 │ → Mints new Vault atomically    │             │
-│                 └─────────────────────────────────┘             │
-│                                                                 │
-│  Growth Mechanics:                                              │
-│  ├─ Each Vault generates achievements over time                │
-│  ├─ Achievements unlock composite minting opportunities        │
-│  └─ Compounding: more time = more achievements = more Vaults   │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 6. Achievement Minter
-
-### Purpose
-
-The AchievementMinter enables achievement claiming and composite vault minting:
-
-```
-Verify on-chain state → Mint soulbound achievement
-MINTER + MATURED achievements → mintHodlerSupremeVault() → New Vault
-```
-
-### Minter Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      AchievementMinter                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Immutable State:                                               │
-│  ├─ achievements: IAchievementNFT (soulbound achievements)     │
-│  ├─ treasureNFT: ITreasureNFT (issuer's treasure)              │
-│  └─ protocol: IVaultState (BTCNFT Protocol)                    │
-│                                                                 │
-│  Achievement Claiming:                                          │
-│  ├─ claimMinterAchievement(vaultId)                            │
-│  │   └─ Verify: caller owns vault + vault uses issuer treasure │
-│  ├─ claimMaturedAchievement(vaultId)                           │
-│  │   └─ Verify: has MINTER + vault vested + match claimed      │
-│  ├─ claimDurationAchievement(vaultId, achievementType)         │
-│  │   └─ Verify: vault age >= duration threshold                │
-│  └─ mintHodlerSupremeVault(collateralToken, amount, tier)      │
-│       └─ Verify: has MINTER + MATURED → mint vault atomically  │
-│                                                                 │
-│  Duration Thresholds:                                           │
-│  ├─ FIRST_MONTH: 30 days                                       │
-│  ├─ QUARTER_STACK: 91 days                                     │
-│  ├─ HALF_YEAR: 182 days                                        │
-│  ├─ ANNUAL: 365 days                                           │
-│  └─ DIAMOND_HANDS: 730 days                                    │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Minter Interface
+Issuers can extend achievements using the bytes32-based system:
+- Deploy custom AchievementMinter with additional types
+- Define issuer-specific verification logic
+- Maintain compatibility with protocol achievements
 
 ```solidity
-interface IAchievementMinter {
-    // Achievement claiming
-    function claimMinterAchievement(uint256 vaultId) external;
-    function claimMaturedAchievement(uint256 vaultId) external;
-    function claimDurationAchievement(uint256 vaultId, bytes32 achievementType) external;
+// Example: Define custom achievement
+bytes32 constant CUSTOM_ACHIEVEMENT = keccak256("CUSTOM_ACHIEVEMENT");
 
-    // Composite vault minting
-    function mintHodlerSupremeVault(
-        address collateralToken,
-        uint256 collateralAmount,
-        uint8 tier
-    ) external returns (uint256 vaultId);
-
-    // View functions
-    function canClaimMinterAchievement(address wallet, uint256 vaultId)
-        external view returns (bool canClaim, string memory reason);
-    function canClaimMaturedAchievement(address wallet, uint256 vaultId)
-        external view returns (bool canClaim, string memory reason);
-    function canClaimDurationAchievement(address wallet, uint256 vaultId, bytes32 achievementType)
-        external view returns (bool canClaim, string memory reason);
-    function canMintHodlerSupremeVault(address wallet)
-        external view returns (bool canMint, string memory reason);
-
-    // Duration helpers
-    function isDurationAchievement(bytes32 achievementType) external view returns (bool);
-    function getDurationThreshold(bytes32 achievementType) external view returns (uint256);
+// Add verification logic in custom minter
+function claimCustomAchievement(uint256 vaultId) external {
+    require(customConditionMet(vaultId), "Condition not met");
+    achievements.mint(msg.sender, CUSTOM_ACHIEVEMENT);
 }
 ```
 
 ---
 
-## 7. Treasure Strategy
+## 6. Treasure Strategy
 
 ### Collection Types
 
@@ -420,143 +304,32 @@ Early redemptions permanently destroy Treasures:
 
 ---
 
-## 8. Achievement Integration
+## 7. Campaigns & Gamification
 
-### Implemented Achievements
+### Campaign Integration
 
-The AchievementMinter contract implements these achievement types:
+Issuers can create time-limited campaigns with achievement rewards:
 
-**Core Achievements:**
+| Campaign Type | Description |
+|---------------|-------------|
+| Milestone | TVL targets, first maturity |
+| Seasonal | Referral, retention, compounding |
+| Partner | Sponsored DeFi integration rewards |
 
-| Achievement | Requirement | Function |
-|-------------|-------------|----------|
-| MINTER | Own vault with issuer's Treasure | `claimMinterAchievement(vaultId)` |
-| MATURED | MINTER + vault vested + match claimed | `claimMaturedAchievement(vaultId)` |
-| HODLER_SUPREME | MINTER + MATURED | `mintHodlerSupremeVault(...)` |
+### Leaderboard Configuration
 
-**Duration Achievements:**
+| Leaderboard | Type | Purpose |
+|-------------|------|---------|
+| Merit-based | Longest Hold, Achievement Hunter | Engagement recognition |
+| Vanity | Whale Watch | Collateral display (separate) |
 
-| Achievement | Duration | Function |
-|-------------|----------|----------|
-| FIRST_MONTH | 30 days | `claimDurationAchievement(vaultId, FIRST_MONTH)` |
-| QUARTER_STACK | 91 days | `claimDurationAchievement(vaultId, QUARTER_STACK)` |
-| HALF_YEAR | 182 days | `claimDurationAchievement(vaultId, HALF_YEAR)` |
-| ANNUAL | 365 days | `claimDurationAchievement(vaultId, ANNUAL)` |
-| DIAMOND_HANDS | 730 days | `claimDurationAchievement(vaultId, DIAMOND_HANDS)` |
+**Critical:** Merit and vanity leaderboards must be SEPARATE. Vanity tiers are VISUAL ONLY with no rate/reward advantage.
 
-### Future Achievement Types (Not Yet Implemented)
-
-The following are conceptual achievement types that could be added:
-
-**Behavior Achievements (Future):**
-
-| Achievement | Requirement |
-|-------------|-------------|
-| First Withdrawal | Execute first post-vesting withdrawal |
-| Withdrawal Streak | 3/6/12 consecutive monthly withdrawals |
-| Compounder | Re-mint new Vault using withdrawal BTC |
-| LP Provider | Provide vestedBTC liquidity |
-| Match Claimer | Claim collateral matching at vesting |
-
-**Participation Achievements (Future):**
-
-| Achievement | Requirement |
-|-------------|-------------|
-| Genesis | Mint in first 30 days |
-| Pioneer 100 | Among first 100 minters |
-| Season Survivor | Hold through a complete season |
-
-> **Note:** The bytes32-based achievement system supports adding new achievement types without contract redeployment. Issuers can extend with custom achievements.
-
-### Soulbound Properties
-
-All achievements are ERC-5192 soulbound (non-transferable):
-- Permanently attest wallet actions
-- Cannot be sold or transferred
-- One per wallet per achievement type
-- Verified against on-chain protocol state
-
-### No-Pay-to-Win Principle
-
-Achievements are merit-based:
-- No better withdrawal rates
-- No increased collateral matching
-- No priority access
-- All achievements verified against on-chain state
+For campaign structure, season alignment, and complete gamification mechanics, see [Achievements Specification](./Achievements_Specification.md#5-gamification).
 
 ---
 
-## 9. Campaign System
-
-### Milestone Campaigns
-
-| Campaign | Trigger | Reward |
-|----------|---------|--------|
-| TVL Milestone | Total collateral reaches target | Commemorative badge |
-| First Maturity | First Vault completes vesting | "Witness" badge |
-| Pool Milestone | Match pool reaches target | "Witness" badge |
-
-### Seasonal Competitions
-
-| Campaign | Metric | Reward |
-|----------|--------|--------|
-| Referral Race | Referral code usage | "Top Referrer" badge |
-| Retention Royale | Lowest % referrals that redeem early | "Quality Connector" badge |
-| Compound Championship | % withdrawals re-minted | "Master Compounder" badge |
-
-### Partner Campaigns
-
-```
-Example: "DeFi Integration Launch"
-├─ Sponsor: Partner Protocol
-├─ Action: Use vestedBTC in partner protocol
-├─ Reward: Token airdrop + "DeFi Pioneer" badge
-└─ Duration: Time-limited
-
-Structure: Partners sponsor rewards, issuer provides audience
-```
-
----
-
-## 10. Gamification
-
-### Season Structure
-
-| Season | Days | Focus |
-|--------|------|-------|
-| 1 (Genesis) | 0-365 | Early adopter recognition |
-| 2 (Conviction) | 366-730 | Retention and community building |
-| 3 (Maturity) | 731-1093 | First maturity events |
-| 4+ (Perpetual) | 1094+ | Sustainable growth |
-
-### Leaderboards
-
-| Leaderboard | Metric | Type |
-|-------------|--------|------|
-| Longest Hold | Days held | Merit |
-| Achievement Hunter | Total achievements earned | Merit |
-| Whale Watch | Total BTC collateral | Vanity (separate) |
-
-**Critical:** Merit and vanity leaderboards must be SEPARATE.
-
-### Vanity Tiers (Dynamic Percentiles)
-
-| Tier | Percentile | Cosmetic |
-|------|------------|----------|
-| Bronze | 0-50th | Standard frame |
-| Silver | 50-75th | Silver frame |
-| Gold | 75-90th | Gold frame + title |
-| Platinum | 90-99th | Platinum frame + animated |
-| Diamond | 99-99.9th | Diamond frame + effects |
-| Whale | 99.9th+ | Unique frame + leaderboard |
-
-**Properties:**
-- Tiers are relative to all active holders
-- **VISUAL ONLY** - no rate/reward advantage
-
----
-
-## 11. Governance Options
+## 8. Governance Options
 
 ### Multisig Council
 
@@ -586,7 +359,7 @@ Structure: Partners sponsor rewards, issuer provides audience
 
 ---
 
-## 12. Revenue Models
+## 9. Revenue Models
 
 ### Collateral Integrity Principle
 
@@ -618,7 +391,7 @@ Issuers receive no revenue from primary mints. This ensures:
 
 ---
 
-## 13. Capital Flow Architecture
+## 10. Capital Flow Architecture
 
 ### Protocol Capital Flow
 
@@ -672,7 +445,7 @@ No issuer extraction from deposits.
 
 ---
 
-## 14. Bonding Integration
+## 11. Bonding Integration
 
 > **Note**: Bonding is NOT part of the core protocol. This is an optional issuer-layer extension.
 
@@ -720,7 +493,7 @@ Step 4: User Receives Discounted Position
 
 ---
 
-## 15. Liquidity Bootstrapping
+## 12. Liquidity Bootstrapping
 
 ### The Cold Start Problem
 
@@ -760,7 +533,99 @@ Issuers must bootstrap Issuer-Owned Liquidity (IOL) to break this cycle.
 
 ---
 
-## 16. Analytics
+## 13. Display Tier Integration
+
+### Overview
+
+When rendering Treasure NFTs, issuers apply visual enhancements based on the vault's collateral percentile rank. This is distinct from the achievement system.
+
+| System | Basis | Purpose |
+|--------|-------|---------|
+| **Achievements** | Merit (actions) | Recognize holder actions (soulbound) |
+| **Display Tiers** | Wealth (collateral %) | Visual ranking of Treasure NFTs |
+
+### Tier Calculation
+
+Display tiers are calculated **OFF-CHAIN** based on collateral percentile:
+
+```
+1. Query vault collateral: vaultNFT.collateralAmount(tokenId)
+2. Calculate percentile against protocol/issuer TVL
+3. Apply tier-appropriate visual enhancements
+```
+
+### Tier Mapping
+
+| Tier | Percentile | Frame Color | Visual Enhancement |
+|------|------------|-------------|-------------------|
+| **Whale** | 99th+ | `#e0e0ff` | Unique frame + leaderboard feature |
+| **Diamond** | 90-99th | `#b9f2ff` | Diamond frame + effects |
+| **Gold** | 75-90th | `#ffd700` | Gold frame |
+| **Silver** | 50-75th | `#c0c0c0` | Silver frame |
+| **Bronze** | 0-50th | `#cd7f32` | Standard frame |
+
+> Frame SVG templates and color specifications: [Visual_Assets_Guide.md](./Visual_Assets_Guide.md) Section 3
+
+### Implementation Notes
+
+- **Dynamic**: Percentiles recalculate as protocol TVL changes
+- **Scope-relative**: Can calculate against all vaults or per-issuer subset
+- **Visual-only**: No protocol rate/reward advantages
+- **Off-chain**: Protocol does not store tier assignments
+
+### Rendering Flow
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  1. Fetch vault collateral amount                          │
+│     └─ vaultNFT.collateralAmount(tokenId)                 │
+│                                                            │
+│  2. Query total collateral distribution                    │
+│     └─ Index VaultMinted events or query all vaults       │
+│                                                            │
+│  3. Calculate percentile rank                              │
+│     └─ percentile = ((total - rank) / total) × 100        │
+│                                                            │
+│  4. Map percentile to tier                                 │
+│     └─ 99+ = Whale, 90-99 = Diamond, etc.                 │
+│                                                            │
+│  5. Apply visual enhancement to Treasure artwork           │
+│     └─ Compose tier frame SVG around IPFS image           │
+│     └─ See Visual_Assets_Guide.md Section 3.3             │
+└────────────────────────────────────────────────────────────┘
+```
+
+For detailed percentile specification, see [Vault Percentile Specification](./Vault_Percentile_Specification.md).
+
+### Metadata Service Requirements
+
+The Custom API metadata service implements the rendering flow above:
+
+| Responsibility | Implementation |
+|----------------|----------------|
+| **Indexing** | Subscribe to `VaultMinted` events, cache collateral amounts |
+| **Percentile Calculation** | Rank vaults by collateral, compute percentile |
+| **Frame Composition** | Apply tier frame SVG around Treasure image (IPFS) |
+| **JSON Generation** | Return OpenSea-compatible metadata |
+
+**API Response Pattern:**
+
+```json
+{
+  "name": "Treasure #1234",
+  "image": "[COMPOSED_IMAGE_URI]",
+  "attributes": [
+    { "trait_type": "Display Tier", "value": "Gold" },
+    { "trait_type": "Percentile", "display_type": "number", "value": 82 }
+  ]
+}
+```
+
+> Full metadata schemas: [Visual_Assets_Guide.md](./Visual_Assets_Guide.md) Section 5
+
+---
+
+## 14. Analytics
 
 ### On-Chain Metrics
 
@@ -769,7 +634,7 @@ Issuers must bootstrap Issuer-Owned Liquidity (IOL) to break this cycle.
 | Total Collateral | BTC locked across all Vaults | `sum(collateralAmount)` per issuer |
 | Vault Count | Total Vaults created | Count of `VaultMinted` events |
 | Active Vaults | Vaults not redeemed | Total - redeemed |
-| Matured Vaults | Vaults past vesting | Count where `now > mint + 1093 days` |
+| Matured Vaults | Vaults past vesting | Count where `now > mint + 1129 days` |
 
 ### Badge-Gated Metrics
 

@@ -73,7 +73,9 @@
 
 ### Design Philosophy
 
-[Placeholder for art direction and design principles]
+Treasures are rendered with display tier frames based on the vault's collateral percentile. The base Treasure artwork (stored on IPFS) is composited with tier-specific SVG frames by the metadata service.
+
+> Implementation details: [Visual_Assets_Guide.md](../../Visual_Assets_Guide.md) Section 3 (Display Tier Visual System)
 
 ### Badge-to-Treasure Mapping
 
@@ -108,7 +110,7 @@ Leverage protocol-provided achievements for Vault stacking:
 | Half Year | Hold 182 days | Stack additional Vault |
 | Annual | Hold 365 days | Stack additional Vault |
 | Diamond Hands | Hold 730 days | Stack additional Vault |
-| Hodler Supreme | Hold 1093 days | Stack additional Vault |
+| Hodler Supreme | Hold 1129 days | Stack additional Vault |
 
 ### Brand-Specific Achievements
 
@@ -132,18 +134,19 @@ Entry Badge + BTC → Vault #1 → Achievements → Achievement + BTC → Vault 
 | Achievement Hunter | Total achievements | Merit |
 | Whale Watch | Total BTC collateral | Vanity |
 
-### Vanity Tiers
+### Display Tiers
 
-| Tier | Percentile | Cosmetic |
-|------|------------|----------|
-| Bronze | 0-50th | Standard frame |
-| Silver | 50-75th | Silver frame |
-| Gold | 75-90th | Gold frame + title |
-| Platinum | 90-99th | Platinum frame |
-| Diamond | 99-99.9th | Diamond frame |
-| Whale | 99.9th+ | Unique frame |
+| Tier | Percentile | Frame Color | Cosmetic |
+|------|------------|-------------|----------|
+| Bronze | 0-50th | `#cd7f32` | Standard frame |
+| Silver | 50-75th | `#c0c0c0` | Silver frame |
+| Gold | 75-90th | `#ffd700` | Gold frame |
+| Diamond | 90-99th | `#b9f2ff` | Diamond frame + effects |
+| Whale | 99th+ | `#e0e0ff` | Unique frame + leaderboard feature |
 
-**Note:** Vanity tiers are **cosmetic only** - no rate/reward advantage.
+> Frame SVG templates: [Visual_Assets_Guide.md](../../Visual_Assets_Guide.md) Section 3
+
+**Note:** Display tiers are **cosmetic only** - no rate/reward advantage.
 
 ### Profile Features
 

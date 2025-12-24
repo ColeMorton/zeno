@@ -67,7 +67,7 @@ The BTCNFT Protocol is an immutable permissionless smart contract providing perp
 All core parameters are embedded in bytecode using Solidity's `immutable` keyword:
 
 ```solidity
-immutable uint256 VESTING_PERIOD = 1093 days;
+immutable uint256 VESTING_PERIOD = 1129 days;
 immutable uint256 WITHDRAWAL_RATE = 875; // 0.875%
 ```
 

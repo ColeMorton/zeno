@@ -4,6 +4,7 @@
 > **Status:** Draft
 > **Last Updated:** 2025-12-16
 > **Related Documents:**
+> - [Achievements Specification](./Achievements_Specification.md)
 > - [Product Specification](../protocol/Product_Specification.md)
 > - [Technical Specification](../protocol/Technical_Specification.md)
 > - [Issuer Guide](./Issuer_Guide.md)
@@ -25,12 +26,12 @@
 
 ### The Deal
 
-**Lock BTC + NFT for 3 years. Get perpetual withdrawals forever. Earn bonus BTC from quitters.**
+**Lock BTC + NFT for ~3 years. Get perpetual withdrawals forever. Earn bonus BTC from quitters.**
 
 | Element | Details |
 |---------|---------|
 | Deposit | Treasure NFT + BTC collateral |
-| Vesting | 1093 days (~3 years) - no withdrawals |
+| Vesting | 1129 days (~3.09 years) - no withdrawals |
 | Post-vesting | Withdraw percentage of BTC every 30 days, forever |
 | Collateral matching | Early quitters forfeit BTC distributed to holders who stay |
 | Achievements | Earn NFT badges for holding milestones |
@@ -42,6 +43,28 @@
 | 0.875% | 10.5% | 100% (2017-2025 data) |
 
 > **Important:** Historical analysis, not a guarantee. BTC-denominated (not pegged to USD). Past performance does not guarantee future results.
+
+### Understanding Your Visual Identity
+
+Your NFT's appearance is determined by TWO independent systems:
+
+| System | Basis | What It Shows |
+|--------|-------|---------------|
+| **Achievement Badges** | Merit (actions, duration) | What you've accomplished |
+| **Display Tier** | Wealth (collateral percentile) | How you compare to others |
+
+**Achievement Badges (Merit-Based):**
+- Earned through holding duration and actions
+- Soulbound (non-transferable proof)
+- Examples: MINTER, DIAMOND_HANDS, MATURED
+
+**Display Tier (Wealth-Based):**
+- Determined by your vault's collateral percentile
+- Dynamic (changes as protocol TVL shifts)
+- Applied to your Treasure NFT's visual frame
+- Tiers: Bronze → Silver → Gold → Diamond → Whale
+
+**Example:** You can earn DIAMOND_HANDS (730-day hold) while displaying a "Silver" tier frame (if your collateral is 50-75th percentile). These systems are independent.
 
 ---
 
@@ -94,7 +117,7 @@ Your BTC sits in **YOUR** Vault NFT. Only you can withdraw it.
 4. Call protocol mint → Receive Vault NFT
 5. Claim MINTER achievement → Receive soulbound achievement NFT
 
-### Phase 2: Vesting (Days 1-1093)
+### Phase 2: Vesting (Days 1-1129)
 
 **No withdrawals** during this period. Activities available:
 
@@ -106,16 +129,19 @@ Your BTC sits in **YOUR** Vault NFT. Only you can withdraw it.
 
 **Achievement Milestones:**
 
-| Achievement | Requirement | Claim Function |
-|-------------|-------------|----------------|
-| FIRST_MONTH | Hold 30 days | `claimDurationAchievement(vaultId, FIRST_MONTH)` |
-| QUARTER_STACK | Hold 91 days | `claimDurationAchievement(vaultId, QUARTER_STACK)` |
-| HALF_YEAR | Hold 182 days | `claimDurationAchievement(vaultId, HALF_YEAR)` |
-| ANNUAL | Hold 365 days | `claimDurationAchievement(vaultId, ANNUAL)` |
-| DIAMOND_HANDS | Hold 730 days | `claimDurationAchievement(vaultId, DIAMOND_HANDS)` |
-| HODLER_SUPREME | Hold 1093 days | Unlocks `mintHodlerSupremeVault()` |
+Claim soulbound achievement NFTs as you reach holding milestones:
 
-### Phase 3: Maturity (Day 1093)
+| Achievement | Duration |
+|-------------|----------|
+| FIRST_MONTH | 30 days |
+| QUARTER_STACK | 91 days |
+| HALF_YEAR | 182 days |
+| ANNUAL | 365 days |
+| DIAMOND_HANDS | 730 days |
+
+For complete achievement types, claiming mechanics, and the HODLER_SUPREME composite achievement, see [Achievements Specification](./Achievements_Specification.md).
+
+### Phase 3: Maturity (Day 1129)
 
 Three things unlock:
 
@@ -123,7 +149,7 @@ Three things unlock:
 2. **Collateral matching:** Claim share of forfeited BTC from early quitters
 3. **vestedBTC:** Extract collateral as liquid token while keeping withdrawal rights
 
-### Phase 4: Perpetual (Day 1093+)
+### Phase 4: Perpetual (Day 1129+)
 
 Withdraw percentage of remaining BTC every 30 days. Forever.
 
@@ -136,7 +162,7 @@ Withdraw percentage of remaining BTC every 30 days. Forever.
 ### How Withdrawals Work
 
 ```
-Day 1094+ (Post-Vesting)
+Day 1130+ (Post-Vesting)
        ↓
 Call withdraw(vaultId)
        ↓
@@ -201,9 +227,9 @@ To redeem your Vault and reclaim underlying collateral, you must return the full
 
 | Risk | Severity | Reality |
 |------|----------|---------|
-| **BTC price crash** | Real | Collateral is BTC. Price can go down. Historical 1093-day analysis shows 100% positive returns, but past ≠ future. |
+| **BTC price crash** | Real | Collateral is BTC. Price can go down. Historical 1129-day analysis shows 100% positive returns, but past ≠ future. |
 | **Smart contract** | Real | Code is audited, but bugs can exist. Non-custodial - your keys, your responsibility. |
-| **Early exit penalty** | Real | Leave before 1093 days = forfeit portion of BTC + lose Treasure forever. |
+| **Early exit penalty** | Real | Leave before 1129 days = forfeit portion of BTC + lose Treasure forever. |
 | **Liquidation** | None | Unlike CDPs, you cannot be liquidated. Position is yours regardless of BTC price. |
 
 ### Early Exit (Redemption)
@@ -213,18 +239,18 @@ You can redeem anytime, but you forfeit a portion based on time held:
 | Days Held | Returned | Forfeited |
 |-----------|----------|-----------|
 | 0 | 0% | 100% |
-| 182 (~6 mo) | 16.7% | 83.3% |
-| 365 (~1 yr) | 33.4% | 66.6% |
-| 547 (~18 mo) | 50% | 50% |
-| 730 (~2 yr) | 66.8% | 33.2% |
-| 912 (~2.5 yr) | 83.4% | 16.6% |
-| 1093 (~3 yr) | 100% | 0% |
+| 182 (~6 mo) | 16.1% | 83.9% |
+| 365 (~1 yr) | 32.3% | 67.7% |
+| 565 (~18 mo) | 50% | 50% |
+| 730 (~2 yr) | 64.7% | 35.3% |
+| 912 (~2.5 yr) | 80.8% | 19.2% |
+| 1129 (~3.09 yr) | 100% | 0% |
 
 **Warning:** Early redemption permanently destroys both your Vault NFT AND your stored Treasure. Your Treasure is gone forever.
 
 ### Dormancy Risk
 
-If you separate vestedBTC and sell it, AND become inactive for 1093+ days, your Vault becomes vulnerable:
+If you separate vestedBTC and sell it, AND become inactive for 1129+ days, your Vault becomes vulnerable:
 
 1. Anyone can "poke" your Vault
 2. You have 30 days to respond
@@ -246,27 +272,24 @@ If you separate vestedBTC and sell it, AND become inactive for 1093+ days, your 
 4. Approve transfers and mint
 
 **What can I use as Treasure?**
-Any ERC-721 NFT. It becomes "stored" in your Vault and provides the visual identity.
+Any ERC-721 NFT. It becomes "stored" in your Vault and provides the visual identity. Your Treasure NFT displays with visual enhancements (frame, effects) based on your vault's collateral percentile rank - higher collateral means higher tier visuals.
 
 ### During Vesting
 
 **Can I withdraw during vesting?**
-No. 1093-day lock is absolute. You can only redeem early (with penalty).
+No. 1129-day lock is absolute. You can only redeem early (with penalty).
 
 **Can I sell my position?**
 Yes. The Vault NFT is transferable. Sell on any NFT marketplace.
 
 **How do achievements work?**
-You claim achievements by calling functions on the AchievementMinter contract. Each achievement verifies on-chain state (vault ownership, duration held, etc.) before minting a soulbound NFT to your wallet.
+Achievements are soulbound NFTs (ERC-5192) that attest your on-chain actions. They are non-transferable and provide cosmetic recognition only. See [Achievements Specification](./Achievements_Specification.md) for complete details.
 
 **How do I claim an achievement?**
-Call the appropriate function on the AchievementMinter:
-- `claimMinterAchievement(vaultId)` - After minting with issuer's Treasure
-- `claimDurationAchievement(vaultId, achievementType)` - After holding for required duration
-- `claimMaturedAchievement(vaultId)` - After vault is vested and match claimed
+Call the appropriate function on the AchievementMinter contract. See [Achievements Specification](./Achievements_Specification.md#3-achievement-mechanics) for claiming functions.
 
 **Are achievements transferable?**
-No. All achievements are soulbound (ERC-5192). They permanently attest your on-chain actions and cannot be sold or transferred.
+No. All achievements are soulbound and cannot be sold or transferred.
 
 ### Post-Vesting
 
@@ -314,6 +337,7 @@ Withdrawals represent transfer of your own property from smart contract to walle
 
 | Topic | Document |
 |-------|----------|
+| Achievement system | [Achievements Specification](./Achievements_Specification.md) |
 | Contract mechanics | [Technical Specification](../protocol/Technical_Specification.md) |
 | Product definition | [Product Specification](../protocol/Product_Specification.md) |
 | Collateral matching details | [Collateral Matching](../protocol/Collateral_Matching.md) |

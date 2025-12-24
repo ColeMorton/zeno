@@ -1,0 +1,101 @@
+{
+  "current_window": {
+    "days": 1093,
+    "stats": null
+  },
+  "threshold_analysis": {
+    "positive": {
+      "95.0": 1038,
+      "99.0": 1087,
+      "99.5": 1094,
+      "100.0": 1129
+    },
+    "breakeven": {
+      "90.0": 1017,
+      "95.0": 1122,
+      "99.0": 1346,
+      "100.0": 1367
+    }
+  },
+  "optimal_windows": {
+    "Conservative (100% positive)": {
+      "objective": "Conservative (100% positive)",
+      "optimal_days": 1129,
+      "positive_pct": 100.0,
+      "breakeven_pct": 96.01473543201607,
+      "sharpe_ratio": 0.1831880902730617,
+      "samples": 2986,
+      "confidence": "High"
+    },
+    "Practical (99.5% positive, 95% breakeven)": {
+      "objective": "Practical (99.5% positive, 95% breakeven)",
+      "optimal_days": 1122,
+      "positive_pct": 99.8329435349148,
+      "breakeven_pct": 95.42265285666556,
+      "sharpe_ratio": 0.1831766230166397,
+      "samples": 2993,
+      "confidence": "High"
+    },
+    "Risk-adjusted (max Sharpe)": {
+      "objective": "Risk-adjusted (max Sharpe)",
+      "optimal_days": 30,
+      "positive_pct": 56.719706242350064,
+      "breakeven_pct": 54.90820073439413,
+      "sharpe_ratio": 1.3907790092704964,
+      "samples": 4085,
+      "confidence": "High"
+    },
+    "Robustness (99.5% across periods)": {
+      "objective": "Robustness (99.5% across periods)",
+      "optimal_days": 1100,
+      "positive_pct": 99.80099502487563,
+      "breakeven_pct": 93.00165837479271,
+      "sharpe_ratio": 0.17984623108610057,
+      "samples": 3015,
+      "confidence": "Low (range: 322 days)"
+    }
+  },
+  "recommendation": {
+    "conservative": {
+      "objective": "Conservative (100% positive)",
+      "optimal_days": 1129,
+      "positive_pct": 100.0,
+      "breakeven_pct": 96.01473543201607,
+      "sharpe_ratio": 0.1831880902730617,
+      "samples": 2986,
+      "confidence": "High"
+    },
+    "practical": {
+      "objective": "Practical (99.5% positive, 95% breakeven)",
+      "optimal_days": 1122,
+      "positive_pct": 99.8329435349148,
+      "breakeven_pct": 95.42265285666556,
+      "sharpe_ratio": 0.1831766230166397,
+      "samples": 2993,
+      "confidence": "High"
+    },
+    "risk_adjusted": {
+      "objective": "Risk-adjusted (max Sharpe)",
+      "optimal_days": 30,
+      "positive_pct": 56.719706242350064,
+      "breakeven_pct": 54.90820073439413,
+      "sharpe_ratio": 1.3907790092704964,
+      "samples": 4085,
+      "confidence": "High"
+    },
+    "robust": {
+      "objective": "Robustness (99.5% across periods)",
+      "optimal_days": 1100,
+      "positive_pct": 99.80099502487563,
+      "breakeven_pct": 93.00165837479271,
+      "sharpe_ratio": 0.17984623108610057,
+      "samples": 3015,
+      "confidence": "Low (range: 322 days)"
+    }
+  },
+  "sweep_summary": {
+    "min_window": 30,
+    "max_window": 1997,
+    "total_windows_analyzed": 282
+  }
+}
