@@ -13,3 +13,10 @@ export {
   filterVaults,
   deriveVaultStatus,
 } from './filters.js';
+
+export {
+  getTierVisualConfig,
+  getHighestRarityAchievement,
+  getAchievementVisuals,
+  composeVisualHierarchy,
+} from './visual.js';

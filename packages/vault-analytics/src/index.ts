@@ -41,7 +41,14 @@
  */
 
 // Client exports
-export { VaultClient, createVaultClient, SubgraphClient } from './client/index.js';
+export {
+  VaultClient,
+  createVaultClient,
+  SubgraphClient,
+  AchievementClient,
+  createAchievementClient,
+  type AchievementClientConfig,
+} from './client/index.js';
 
 // Analytics exports
 export {
@@ -55,7 +62,20 @@ export {
   getVestingDaysRemaining,
   filterVaults,
   deriveVaultStatus,
+  getTierVisualConfig,
+  getHighestRarityAchievement,
+  getAchievementVisuals,
+  composeVisualHierarchy,
 } from './analytics/index.js';
+
+// Metadata exports
+export {
+  MetadataBuilder,
+  createMetadataBuilder,
+  type MetadataAttribute,
+  type TreasureMetadata,
+  type MetadataBuilderConfig,
+} from './metadata/index.js';
 
 // Constants exports
 export {
@@ -71,6 +91,18 @@ export {
   MIN_VAULTS_FOR_PERCENTILE,
   CHAIN_CONFIGS,
   getChainConfig,
+  ACHIEVEMENT_TYPE_HASHES,
+  HASH_TO_ACHIEVEMENT_TYPE,
+  DURATION_THRESHOLDS,
+  DURATION_THRESHOLDS_DAYS,
+  ACHIEVEMENT_CATEGORIES,
+  ALL_ACHIEVEMENT_TYPES,
+  DURATION_ACHIEVEMENT_TYPES,
+  isDurationAchievement,
+  getDurationThreshold,
+  TIER_VISUALS,
+  ACHIEVEMENT_VISUALS,
+  RARITY_ORDER,
 } from './constants/index.js';
 
 // Type exports
@@ -95,4 +127,16 @@ export type {
   ChainConfig,
   VaultClientConfig,
   SubgraphResponse,
+  AchievementType,
+  AchievementCategory,
+  Achievement,
+  AchievementStatus,
+  AchievementEligibility,
+  DisplayTier,
+  FrameStyle,
+  FrameAnimation,
+  TierVisualConfig,
+  AchievementRarity,
+  AchievementVisual,
+  VaultVisualHierarchy,
 } from './types/index.js';

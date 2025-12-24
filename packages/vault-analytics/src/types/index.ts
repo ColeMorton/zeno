@@ -29,3 +29,21 @@ export type {
   VaultClientConfig,
   SubgraphResponse,
 } from './client.js';
+
+export type {
+  AchievementType,
+  AchievementCategory,
+  Achievement,
+  AchievementStatus,
+  AchievementEligibility,
+} from './achievement.js';
+
+export type {
+  DisplayTier,
+  FrameStyle,
+  FrameAnimation,
+  TierVisualConfig,
+  AchievementRarity,
+  AchievementVisual,
+  VaultVisualHierarchy,
+} from './visual.js';

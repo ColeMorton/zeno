@@ -105,7 +105,7 @@ describe('getVestingDaysRemaining', () => {
     const vault = createMockVault({ mintTimestamp: now - 86400n * 100n }); // 100 days ago
 
     const remaining = getVestingDaysRemaining(vault, now);
-    expect(remaining).toBe(1093 - 100);
+    expect(remaining).toBe(1129 - 100);
   });
 });
 
@@ -203,7 +203,7 @@ describe('deriveVaultStatus', () => {
     expect(status.isVested).toBe(false);
     expect(status.isSeparated).toBe(false);
     expect(status.dormancyStatus).toBe('active');
-    expect(status.vestingDaysRemaining).toBe(993);
+    expect(status.vestingDaysRemaining).toBe(1029);
     expect(status.vestingEndsAt).toBe(vault.mintTimestamp + VESTING_PERIOD);
   });
 });

@@ -2,11 +2,11 @@
  * Protocol constants (immutable on-chain values)
  */
 
-/** Vesting period in seconds (1093 days) */
-export const VESTING_PERIOD = 1093n * 24n * 60n * 60n;
+/** Vesting period in seconds (1129 days) */
+export const VESTING_PERIOD = 1129n * 24n * 60n * 60n;
 
 /** Vesting period in days */
-export const VESTING_PERIOD_DAYS = 1093n;
+export const VESTING_PERIOD_DAYS = 1129n;
 
 /** Withdrawal period in seconds (30 days) */
 export const WITHDRAWAL_PERIOD = 30n * 24n * 60n * 60n;
@@ -17,8 +17,8 @@ export const WITHDRAWAL_RATE = 875n;
 /** Withdrawal rate denominator */
 export const WITHDRAWAL_RATE_DENOMINATOR = 100000n;
 
-/** Dormancy threshold in seconds (1093 days) */
-export const DORMANCY_THRESHOLD = 1093n * 24n * 60n * 60n;
+/** Dormancy threshold in seconds (1129 days) */
+export const DORMANCY_THRESHOLD = 1129n * 24n * 60n * 60n;
 
 /** Grace period in seconds (30 days) */
 export const GRACE_PERIOD = 30n * 24n * 60n * 60n;

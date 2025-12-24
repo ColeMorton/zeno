@@ -5,7 +5,7 @@ import { VESTING_PERIOD, DORMANCY_THRESHOLD, GRACE_PERIOD } from '../constants/p
 /**
  * Check if a vault is vested.
  *
- * A vault is vested when 1093 days have passed since mint.
+ * A vault is vested when 1129 days have passed since mint.
  *
  * @param vault - Vault to check
  * @param currentTimestamp - Current block timestamp (defaults to now)

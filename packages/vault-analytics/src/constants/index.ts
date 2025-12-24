@@ -15,3 +15,21 @@ export {
   CHAIN_CONFIGS,
   getChainConfig,
 } from './chains.js';
+
+export {
+  ACHIEVEMENT_TYPE_HASHES,
+  HASH_TO_ACHIEVEMENT_TYPE,
+  DURATION_THRESHOLDS,
+  DURATION_THRESHOLDS_DAYS,
+  ACHIEVEMENT_CATEGORIES,
+  ALL_ACHIEVEMENT_TYPES,
+  DURATION_ACHIEVEMENT_TYPES,
+  isDurationAchievement,
+  getDurationThreshold,
+} from './achievements.js';
+
+export {
+  TIER_VISUALS,
+  ACHIEVEMENT_VISUALS,
+  RARITY_ORDER,
+} from './visuals.js';
