@@ -28,7 +28,6 @@ echo ""
 # Get vault info
 COLLATERAL=$(cast_call "$VAULT" "collateralAmount(uint256)(uint256)" "$TOKEN_ID")
 MINT_TS=$(cast_call "$VAULT" "mintTimestamp(uint256)(uint256)" "$TOKEN_ID")
-TIER=$(cast_call "$VAULT" "tier(uint256)(uint8)" "$TOKEN_ID")
 LAST_WITHDRAWAL=$(cast_call "$VAULT" "lastWithdrawal(uint256)(uint256)" "$TOKEN_ID")
 LAST_ACTIVITY=$(cast_call "$VAULT" "lastActivity(uint256)(uint256)" "$TOKEN_ID")
 BTC_TOKEN_AMOUNT=$(cast_call "$VAULT" "btcTokenAmount(uint256)(uint256)" "$TOKEN_ID")
@@ -39,8 +38,8 @@ echo "Current:  $(format_btc "$COLLATERAL") BTC ($COLLATERAL satoshis)"
 echo "Original: $(format_btc "$ORIGINAL_AMOUNT") BTC"
 echo ""
 
-echo "=== Tier ==="
-echo "$(get_tier_name "$TIER")"
+echo "=== Withdrawal Rate ==="
+echo "$(get_withdrawal_rate)"
 echo ""
 
 echo "=== Timestamps ==="

@@ -2,10 +2,10 @@
 # Protocol constants for BTCNFT CLI
 
 # Time periods
-readonly VESTING_DAYS=1093
+readonly VESTING_DAYS=1129
 readonly WITHDRAWAL_PERIOD_DAYS=30
 readonly GRACE_PERIOD_DAYS=30
-readonly DORMANCY_THRESHOLD_DAYS=1093
+readonly DORMANCY_THRESHOLD_DAYS=1129
 readonly SECONDS_PER_DAY=86400
 
 # Derived time constants (in seconds)
@@ -13,19 +13,10 @@ readonly VESTING_SECONDS=$((VESTING_DAYS * SECONDS_PER_DAY))
 readonly WITHDRAWAL_PERIOD_SECONDS=$((WITHDRAWAL_PERIOD_DAYS * SECONDS_PER_DAY))
 readonly GRACE_PERIOD_SECONDS=$((GRACE_PERIOD_DAYS * SECONDS_PER_DAY))
 
-# Withdrawal tiers
-readonly TIER_CONSERVATIVE=0
-readonly TIER_BALANCED=1
-readonly TIER_AGGRESSIVE=2
-
-# Tier names for display
-readonly TIER_NAMES=("Conservative" "Balanced" "Aggressive")
-
-# Annual withdrawal rates for display
-readonly TIER_RATES=("10.5%" "14.6%" "20.8%")
-
-# Monthly withdrawal rates (basis points: 10000 = 100%)
-readonly TIER_MONTHLY_BPS=(83 114 159)
+# Withdrawal rate (fixed)
+readonly WITHDRAWAL_RATE_ANNUAL="10.5%"
+readonly WITHDRAWAL_RATE_MONTHLY="0.875%"
+readonly WITHDRAWAL_RATE_BPS=875  # basis points: 875/100000 = 0.875%
 
 # Delegation constants
 readonly MAX_DELEGATION_BPS=10000  # 100%

@@ -179,15 +179,9 @@ format_days() {
     echo "$((seconds / SECONDS_PER_DAY)) days"
 }
 
-# Get tier name from tier number
-# Usage: get_tier_name <tier>
-get_tier_name() {
-    local tier="$1"
-    if [[ $tier -ge 0 && $tier -lt ${#TIER_NAMES[@]} ]]; then
-        echo "${TIER_NAMES[$tier]} (${TIER_RATES[$tier]}/year)"
-    else
-        echo "Unknown ($tier)"
-    fi
+# Get withdrawal rate display
+get_withdrawal_rate() {
+    echo "$WITHDRAWAL_RATE_MONTHLY/month ($WITHDRAWAL_RATE_ANNUAL/year)"
 }
 
 # Check if vault is vested

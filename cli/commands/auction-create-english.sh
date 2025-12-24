@@ -7,7 +7,7 @@ load_env
 
 # Validate arguments
 if [[ ${#REMAINING_ARGS[@]} -lt 7 ]]; then
-    echo "Usage: ./btcnft auction-create-english <max_supply> <reserve_price> <min_bid_bps> <start_time> <end_time> <extension_window> <extension_duration> [tier]"
+    echo "Usage: ./btcnft auction-create-english <max_supply> <reserve_price> <min_bid_bps> <start_time> <end_time> <extension_window> <extension_duration>"
     echo ""
     echo "Arguments:"
     echo "  max_supply           Maximum number of slots (vaults)"
@@ -17,7 +17,8 @@ if [[ ${#REMAINING_ARGS[@]} -lt 7 ]]; then
     echo "  end_time             Unix timestamp when auction ends"
     echo "  extension_window     Seconds before end that triggers extension"
     echo "  extension_duration   Seconds to extend when bid placed near end"
-    echo "  tier                 (Optional) Vault tier: 0=Conservative, 1=Balanced, 2=Aggressive (default: 0)"
+    echo ""
+    echo "Withdrawal Rate: $(get_withdrawal_rate)"
     echo ""
     echo "Example:"
     echo "  ./btcnft auction-create-english 10 100000000 500 1735689600 1735776000 300 600"
@@ -32,18 +33,11 @@ START_TIME="${REMAINING_ARGS[3]}"
 END_TIME="${REMAINING_ARGS[4]}"
 EXTENSION_WINDOW="${REMAINING_ARGS[5]}"
 EXTENSION_DURATION="${REMAINING_ARGS[6]}"
-TIER="${REMAINING_ARGS[7]:-0}"
 
 # Require auction controller
 if [[ -z "$AUCTION_CONTROLLER" ]]; then
     echo "Error: AUCTION_CONTROLLER not set in environment" >&2
     echo "Add AUCTION_CONTROLLER=0x... to your .env file" >&2
-    exit 1
-fi
-
-# Validate tier
-if [[ $TIER -lt 0 || $TIER -gt 2 ]]; then
-    echo "Error: Invalid tier. Must be 0, 1, or 2" >&2
     exit 1
 fi
 
@@ -56,17 +50,17 @@ echo "Start Time:          $(format_timestamp "$START_TIME")"
 echo "End Time:            $(format_timestamp "$END_TIME")"
 echo "Extension Window:    $EXTENSION_WINDOW seconds"
 echo "Extension Duration:  $EXTENSION_DURATION seconds"
-echo "Tier:                $(get_tier_name "$TIER")"
+echo "Withdrawal Rate:     $(get_withdrawal_rate)"
 echo ""
 
 # Confirm on testnet
 confirm_testnet_action "create English auction"
 
 # Create auction
-# Function signature: createEnglishAuction(uint256 maxSupply, address collateralToken, uint8 tier, (uint256 reservePrice, uint256 minBidIncrement, uint256 startTime, uint256 endTime, uint256 extensionWindow, uint256 extensionDuration) config)
+# Function signature: createEnglishAuction(uint256 maxSupply, address collateralToken, (uint256 reservePrice, uint256 minBidIncrement, uint256 startTime, uint256 endTime, uint256 extensionWindow, uint256 extensionDuration) config)
 echo "Creating auction..."
-TX_HASH=$(cast_send "$AUCTION_CONTROLLER" "createEnglishAuction(uint256,address,uint8,(uint256,uint256,uint256,uint256,uint256,uint256))" \
-    "$MAX_SUPPLY" "$WBTC" "$TIER" "($RESERVE_PRICE,$MIN_BID_BPS,$START_TIME,$END_TIME,$EXTENSION_WINDOW,$EXTENSION_DURATION)")
+TX_HASH=$(cast_send "$AUCTION_CONTROLLER" "createEnglishAuction(uint256,address,(uint256,uint256,uint256,uint256,uint256,uint256))" \
+    "$MAX_SUPPLY" "$WBTC" "($RESERVE_PRICE,$MIN_BID_BPS,$START_TIME,$END_TIME,$EXTENSION_WINDOW,$EXTENSION_DURATION)")
 
 # Extract auction ID from logs
 RECEIPT=$(cast receipt "$TX_HASH" --rpc-url "$RPC_URL" --json)

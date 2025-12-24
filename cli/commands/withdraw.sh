@@ -9,8 +9,8 @@ load_env
 if [[ ${#REMAINING_ARGS[@]} -lt 1 ]]; then
     echo "Usage: ./btcnft withdraw <vault_token_id>"
     echo ""
-    echo "Withdraws the tier-based percentage of remaining collateral."
-    echo "Requires vault to be fully vested (1093 days) and 30+ days since last withdrawal."
+    echo "Withdraws 0.875% of remaining collateral (10.5%/year)."
+    echo "Requires vault to be fully vested (1129 days) and 30+ days since last withdrawal."
     exit 1
 fi
 

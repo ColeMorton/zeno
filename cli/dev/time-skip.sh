@@ -14,7 +14,7 @@ if [[ ${#REMAINING_ARGS[@]} -lt 1 ]]; then
     echo ""
     echo "Common values:"
     echo "  30    - One withdrawal period"
-    echo "  1093  - Full vesting period"
+    echo "  1129  - Full vesting period"
     exit 1
 fi
 

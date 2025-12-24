@@ -14,7 +14,7 @@ Immutable, permissionless smart contracts for perpetual BTC withdrawals.
 
 ## What is BTCNFT Protocol?
 
-BTCNFT Protocol enables perpetual withdrawals through percentage-based collateral access. Vault your Treasure NFT + BTC collateral to receive a composable Vault NFT. After a 1093-day vesting period, withdraw a percentage of remaining BTC every 30 days—collateral never depletes.
+BTCNFT Protocol enables perpetual withdrawals through percentage-based collateral access. Vault your Treasure NFT + BTC collateral to receive a composable Vault NFT. After a 1129-day vesting period, withdraw a percentage of remaining BTC every 30 days—collateral never depletes.
 
 **Core innovation:** vestedBTC (vBTC) ERC-20 tokens enable separation of collateral claims from the Vault NFT, creating tradeable principal positions.
 
@@ -70,10 +70,10 @@ cd packages/vault-analytics && npm install && npm run build
 
 | Parameter | Value |
 |-----------|-------|
-| Vesting Period | 1093 days (~3 years) |
+| Vesting Period | 1129 days (~3.09 years) |
 | Withdrawal Rate | 0.875%/month (10.5%/year) |
 | Withdrawal Period | 30 days |
-| Dormancy Threshold | 1093 days |
+| Dormancy Threshold | 1129 days |
 | BTC Decimals | 8 |
 
 All parameters are immutable—encoded in bytecode with no admin functions.

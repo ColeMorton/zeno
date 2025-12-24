@@ -17,10 +17,10 @@ echo "Network: $(get_network_name)"
 echo ""
 
 # Print header
-printf "%-8s %-12s %-15s %-10s %-12s %-10s\n" \
-    "ID" "Collateral" "Tier" "Vested" "vBTC" "Delegated"
-printf "%-8s %-12s %-15s %-10s %-12s %-10s\n" \
-    "--------" "------------" "---------------" "----------" "------------" "----------"
+printf "%-8s %-12s %-10s %-12s %-10s\n" \
+    "ID" "Collateral" "Vested" "vBTC" "Delegated"
+printf "%-8s %-12s %-10s %-12s %-10s\n" \
+    "--------" "------------" "----------" "------------" "----------"
 
 for TOKEN_ID in "${REMAINING_ARGS[@]}"; do
     # Check if vault exists
@@ -31,14 +31,12 @@ for TOKEN_ID in "${REMAINING_ARGS[@]}"; do
 
     # Get vault info
     COLLATERAL=$(cast_call "$VAULT" "collateralAmount(uint256)(uint256)" "$TOKEN_ID")
-    TIER=$(cast_call "$VAULT" "tier(uint256)(uint8)" "$TOKEN_ID")
     IS_VESTED=$(cast_call "$VAULT" "isVested(uint256)(bool)" "$TOKEN_ID")
     BTC_TOKEN_AMOUNT=$(cast_call "$VAULT" "btcTokenAmount(uint256)(uint256)" "$TOKEN_ID")
     TOTAL_DELEGATED=$(cast_call "$VAULT" "totalDelegatedBPS(uint256)(uint256)" "$TOKEN_ID")
 
     # Format values
     COLLATERAL_BTC=$(format_btc "$COLLATERAL")
-    TIER_NAME="${TIER_NAMES[$TIER]:-Unknown}"
     VESTED_STATUS="No"
     [[ "$IS_VESTED" == "true" ]] && VESTED_STATUS="Yes"
     VBTC_STATUS="No"
@@ -46,8 +44,8 @@ for TOKEN_ID in "${REMAINING_ARGS[@]}"; do
     DELEGATED_PCT="0%"
     [[ "$TOTAL_DELEGATED" != "0" ]] && DELEGATED_PCT=$(echo "scale=1; $TOTAL_DELEGATED / 100" | bc)"%"
 
-    printf "%-8s %-12s %-15s %-10s %-12s %-10s\n" \
-        "$TOKEN_ID" "${COLLATERAL_BTC} BTC" "$TIER_NAME" "$VESTED_STATUS" "$VBTC_STATUS" "$DELEGATED_PCT"
+    printf "%-8s %-12s %-10s %-12s %-10s\n" \
+        "$TOKEN_ID" "${COLLATERAL_BTC} BTC" "$VESTED_STATUS" "$VBTC_STATUS" "$DELEGATED_PCT"
 done
 
 echo ""

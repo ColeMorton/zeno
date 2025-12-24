@@ -66,5 +66,5 @@ cd contracts/issuer && forge build && forge test
 - **Vault NFT (ERC-998)**: Composable NFT holding Treasure NFT + BTC collateral
 - **vestedBTC (vBTC)**: ERC-20 fungible token representing collateral claims
 - **Treasure NFT (ERC-721)**: NFT wrapped within a Vault
-- **1093-day vesting**: Lock period before withdrawals are enabled
+- **1129-day vesting**: Lock period before withdrawals are enabled
 - **Withdrawal rate**: 10.5% annually (0.875% monthly)

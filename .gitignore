@@ -1,3 +1,6 @@
+# macOS
+.DS_Store
+
 # Foundry build artifacts
 out/
 cache/
@@ -14,3 +17,12 @@ broadcast/
 # Node.js
 node_modules/
 dist/
+
+# Python / Analysis workspace
+analysis/data/
+analysis/.venv/
+analysis/__pycache__/
+analysis/.pytest_cache/
+*.pyc
+__pycache__/
+.ipynb_checkpoints/

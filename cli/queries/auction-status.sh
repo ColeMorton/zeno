@@ -34,7 +34,7 @@ echo "Network: $(get_network_name)"
 echo ""
 
 # Get auction info
-# Returns: (AuctionType auctionType, AuctionState state, uint256 maxSupply, uint256 mintedCount, address collateralToken, uint8 tier)
+# Returns: (AuctionType auctionType, AuctionState state, uint256 maxSupply, uint256 mintedCount, address collateralToken)
 AUCTION_INFO=$(cast_call "$AUCTION_CONTROLLER" "getAuction(uint256)" "$AUCTION_ID")
 
 # Parse the struct fields (each on a new line)
@@ -43,7 +43,6 @@ AUCTION_STATE=$(echo "$AUCTION_INFO" | sed -n '2p')
 MAX_SUPPLY=$(echo "$AUCTION_INFO" | sed -n '3p')
 MINTED_COUNT=$(echo "$AUCTION_INFO" | sed -n '4p')
 COLLATERAL_TOKEN=$(echo "$AUCTION_INFO" | sed -n '5p')
-TIER=$(echo "$AUCTION_INFO" | sed -n '6p')
 
 # Map enum values to names
 case "$AUCTION_TYPE" in
@@ -61,11 +60,11 @@ case "$AUCTION_STATE" in
 esac
 
 echo "=== Basic Info ==="
-echo "Type:       $TYPE_NAME"
-echo "State:      $STATE_NAME"
-echo "Supply:     $MINTED_COUNT / $MAX_SUPPLY"
-echo "Collateral: $COLLATERAL_TOKEN"
-echo "Tier:       $(get_tier_name "$TIER")"
+echo "Type:            $TYPE_NAME"
+echo "State:           $STATE_NAME"
+echo "Supply:          $MINTED_COUNT / $MAX_SUPPLY"
+echo "Collateral:      $COLLATERAL_TOKEN"
+echo "Withdrawal Rate: $(get_withdrawal_rate)"
 echo ""
 
 # Get type-specific config
