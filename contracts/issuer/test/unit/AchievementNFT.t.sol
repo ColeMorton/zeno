@@ -24,7 +24,7 @@ contract AchievementNFTTest is Test {
         bob = makeAddr("bob");
 
         vm.prank(owner);
-        achievement = new AchievementNFT("Achievements", "ACH", "https://example.com/");
+        achievement = new AchievementNFT("Achievements", "ACH", "https://example.com/", true);
 
         // Cache constants
         MINTER = achievement.MINTER();

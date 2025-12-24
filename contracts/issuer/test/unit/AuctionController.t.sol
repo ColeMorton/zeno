@@ -64,7 +64,7 @@ contract AuctionControllerTest is Test {
             endTime: block.timestamp + 10 hours
         });
 
-        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), 0, config);
+        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), config);
 
         assertEq(auctionId, 0);
 
@@ -73,7 +73,6 @@ contract AuctionControllerTest is Test {
         assertEq(auction.maxSupply, 5);
         assertEq(auction.mintedCount, 0);
         assertEq(auction.collateralToken, address(wbtc));
-        assertEq(auction.tier, 0);
     }
 
     function test_CreateDutchAuction_RevertIf_ZeroSupply() public {
@@ -86,7 +85,7 @@ contract AuctionControllerTest is Test {
         });
 
         vm.expectRevert(IAuctionController.ZeroMaxSupply.selector);
-        controller.createDutchAuction(0, address(wbtc), 0, config);
+        controller.createDutchAuction(0, address(wbtc), config);
     }
 
     function test_CreateDutchAuction_RevertIf_InvalidTimeWindow() public {
@@ -99,7 +98,7 @@ contract AuctionControllerTest is Test {
         });
 
         vm.expectRevert(IAuctionController.InvalidTimeWindow.selector);
-        controller.createDutchAuction(5, address(wbtc), 0, config);
+        controller.createDutchAuction(5, address(wbtc), config);
     }
 
     function test_GetCurrentPrice_BeforeStart() public {
@@ -111,7 +110,7 @@ contract AuctionControllerTest is Test {
             endTime: block.timestamp + 10 hours
         });
 
-        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), 0, config);
+        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), config);
 
         uint256 price = controller.getCurrentPrice(auctionId);
         assertEq(price, 10 * ONE_BTC); // Should be start price before auction starts
@@ -130,7 +129,7 @@ contract AuctionControllerTest is Test {
             endTime: startTime + 10 hours
         });
 
-        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), 0, config);
+        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), config);
 
         // After 1 hour (3600 seconds): decay = 3600, price = 10000 - 3600 = 6400
         vm.warp(startTime + 1 hours);
@@ -152,7 +151,7 @@ contract AuctionControllerTest is Test {
             endTime: startTime + 10 hours
         });
 
-        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), 0, config);
+        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), config);
 
         // After 20 hours (way past floor)
         vm.warp(startTime + 20 hours);
@@ -171,7 +170,7 @@ contract AuctionControllerTest is Test {
             endTime: startTime + 10 hours
         });
 
-        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), 0, config);
+        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), config);
 
         vm.prank(alice);
         uint256 vaultId = controller.purchaseDutch(auctionId);
@@ -192,7 +191,7 @@ contract AuctionControllerTest is Test {
             endTime: block.timestamp + 10 hours
         });
 
-        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), 0, config);
+        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), config);
 
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IAuctionController.AuctionNotActive.selector, auctionId));
@@ -210,7 +209,7 @@ contract AuctionControllerTest is Test {
             endTime: startTime + 10 hours
         });
 
-        uint256 auctionId = controller.createDutchAuction(2, address(wbtc), 0, config);
+        uint256 auctionId = controller.createDutchAuction(2, address(wbtc), config);
 
         // Purchase 2 (max supply)
         vm.prank(alice);
@@ -237,14 +236,13 @@ contract AuctionControllerTest is Test {
             extensionDuration: 5 minutes
         });
 
-        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), 1, config);
+        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), config);
 
         assertEq(auctionId, 0);
 
         IAuctionController.Auction memory auction = controller.getAuction(auctionId);
         assertEq(uint8(auction.auctionType), uint8(IAuctionController.AuctionType.ENGLISH));
         assertEq(auction.maxSupply, 3);
-        assertEq(auction.tier, 1);
     }
 
     function test_PlaceBid_Initial() public {
@@ -259,7 +257,7 @@ contract AuctionControllerTest is Test {
             extensionDuration: 5 minutes
         });
 
-        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), 0, config);
+        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), config);
 
         vm.prank(alice);
         controller.placeBid(auctionId, 0, 2 * ONE_BTC);
@@ -281,7 +279,7 @@ contract AuctionControllerTest is Test {
             extensionDuration: 5 minutes
         });
 
-        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), 0, config);
+        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), config);
 
         uint256 aliceBalanceBefore = wbtc.balanceOf(alice);
 
@@ -311,7 +309,7 @@ contract AuctionControllerTest is Test {
             extensionDuration: 5 minutes
         });
 
-        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), 0, config);
+        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), config);
 
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IAuctionController.BidTooLow.selector, 1 * ONE_BTC, 2 * ONE_BTC));
@@ -331,7 +329,7 @@ contract AuctionControllerTest is Test {
             extensionDuration: 5 minutes
         });
 
-        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), 0, config);
+        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), config);
 
         // Warp to 5 minutes before end (within extension window)
         vm.warp(endTime - 5 minutes);
@@ -357,7 +355,7 @@ contract AuctionControllerTest is Test {
             extensionDuration: 5 minutes
         });
 
-        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), 0, config);
+        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), config);
 
         vm.prank(alice);
         controller.placeBid(auctionId, 0, 5 * ONE_BTC);
@@ -384,7 +382,7 @@ contract AuctionControllerTest is Test {
             extensionDuration: 5 minutes
         });
 
-        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), 0, config);
+        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), config);
 
         vm.prank(alice);
         controller.placeBid(auctionId, 0, 5 * ONE_BTC);
@@ -406,7 +404,7 @@ contract AuctionControllerTest is Test {
             extensionDuration: 5 minutes
         });
 
-        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), 0, config);
+        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), config);
 
         // Warp past end without any bids
         vm.warp(endTime + 1);
@@ -428,7 +426,7 @@ contract AuctionControllerTest is Test {
             extensionDuration: 5 minutes
         });
 
-        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), 0, config);
+        uint256 auctionId = controller.createEnglishAuction(3, address(wbtc), config);
 
         vm.prank(alice);
         controller.placeBid(auctionId, 0, 5 * ONE_BTC);
@@ -455,7 +453,7 @@ contract AuctionControllerTest is Test {
             endTime: endTime
         });
 
-        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), 0, config);
+        uint256 auctionId = controller.createDutchAuction(5, address(wbtc), config);
 
         // Before start
         assertEq(uint8(controller.getAuctionState(auctionId)), uint8(IAuctionController.AuctionState.PENDING));
@@ -480,7 +478,7 @@ contract AuctionControllerTest is Test {
             endTime: startTime + 10 hours
         });
 
-        uint256 auctionId = controller.createDutchAuction(1, address(wbtc), 0, config);
+        uint256 auctionId = controller.createDutchAuction(1, address(wbtc), config);
 
         vm.prank(alice);
         controller.purchaseDutch(auctionId);
@@ -501,7 +499,7 @@ contract AuctionControllerTest is Test {
             endTime: startTime + 10 hours
         });
 
-        uint256 auctionId = controller.createDutchAuction(1, address(wbtc), 0, config);
+        uint256 auctionId = controller.createDutchAuction(1, address(wbtc), config);
 
         controller.finalizeAuction(auctionId);
 
@@ -523,7 +521,7 @@ contract AuctionControllerTest is Test {
             endTime: startTime + 10 hours
         });
 
-        uint256 auctionId = controller.createDutchAuction(3, address(wbtc), 0, config);
+        uint256 auctionId = controller.createDutchAuction(3, address(wbtc), config);
 
         // Alice buys at 2 BTC
         vm.prank(alice);
@@ -564,7 +562,7 @@ contract AuctionControllerTest is Test {
             extensionDuration: 5 minutes
         });
 
-        uint256 auctionId = controller.createEnglishAuction(2, address(wbtc), 0, config);
+        uint256 auctionId = controller.createEnglishAuction(2, address(wbtc), config);
 
         // Slot 0: Alice bids, Bob outbids
         vm.prank(alice);

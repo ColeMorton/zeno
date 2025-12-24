@@ -28,11 +28,12 @@ contract DeployIssuer is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy AchievementNFT
+        // Deploy AchievementNFT (with on-chain SVG enabled by default)
         AchievementNFT achievement = new AchievementNFT(
             achievementName,
             achievementSymbol,
-            achievementBaseURI
+            achievementBaseURI,
+            true
         );
         console.log("AchievementNFT deployed at:", address(achievement));
 

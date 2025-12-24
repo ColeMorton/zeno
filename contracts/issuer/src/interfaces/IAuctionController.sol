@@ -43,7 +43,6 @@ interface IAuctionController {
         uint256 maxSupply;
         uint256 mintedCount;
         address collateralToken;
-        uint8 tier;
     }
 
     struct Bid {
@@ -125,13 +124,11 @@ interface IAuctionController {
     /// @notice Create a new Dutch (descending price) auction
     /// @param maxSupply Maximum number of vaults to mint
     /// @param collateralToken ERC-20 token for payments
-    /// @param tier Vault tier (0-2)
     /// @param config Dutch auction configuration
     /// @return auctionId The created auction ID
     function createDutchAuction(
         uint256 maxSupply,
         address collateralToken,
-        uint8 tier,
         DutchAuctionConfig calldata config
     ) external returns (uint256 auctionId);
 
@@ -150,13 +147,11 @@ interface IAuctionController {
     /// @notice Create a new English (ascending bid) auction
     /// @param maxSupply Maximum number of vaults (each is a slot)
     /// @param collateralToken ERC-20 token for bids
-    /// @param tier Vault tier (0-2)
     /// @param config English auction configuration
     /// @return auctionId The created auction ID
     function createEnglishAuction(
         uint256 maxSupply,
         address collateralToken,
-        uint8 tier,
         EnglishAuctionConfig calldata config
     ) external returns (uint256 auctionId);
 

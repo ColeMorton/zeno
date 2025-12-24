@@ -12,29 +12,15 @@ import {ITreasureNFT} from "./interfaces/ITreasureNFT.sol";
 /// @notice Minimal interface for protocol vault state verification
 interface IVaultState {
     function ownerOf(uint256 tokenId) external view returns (address);
-    function getVaultInfo(uint256 tokenId)
-        external
-        view
-        returns (
-            address treasureContract,
-            uint256 treasureTokenId,
-            address collateralToken,
-            uint256 collateralAmount,
-            uint256 mintTimestamp,
-            uint8 tier,
-            uint256 lastWithdrawal,
-            uint256 lastActivity,
-            uint256 btcTokenAmount,
-            uint256 originalMintedAmount
-        );
+    function treasureContract(uint256 tokenId) external view returns (address);
+    function mintTimestamp(uint256 tokenId) external view returns (uint256);
     function isVested(uint256 tokenId) external view returns (bool);
     function matchClaimed(uint256 tokenId) external view returns (bool);
     function mint(
         address treasureContract,
         uint256 treasureTokenId,
         address collateralToken,
-        uint256 collateralAmount,
-        uint8 tier
+        uint256 collateralAmount
     ) external returns (uint256 tokenId);
 }
 
@@ -62,7 +48,7 @@ contract AchievementMinter is Ownable {
     uint256 public constant HALF_YEAR_DURATION = 182 days;
     uint256 public constant ANNUAL_DURATION = 365 days;
     uint256 public constant DIAMOND_HANDS_DURATION = 730 days;
-    uint256 public constant HODLER_SUPREME_DURATION = 1093 days;
+    uint256 public constant HODLER_SUPREME_DURATION = 1129 days;
 
     // ==================== State Variables ====================
 
@@ -132,9 +118,9 @@ contract AchievementMinter is Ownable {
         }
 
         // 2. Verify vault contains issuer's treasure
-        (address treasureContract,,,,,,,,,) = protocol.getVaultInfo(vaultId);
-        if (treasureContract != address(treasureNFT)) {
-            revert VaultNotUsingIssuerTreasure(vaultId, treasureContract);
+        address vaultTreasure = protocol.treasureContract(vaultId);
+        if (vaultTreasure != address(treasureNFT)) {
+            revert VaultNotUsingIssuerTreasure(vaultId, vaultTreasure);
         }
 
         // 3. Mint achievement (AchievementNFT handles duplicate prevention)
@@ -158,9 +144,9 @@ contract AchievementMinter is Ownable {
         }
 
         // 3. Verify vault contains issuer's treasure
-        (address treasureContract,,,,,,,,,) = protocol.getVaultInfo(vaultId);
-        if (treasureContract != address(treasureNFT)) {
-            revert VaultNotUsingIssuerTreasure(vaultId, treasureContract);
+        address vaultTreasure = protocol.treasureContract(vaultId);
+        if (vaultTreasure != address(treasureNFT)) {
+            revert VaultNotUsingIssuerTreasure(vaultId, vaultTreasure);
         }
 
         // 4. Verify vault is vested
@@ -197,13 +183,13 @@ contract AchievementMinter is Ownable {
         }
 
         // 2. Verify vault contains issuer's treasure
-        (address treasureContract,,,, uint256 mintTimestamp,,,,,) = protocol.getVaultInfo(vaultId);
-        if (treasureContract != address(treasureNFT)) {
-            revert VaultNotUsingIssuerTreasure(vaultId, treasureContract);
+        address vaultTreasure = protocol.treasureContract(vaultId);
+        if (vaultTreasure != address(treasureNFT)) {
+            revert VaultNotUsingIssuerTreasure(vaultId, vaultTreasure);
         }
 
         // 3. Verify duration met
-        uint256 elapsed = block.timestamp - mintTimestamp;
+        uint256 elapsed = block.timestamp - protocol.mintTimestamp(vaultId);
         if (elapsed < threshold) {
             revert DurationNotMet(vaultId, achievementType, threshold, elapsed);
         }
@@ -220,12 +206,10 @@ contract AchievementMinter is Ownable {
     /// @dev Atomically mints achievement + treasure + vault
     /// @param collateralToken The ERC-20 token to use as collateral
     /// @param collateralAmount Amount of collateral to deposit
-    /// @param tier Vault tier (0-4)
     /// @return vaultId The minted vault token ID
     function mintHodlerSupremeVault(
         address collateralToken,
-        uint256 collateralAmount,
-        uint8 tier
+        uint256 collateralAmount
     ) external returns (uint256 vaultId) {
         // 1. Verify MINTER achievement
         if (!achievements.hasAchievement(msg.sender, MINTER)) {
@@ -259,8 +243,7 @@ contract AchievementMinter is Ownable {
             address(treasureNFT),
             treasureId,
             collateralToken,
-            collateralAmount,
-            tier
+            collateralAmount
         );
 
         // 8. Transfer vault to caller
@@ -289,8 +272,7 @@ contract AchievementMinter is Ownable {
             return (false, "Not vault owner");
         }
 
-        (address treasureContract,,,,,,,,,) = protocol.getVaultInfo(vaultId);
-        if (treasureContract != address(treasureNFT)) {
+        if (protocol.treasureContract(vaultId) != address(treasureNFT)) {
             return (false, "Vault not using issuer treasure");
         }
 
@@ -319,8 +301,7 @@ contract AchievementMinter is Ownable {
             return (false, "Not vault owner");
         }
 
-        (address treasureContract,,,,,,,,,) = protocol.getVaultInfo(vaultId);
-        if (treasureContract != address(treasureNFT)) {
+        if (protocol.treasureContract(vaultId) != address(treasureNFT)) {
             return (false, "Vault not using issuer treasure");
         }
 
@@ -359,12 +340,11 @@ contract AchievementMinter is Ownable {
             return (false, "Not vault owner");
         }
 
-        (address treasureContract,,,, uint256 mintTimestamp,,,,,) = protocol.getVaultInfo(vaultId);
-        if (treasureContract != address(treasureNFT)) {
+        if (protocol.treasureContract(vaultId) != address(treasureNFT)) {
             return (false, "Vault not using issuer treasure");
         }
 
-        uint256 elapsed = block.timestamp - mintTimestamp;
+        uint256 elapsed = block.timestamp - protocol.mintTimestamp(vaultId);
         if (elapsed < threshold) {
             return (false, "Duration not met");
         }

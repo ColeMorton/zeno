@@ -43,7 +43,7 @@ contract AchievementMinterTest is Test {
         wbtc = new MockWBTC();
 
         // Deploy issuer contracts
-        achievement = new AchievementNFT("Achievements", "ACH", "https://achievements.com/");
+        achievement = new AchievementNFT("Achievements", "ACH", "https://achievements.com/", true);
         treasure = new TreasureNFT("Treasure", "TREASURE", "https://treasure.com/");
         minter = new AchievementMinter(
             address(achievement),
@@ -84,8 +84,7 @@ contract AchievementMinterTest is Test {
             address(treasure),
             treasureId,
             address(wbtc),
-            COLLATERAL_AMOUNT,
-            0 // tier
+            COLLATERAL_AMOUNT
         );
         vm.stopPrank();
     }
@@ -158,8 +157,7 @@ contract AchievementMinterTest is Test {
             address(otherTreasure),
             treasureId,
             address(wbtc),
-            COLLATERAL_AMOUNT,
-            0
+            COLLATERAL_AMOUNT
         );
         vm.stopPrank();
 
@@ -193,8 +191,7 @@ contract AchievementMinterTest is Test {
             address(treasure),
             treasureId2,
             address(wbtc),
-            COLLATERAL_AMOUNT,
-            0
+            COLLATERAL_AMOUNT
         );
         vm.stopPrank();
 
@@ -423,8 +420,7 @@ contract AchievementMinterTest is Test {
             address(otherTreasure),
             treasureId,
             address(wbtc),
-            COLLATERAL_AMOUNT,
-            0
+            COLLATERAL_AMOUNT
         );
         vm.stopPrank();
 
@@ -464,8 +460,7 @@ contract AchievementMinterTest is Test {
         wbtc.approve(address(minter), COLLATERAL_AMOUNT);
         uint256 newVaultId = minter.mintHodlerSupremeVault(
             address(wbtc),
-            COLLATERAL_AMOUNT,
-            0
+            COLLATERAL_AMOUNT
         );
         vm.stopPrank();
 
@@ -498,7 +493,7 @@ contract AchievementMinterTest is Test {
             1, // second treasure
             COLLATERAL_AMOUNT
         );
-        minter.mintHodlerSupremeVault(address(wbtc), COLLATERAL_AMOUNT, 0);
+        minter.mintHodlerSupremeVault(address(wbtc), COLLATERAL_AMOUNT);
         vm.stopPrank();
     }
 
@@ -512,7 +507,7 @@ contract AchievementMinterTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(AchievementMinter.MissingMinterAchievement.selector, alice)
         );
-        minter.mintHodlerSupremeVault(address(wbtc), COLLATERAL_AMOUNT, 0);
+        minter.mintHodlerSupremeVault(address(wbtc), COLLATERAL_AMOUNT);
         vm.stopPrank();
     }
 
@@ -531,7 +526,7 @@ contract AchievementMinterTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(AchievementMinter.MissingMaturedAchievement.selector, alice)
         );
-        minter.mintHodlerSupremeVault(address(wbtc), COLLATERAL_AMOUNT, 0);
+        minter.mintHodlerSupremeVault(address(wbtc), COLLATERAL_AMOUNT);
         vm.stopPrank();
     }
 
@@ -549,7 +544,7 @@ contract AchievementMinterTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(AchievementMinter.ZeroCollateral.selector);
-        minter.mintHodlerSupremeVault(address(wbtc), 0, 0);
+        minter.mintHodlerSupremeVault(address(wbtc), 0);
     }
 
     // ==================== View Function Tests ====================

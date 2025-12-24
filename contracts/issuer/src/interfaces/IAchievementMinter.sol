@@ -48,12 +48,10 @@ interface IAchievementMinter {
     /// @notice Mint a Hodler Supreme vault (composite achievement)
     /// @param collateralToken The ERC-20 token to use as collateral
     /// @param collateralAmount Amount of collateral to deposit
-    /// @param tier Vault tier (0-4)
     /// @return vaultId The minted vault token ID
     function mintHodlerSupremeVault(
         address collateralToken,
-        uint256 collateralAmount,
-        uint8 tier
+        uint256 collateralAmount
     ) external returns (uint256 vaultId);
 
     /// @notice Check if a wallet can claim MINTER achievement for a vault

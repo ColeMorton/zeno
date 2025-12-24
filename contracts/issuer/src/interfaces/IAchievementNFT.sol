@@ -52,6 +52,14 @@ interface IAchievementNFT is IERC721 {
     /// @return Total supply
     function totalSupply() external view returns (uint256);
 
+    /// @notice Check if using on-chain SVG
+    /// @return Whether on-chain SVG is enabled
+    function useOnChainSVG() external view returns (bool);
+
+    /// @notice Toggle between on-chain SVG and external URI
+    /// @param useOnChain Whether to use on-chain SVG
+    function setUseOnChainSVG(bool useOnChain) external;
+
     // Achievement type constants
     function MINTER() external view returns (bytes32);
     function MATURED() external view returns (bytes32);

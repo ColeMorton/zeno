@@ -15,7 +15,6 @@ contract MockVaultNFT is ERC721 {
         address collateralToken;
         uint256 collateralAmount;
         uint256 mintTimestamp;
-        uint8 tier;
     }
 
     mapping(uint256 => VaultData) public vaults;
@@ -28,8 +27,7 @@ contract MockVaultNFT is ERC721 {
         address treasureContract,
         uint256 treasureTokenId,
         address collateralToken,
-        uint256 collateralAmount,
-        uint8 tier
+        uint256 collateralAmount
     ) external returns (uint256 tokenId) {
         // Transfer treasure NFT from caller
         IERC721(treasureContract).transferFrom(msg.sender, address(this), treasureTokenId);
@@ -45,40 +43,16 @@ contract MockVaultNFT is ERC721 {
             treasureTokenId: treasureTokenId,
             collateralToken: collateralToken,
             collateralAmount: collateralAmount,
-            mintTimestamp: block.timestamp,
-            tier: tier
+            mintTimestamp: block.timestamp
         });
     }
 
-    function getVaultInfo(uint256 tokenId)
-        external
-        view
-        returns (
-            address treasureContract,
-            uint256 treasureTokenId,
-            address collateralToken,
-            uint256 collateralAmount,
-            uint256 mintTimestamp,
-            uint8 tier,
-            uint256 lastWithdrawal,
-            uint256 lastActivity,
-            uint256 btcTokenAmount,
-            uint256 originalMintedAmount
-        )
-    {
-        VaultData storage vault = vaults[tokenId];
-        return (
-            vault.treasureContract,
-            vault.treasureTokenId,
-            vault.collateralToken,
-            vault.collateralAmount,
-            vault.mintTimestamp,
-            vault.tier,
-            0, // lastWithdrawal
-            0, // lastActivity
-            0, // btcTokenAmount
-            vault.collateralAmount // originalMintedAmount
-        );
+    function treasureContract(uint256 tokenId) external view returns (address) {
+        return vaults[tokenId].treasureContract;
+    }
+
+    function mintTimestamp(uint256 tokenId) external view returns (uint256) {
+        return vaults[tokenId].mintTimestamp;
     }
 
     function isVested(uint256 tokenId) external view returns (bool) {

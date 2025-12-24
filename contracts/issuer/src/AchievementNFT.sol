@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {AchievementSVG} from "./AchievementSVG.sol";
 
 /// @title AchievementNFT - Soulbound achievement attestations
 /// @notice ERC-5192 compliant non-transferable NFT representing wallet achievements
@@ -21,6 +23,8 @@ contract AchievementNFT is ERC721, Ownable {
 
     uint256 private _nextTokenId;
 
+    /// @notice Whether to use on-chain SVG (true) or baseURI (false)
+    bool public useOnChainSVG;
     string private _baseTokenURI;
 
     /// @notice Maps tokenId to its achievement type
@@ -56,9 +60,11 @@ contract AchievementNFT is ERC721, Ownable {
     constructor(
         string memory name_,
         string memory symbol_,
-        string memory baseURI_
+        string memory baseURI_,
+        bool useOnChainSVG_
     ) ERC721(name_, symbol_) Ownable(msg.sender) {
         _baseTokenURI = baseURI_;
+        useOnChainSVG = useOnChainSVG_;
     }
 
     /// @notice Authorize an address to mint achievements
@@ -132,6 +138,20 @@ contract AchievementNFT is ERC721, Ownable {
         return super._update(to, tokenId, auth);
     }
 
+    /// @notice Override tokenURI to return on-chain SVG if enabled
+    /// @param tokenId The token ID
+    /// @return The token URI (either on-chain SVG or external URI)
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _requireOwned(tokenId);
+        
+        if (useOnChainSVG) {
+            bytes32 achType = achievementType[tokenId];
+            return AchievementSVG.getSVG(achType);
+        } else {
+            return super.tokenURI(tokenId);
+        }
+    }
+
     function _baseURI() internal view override returns (string memory) {
         return _baseTokenURI;
     }
@@ -140,6 +160,12 @@ contract AchievementNFT is ERC721, Ownable {
     /// @param baseURI_ New base URI
     function setBaseURI(string calldata baseURI_) external onlyOwner {
         _baseTokenURI = baseURI_;
+    }
+
+    /// @notice Toggle between on-chain SVG and external URI
+    /// @param useOnChain Whether to use on-chain SVG
+    function setUseOnChainSVG(bool useOnChain) external onlyOwner {
+        useOnChainSVG = useOnChain;
     }
 
     /// @notice ERC-165 interface support

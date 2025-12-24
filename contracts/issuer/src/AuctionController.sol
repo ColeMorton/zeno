@@ -16,8 +16,7 @@ interface IVaultMint {
         address treasureContract,
         uint256 treasureTokenId,
         address collateralToken,
-        uint256 collateralAmount,
-        uint8 tier
+        uint256 collateralAmount
     ) external returns (uint256 tokenId);
 }
 
@@ -60,7 +59,6 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
     function createDutchAuction(
         uint256 maxSupply,
         address collateralToken,
-        uint8 tier,
         DutchAuctionConfig calldata config
     ) external onlyOwner returns (uint256 auctionId) {
         if (maxSupply == 0) revert ZeroMaxSupply();
@@ -74,8 +72,7 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
             state: AuctionState.PENDING,
             maxSupply: maxSupply,
             mintedCount: 0,
-            collateralToken: collateralToken,
-            tier: tier
+            collateralToken: collateralToken
         });
 
         _dutchConfigs[auctionId] = config;
@@ -147,8 +144,7 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
             address(treasureNFT),
             treasureId,
             auction.collateralToken,
-            price,
-            auction.tier
+            price
         );
 
         // Transfer vault to buyer
@@ -181,7 +177,6 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
     function createEnglishAuction(
         uint256 maxSupply,
         address collateralToken,
-        uint8 tier,
         EnglishAuctionConfig calldata config
     ) external onlyOwner returns (uint256 auctionId) {
         if (maxSupply == 0) revert ZeroMaxSupply();
@@ -194,8 +189,7 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
             state: AuctionState.PENDING,
             maxSupply: maxSupply,
             mintedCount: 0,
-            collateralToken: collateralToken,
-            tier: tier
+            collateralToken: collateralToken
         });
 
         _englishConfigs[auctionId] = config;
@@ -305,8 +299,7 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
             address(treasureNFT),
             treasureId,
             auction.collateralToken,
-            winningBid.amount,
-            auction.tier
+            winningBid.amount
         );
 
         // Transfer vault to winner
