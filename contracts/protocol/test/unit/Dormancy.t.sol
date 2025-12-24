@@ -19,9 +19,9 @@ contract DormancyEdgeCasesTest is Test {
     address public charlie;
 
     uint256 constant ONE_BTC = 1e8;
-    uint256 constant VESTING_PERIOD = 1093 days;
+    uint256 constant VESTING_PERIOD = 1129 days;
     uint256 constant WITHDRAWAL_PERIOD = 30 days;
-    uint256 constant DORMANCY_THRESHOLD = 1093 days;
+    uint256 constant DORMANCY_THRESHOLD = 1129 days;
     uint256 constant GRACE_PERIOD = 30 days;
 
     function setUp() public {
@@ -61,7 +61,7 @@ contract DormancyEdgeCasesTest is Test {
 
     function _setupDormantVault() internal returns (uint256 tokenId) {
         vm.prank(alice);
-        tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -120,7 +120,7 @@ contract DormancyEdgeCasesTest is Test {
 
     function test_Dormancy_ExactThresholdBoundary_NotEligibleBefore() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -169,7 +169,7 @@ contract DormancyEdgeCasesTest is Test {
 
     function test_Dormancy_PartialBtcTokenAtOwner_StillEligible() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -204,10 +204,10 @@ contract DormancyEdgeCasesTest is Test {
 
     function test_Dormancy_ClaimMatchDuringPokePending_ResetsDormancy() public {
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC, 0);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
 
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + 365 days);
 
@@ -347,7 +347,7 @@ contract DormancyEdgeCasesTest is Test {
 
     function test_Dormancy_NoBtcToken_NotEligible() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD + DORMANCY_THRESHOLD + 1);
 
@@ -357,7 +357,7 @@ contract DormancyEdgeCasesTest is Test {
 
     function test_Dormancy_OwnerHoldsAllBtcToken_NotEligible() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 

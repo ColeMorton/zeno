@@ -18,7 +18,7 @@ abstract contract BaseTest is Test {
     address public charlie;
 
     uint256 internal constant ONE_BTC = 1e8;
-    uint256 internal constant VESTING_PERIOD = 1093 days;
+    uint256 internal constant VESTING_PERIOD = 1129 days;
     uint256 internal constant WITHDRAWAL_PERIOD = 30 days;
     uint256 internal constant DORMANCY_THRESHOLD = 365 days;
     uint256 internal constant GRACE_PERIOD = 30 days;
@@ -56,9 +56,9 @@ abstract contract BaseTest is Test {
         vm.stopPrank();
     }
 
-    function _mintVault(address user, uint256 treasureId, uint256 collateral, uint8 tier) internal returns (uint256) {
+    function _mintVault(address user, uint256 treasureId, uint256 collateral) internal returns (uint256) {
         vm.prank(user);
-        return vault.mint(address(treasure), treasureId, address(wbtc), collateral, tier);
+        return vault.mint(address(treasure), treasureId, address(wbtc), collateral);
     }
 
     function _skipVesting() internal {

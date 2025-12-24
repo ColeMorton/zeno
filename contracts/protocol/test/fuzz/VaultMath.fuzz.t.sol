@@ -6,66 +6,27 @@ import {VaultMath} from "../../src/libraries/VaultMath.sol";
 
 contract VaultMathFuzzTest is Test {
     uint256 internal constant ONE_BTC = 1e8;
-    uint256 internal constant VESTING_PERIOD = 1093 days;
+    uint256 internal constant VESTING_PERIOD = 1129 days;
     uint256 internal constant WITHDRAWAL_PERIOD = 30 days;
-    uint256 internal constant DORMANCY_THRESHOLD = 1093 days;
+    uint256 internal constant DORMANCY_THRESHOLD = 1129 days;
     uint256 internal constant GRACE_PERIOD = 30 days;
     uint256 internal constant BASIS_POINTS = 100000;
-
-    // ========== getTierRate Tests ==========
-
-    function test_GetTierRate_AllValidTiers() public pure {
-        assertEq(VaultMath.getTierRate(0), 833);   // Conservative
-        assertEq(VaultMath.getTierRate(1), 1140);  // Balanced
-        assertEq(VaultMath.getTierRate(2), 1590);  // Aggressive
-    }
-
-    function test_GetTierRate_InvalidTier_Reverts() public {
-        // Library reverts with "Invalid tier" for tier > 2
-        // Using try/catch since library reverts are internal
-        bool reverted = false;
-        try this.callGetTierRate(3) returns (uint256) {
-            // Should not reach here
-        } catch {
-            reverted = true;
-        }
-        assertTrue(reverted, "Should revert for invalid tier");
-    }
-
-    // Helper to make external call for try/catch
-    function callGetTierRate(uint8 tier) external pure returns (uint256) {
-        return VaultMath.getTierRate(tier);
-    }
+    uint256 internal constant WITHDRAWAL_RATE = 875;
 
     // ========== calculateWithdrawal Fuzz Tests ==========
 
-    function testFuzz_CalculateWithdrawal_ConservativeTier(uint256 collateral) public pure {
+    function testFuzz_CalculateWithdrawal(uint256 collateral) public pure {
         collateral = bound(collateral, 1, type(uint128).max);
-        uint256 result = VaultMath.calculateWithdrawal(collateral, 0);
-        uint256 expected = (collateral * 833) / BASIS_POINTS;
+        uint256 result = VaultMath.calculateWithdrawal(collateral);
+        uint256 expected = (collateral * WITHDRAWAL_RATE) / BASIS_POINTS;
         assertEq(result, expected);
     }
 
-    function testFuzz_CalculateWithdrawal_BalancedTier(uint256 collateral) public pure {
-        collateral = bound(collateral, 1, type(uint128).max);
-        uint256 result = VaultMath.calculateWithdrawal(collateral, 1);
-        uint256 expected = (collateral * 1140) / BASIS_POINTS;
-        assertEq(result, expected);
-    }
+    function testFuzz_CalculateWithdrawal_NonZero(uint256 collateral) public pure {
+        // Minimum collateral for non-zero withdrawal: 100000 / 875 = 115
+        collateral = bound(collateral, 115, type(uint128).max);
 
-    function testFuzz_CalculateWithdrawal_AggressiveTier(uint256 collateral) public pure {
-        collateral = bound(collateral, 1, type(uint128).max);
-        uint256 result = VaultMath.calculateWithdrawal(collateral, 2);
-        uint256 expected = (collateral * 1590) / BASIS_POINTS;
-        assertEq(result, expected);
-    }
-
-    function testFuzz_CalculateWithdrawal_AllTiers(uint256 collateral, uint8 tier) public pure {
-        // Minimum collateral for non-zero withdrawal: 100000 / 833 = 121
-        collateral = bound(collateral, 121, type(uint128).max);
-        tier = uint8(bound(tier, 0, 2));
-
-        uint256 result = VaultMath.calculateWithdrawal(collateral, tier);
+        uint256 result = VaultMath.calculateWithdrawal(collateral);
 
         // Result should always be less than collateral (rate < 100%)
         assertLt(result, collateral);
@@ -75,32 +36,30 @@ contract VaultMathFuzzTest is Test {
 
     function test_CalculateWithdrawal_DustAmount() public pure {
         // Test with 1 satoshi
-        uint256 result = VaultMath.calculateWithdrawal(1, 0);
-        // 1 * 833 / 100000 = 0 (rounding down)
+        uint256 result = VaultMath.calculateWithdrawal(1);
+        // 1 * 875 / 100000 = 0 (rounding down)
         assertEq(result, 0);
 
-        // Minimum amount for non-zero withdrawal at conservative tier
-        // collateral * 833 / 100000 >= 1
-        // collateral >= 100000 / 833 = 120.05 -> 121
-        result = VaultMath.calculateWithdrawal(121, 0);
+        // Minimum amount for non-zero withdrawal
+        // collateral * 875 / 100000 >= 1
+        // collateral >= 100000 / 875 = 114.3 -> 115
+        result = VaultMath.calculateWithdrawal(115);
         assertGt(result, 0);
     }
 
     function test_CalculateWithdrawal_OneBTC() public pure {
-        uint256 result = VaultMath.calculateWithdrawal(ONE_BTC, 0);
-        // 1e8 * 833 / 100000 = 833000 satoshis = 0.00833 BTC
-        assertEq(result, 833000);
+        uint256 result = VaultMath.calculateWithdrawal(ONE_BTC);
+        // 1e8 * 875 / 100000 = 875000 satoshis = 0.00875 BTC
+        assertEq(result, 875000);
     }
 
-    function testFuzz_CalculateWithdrawal_RoundingLoss(uint256 collateral, uint8 tier) public pure {
+    function testFuzz_CalculateWithdrawal_RoundingLoss(uint256 collateral) public pure {
         collateral = bound(collateral, 1, type(uint128).max);
-        tier = uint8(bound(tier, 0, 2));
 
-        uint256 result = VaultMath.calculateWithdrawal(collateral, tier);
-        uint256 rate = VaultMath.getTierRate(tier);
+        uint256 result = VaultMath.calculateWithdrawal(collateral);
 
         // Verify rounding is always down (truncation)
-        uint256 exactProduct = collateral * rate;
+        uint256 exactProduct = collateral * WITHDRAWAL_RATE;
         uint256 reconstructed = result * BASIS_POINTS;
         assertLe(reconstructed, exactProduct);
     }
@@ -148,7 +107,7 @@ contract VaultMathFuzzTest is Test {
         uint256 elapsed
     ) public pure {
         // Minimum collateral * elapsed / VESTING_PERIOD >= 1
-        // For small elapsed (1 day), collateral >= VESTING_PERIOD / 1 day = 1093
+        // For small elapsed (1 day), collateral >= VESTING_PERIOD / 1 day = 1129
         collateral = bound(collateral, VESTING_PERIOD, type(uint128).max);
         mintTime = bound(mintTime, 0, type(uint64).max);
         elapsed = bound(elapsed, 1 days, VESTING_PERIOD - 1 days);
@@ -184,25 +143,25 @@ contract VaultMathFuzzTest is Test {
         assertGt(r1, 0);
         assertEq(r1 + f1, collateral);
 
-        // Midpoint (day 546)
+        // Midpoint (day 564)
         (uint256 rMid, uint256 fMid) = VaultMath.calculateEarlyRedemption(
-            collateral, mintTime, mintTime + 546 days
+            collateral, mintTime, mintTime + 564 days
         );
         // Should be roughly 50%
         assertApproxEqRel(rMid, collateral / 2, 0.01e18); // 1% tolerance
 
-        // Day 1092 (one day before vesting)
-        (uint256 r1092, uint256 f1092) = VaultMath.calculateEarlyRedemption(
-            collateral, mintTime, mintTime + 1092 days
+        // Day 1128 (one day before vesting)
+        (uint256 r1128, uint256 f1128) = VaultMath.calculateEarlyRedemption(
+            collateral, mintTime, mintTime + 1128 days
         );
-        assertGt(f1092, 0); // Still some forfeiture
+        assertGt(f1128, 0); // Still some forfeiture
 
-        // Day 1093 (exactly at vesting)
-        (uint256 r1093, uint256 f1093) = VaultMath.calculateEarlyRedemption(
-            collateral, mintTime, mintTime + 1093 days
+        // Day 1129 (exactly at vesting)
+        (uint256 r1129, uint256 f1129) = VaultMath.calculateEarlyRedemption(
+            collateral, mintTime, mintTime + 1129 days
         );
-        assertEq(r1093, collateral);
-        assertEq(f1093, 0);
+        assertEq(r1129, collateral);
+        assertEq(f1129, 0);
     }
 
     // ========== calculateMatchShare Fuzz Tests ==========

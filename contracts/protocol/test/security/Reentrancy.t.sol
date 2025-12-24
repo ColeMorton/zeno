@@ -21,7 +21,7 @@ contract ReentrancyTest is Test {
     address public charlie;
 
     uint256 internal constant ONE_BTC = 1e8;
-    uint256 internal constant VESTING_PERIOD = 1093 days;
+    uint256 internal constant VESTING_PERIOD = 1129 days;
     uint256 internal constant WITHDRAWAL_PERIOD = 30 days;
 
     function setUp() public {
@@ -55,7 +55,7 @@ contract ReentrancyTest is Test {
     function test_WithdrawAsDelegate_NoReentrancy() public {
         // Alice mints a vault
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
         // Alice grants 50% delegation to malicious delegate
         vm.prank(alice);
@@ -88,7 +88,7 @@ contract ReentrancyTest is Test {
         // Verify that state is updated before external call
 
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
         vm.prank(alice);
         vault.grantWithdrawalDelegate(tokenId, bob, 5000);
@@ -110,7 +110,7 @@ contract ReentrancyTest is Test {
         // Test that early redemption maintains state consistency
 
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
         // Warp to midpoint
         vm.warp(block.timestamp + 546 days);
@@ -139,12 +139,12 @@ contract ReentrancyTest is Test {
 
     function test_ClaimDormant_RequiresBtcToken() public {
         // Test that dormancy claim requires BTC token burn
-        // Dormancy threshold: 1093 days, Grace period: 30 days
+        // Dormancy threshold: 1129 days, Grace period: 30 days
 
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
-        // Skip to vested (1093 days from mint)
+        // Skip to vested (1129 days from mint)
         uint256 vestedTime = block.timestamp + VESTING_PERIOD;
         vm.warp(vestedTime);
 
@@ -157,8 +157,8 @@ contract ReentrancyTest is Test {
         vm.prank(alice);
         btcToken.transfer(bob, 10 * ONE_BTC);
 
-        // Skip to dormant state (1093 days from last activity which was mintBtcToken)
-        uint256 dormantTime = vestedTime + VESTING_PERIOD; // VESTING_PERIOD = DORMANCY_THRESHOLD = 1093 days
+        // Skip to dormant state (1129 days from last activity which was mintBtcToken)
+        uint256 dormantTime = vestedTime + VESTING_PERIOD; // VESTING_PERIOD = DORMANCY_THRESHOLD = 1129 days
         vm.warp(dormantTime);
 
         // Bob pokes dormancy
@@ -186,7 +186,7 @@ contract ReentrancyTest is Test {
 
     function test_MultipleWithdrawals_NoDoubleSpend() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 

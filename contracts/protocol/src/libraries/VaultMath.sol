@@ -2,29 +2,15 @@
 pragma solidity ^0.8.24;
 
 library VaultMath {
-    uint256 internal constant VESTING_PERIOD = 1093 days;
+    uint256 internal constant VESTING_PERIOD = 1129 days;
     uint256 internal constant WITHDRAWAL_PERIOD = 30 days;
-    uint256 internal constant DORMANCY_THRESHOLD = 1093 days;
+    uint256 internal constant DORMANCY_THRESHOLD = 1129 days;
     uint256 internal constant GRACE_PERIOD = 30 days;
     uint256 internal constant BASIS_POINTS = 100000;
+    uint256 internal constant WITHDRAWAL_RATE = 875;
 
-    uint256 internal constant TIER_CONSERVATIVE = 833;
-    uint256 internal constant TIER_BALANCED = 1140;
-    uint256 internal constant TIER_AGGRESSIVE = 1590;
-
-    function getTierRate(uint8 tier) internal pure returns (uint256) {
-        if (tier == 0) return TIER_CONSERVATIVE;
-        if (tier == 1) return TIER_BALANCED;
-        if (tier == 2) return TIER_AGGRESSIVE;
-        revert("Invalid tier");
-    }
-
-    function calculateWithdrawal(
-        uint256 collateral,
-        uint8 tier
-    ) internal pure returns (uint256) {
-        uint256 rate = getTierRate(tier);
-        return (collateral * rate) / BASIS_POINTS;
+    function calculateWithdrawal(uint256 collateral) internal pure returns (uint256) {
+        return (collateral * WITHDRAWAL_RATE) / BASIS_POINTS;
     }
 
     function calculateEarlyRedemption(

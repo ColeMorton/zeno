@@ -22,8 +22,7 @@ interface IVaultNFT is IERC721 {
         address indexed owner,
         address treasureContract,
         uint256 treasureTokenId,
-        uint256 collateral,
-        uint8 tier
+        uint256 collateral
     );
     event Withdrawn(uint256 indexed tokenId, address indexed to, uint256 amount);
     event EarlyRedemption(
@@ -71,7 +70,6 @@ interface IVaultNFT is IERC721 {
     error NotTokenOwner(uint256 tokenId);
     error StillVesting(uint256 tokenId);
     error WithdrawalTooSoon(uint256 tokenId, uint256 nextAllowed);
-    error InvalidTier(uint8 tier);
     error ZeroCollateral();
     error BtcTokenAlreadyMinted(uint256 tokenId);
     error BtcTokenRequired(uint256 tokenId);
@@ -98,8 +96,7 @@ interface IVaultNFT is IERC721 {
         address treasureContract,
         uint256 treasureTokenId,
         address collateralToken,
-        uint256 collateralAmount,
-        uint8 tier
+        uint256 collateralAmount
     ) external returns (uint256 tokenId);
 
     function withdraw(uint256 tokenId) external returns (uint256 amount);
@@ -132,7 +129,6 @@ interface IVaultNFT is IERC721 {
             address collateralToken,
             uint256 collateralAmount,
             uint256 mintTimestamp,
-            uint8 tier,
             uint256 lastWithdrawal,
             uint256 lastActivity,
             uint256 btcTokenAmount,

@@ -20,9 +20,9 @@ contract IntegrationTest is Test {
     address public charlie;
 
     uint256 constant ONE_BTC = 1e8;
-    uint256 constant VESTING_PERIOD = 1093 days;
+    uint256 constant VESTING_PERIOD = 1129 days;
     uint256 constant WITHDRAWAL_PERIOD = 30 days;
-    uint256 constant DORMANCY_THRESHOLD = 1093 days;
+    uint256 constant DORMANCY_THRESHOLD = 1129 days;
     uint256 constant GRACE_PERIOD = 30 days;
 
     function setUp() public {
@@ -61,7 +61,7 @@ contract IntegrationTest is Test {
 
     function test_FullLifecycle_MintVestWithdrawSeparateRecombine() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         assertEq(vault.ownerOf(tokenId), alice);
         assertEq(vault.collateralAmount(tokenId), ONE_BTC);
@@ -99,7 +99,7 @@ contract IntegrationTest is Test {
 
     function test_EarlyRedemptionFlow() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + 500 days);
 
@@ -121,7 +121,7 @@ contract IntegrationTest is Test {
 
     function test_DormancyClaimFlow() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
         vm.prank(alice);
@@ -154,7 +154,7 @@ contract IntegrationTest is Test {
         assertEq(collateral, ONE_BTC);
         assertEq(wbtc.balanceOf(bob), bobWbtcBefore + ONE_BTC);
         assertEq(btcToken.balanceOf(bob), 0);
-        assertEq(treasure.ownerOf(0), alice);
+        assertEq(treasure.ownerOf(0), address(0xdead));
 
         vm.expectRevert();
         vault.ownerOf(tokenId);
@@ -162,13 +162,13 @@ contract IntegrationTest is Test {
 
     function test_MultiUserMatchPool() public {
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 2 * ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 2 * ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC, 0);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
 
         vm.prank(charlie);
-        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), ONE_BTC, 0);
+        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), ONE_BTC);
 
         assertEq(vault.totalActiveCollateral(), 4 * ONE_BTC);
 
@@ -199,38 +199,22 @@ contract IntegrationTest is Test {
         assertGt(charlieClaimed, 0);
     }
 
-    function test_WithdrawalTiers() public {
+    function test_WithdrawalRate() public {
         vm.prank(alice);
-        uint256 conservativeToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
-
-        vm.prank(bob);
-        uint256 balancedToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC, 1);
-
-        vm.prank(charlie);
-        uint256 aggressiveToken = vault.mint(address(treasure), 20, address(wbtc), ONE_BTC, 2);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
         vm.prank(alice);
-        uint256 conservativeWithdraw = vault.withdraw(conservativeToken);
+        uint256 withdrawn = vault.withdraw(tokenId);
 
-        vm.prank(bob);
-        uint256 balancedWithdraw = vault.withdraw(balancedToken);
-
-        vm.prank(charlie);
-        uint256 aggressiveWithdraw = vault.withdraw(aggressiveToken);
-
-        assertEq(conservativeWithdraw, (ONE_BTC * 833) / 100000);
-        assertEq(balancedWithdraw, (ONE_BTC * 1140) / 100000);
-        assertEq(aggressiveWithdraw, (ONE_BTC * 1590) / 100000);
-
-        assertLt(conservativeWithdraw, balancedWithdraw);
-        assertLt(balancedWithdraw, aggressiveWithdraw);
+        // Fixed rate: 0.875% = 875/100000
+        assertEq(withdrawn, (ONE_BTC * 875) / 100000);
     }
 
     function test_CollateralNeverDepletes_ZenoParadox() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 2);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -250,7 +234,7 @@ contract IntegrationTest is Test {
 
     function test_TransferUpdatesActivity_PreventsUnintendedDormancy() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -275,7 +259,7 @@ contract IntegrationTest is Test {
 
     function test_EarlyRedeem_WithSeparatedBtcToken() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -295,10 +279,10 @@ contract IntegrationTest is Test {
 
     function test_Invariant_TotalCollateralConsistency() public {
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 2 * ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 2 * ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC, 0);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
 
         assertEq(vault.totalActiveCollateral(), 3 * ONE_BTC);
 
@@ -317,7 +301,7 @@ contract IntegrationTest is Test {
 
     function test_VestingExactBoundary() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD - 1);
 
@@ -338,7 +322,7 @@ contract IntegrationTest is Test {
 
     function test_WithdrawalPeriodExactBoundary() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -360,7 +344,7 @@ contract IntegrationTest is Test {
 
     function test_EarlyRedeem_MidVesting() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         uint256 halfVesting = VESTING_PERIOD / 2;
         vm.warp(block.timestamp + halfVesting);
@@ -378,7 +362,7 @@ contract IntegrationTest is Test {
 
     function test_BtcToken_ClaimValueAfterWithdrawals() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -404,7 +388,7 @@ contract IntegrationTest is Test {
 
     function test_BtcToken_MultipleHolders() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -433,7 +417,7 @@ contract IntegrationTest is Test {
 
     function test_BtcToken_MintAfterPartialWithdraw() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         uint256 currentTime = block.timestamp + VESTING_PERIOD;
         vm.warp(currentTime);
@@ -468,13 +452,13 @@ contract IntegrationTest is Test {
         uint256 startTime = block.timestamp;
 
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 5 * ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 5 * ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), 3 * ONE_BTC, 1);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), 3 * ONE_BTC);
 
         vm.prank(charlie);
-        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), 2 * ONE_BTC, 2);
+        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), 2 * ONE_BTC);
 
         assertEq(vault.totalActiveCollateral(), 10 * ONE_BTC);
 

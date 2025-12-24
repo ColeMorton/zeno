@@ -14,7 +14,7 @@ contract VaultHandler is Test {
     MockWBTC public wbtc;
 
     uint256 internal constant ONE_BTC = 1e8;
-    uint256 internal constant VESTING_PERIOD = 1093 days;
+    uint256 internal constant VESTING_PERIOD = 1129 days;
     uint256 internal constant WITHDRAWAL_PERIOD = 30 days;
 
     address[] public actors;
@@ -60,18 +60,17 @@ contract VaultHandler is Test {
         vm.stopPrank();
     }
 
-    function mint(uint256 actorSeed, uint256 collateral, uint8 tier) external useActor(actorSeed) {
+    function mint(uint256 actorSeed, uint256 collateral) external useActor(actorSeed) {
         address actor = actors[actorSeed % actors.length];
 
         collateral = bound(collateral, ONE_BTC / 100, 10 * ONE_BTC);
-        tier = uint8(bound(tier, 0, 2));
 
         uint256 treasureId = userTreasureOffset[actor] + userTokenIds[actor].length;
 
         if (wbtc.balanceOf(actor) < collateral) return;
         if (treasure.ownerOf(treasureId) != actor) return;
 
-        uint256 tokenId = vault.mint(address(treasure), treasureId, address(wbtc), collateral, tier);
+        uint256 tokenId = vault.mint(address(treasure), treasureId, address(wbtc), collateral);
 
         mintedTokenIds.push(tokenId);
         userTokenIds[actor].push(tokenId);

@@ -19,9 +19,9 @@ contract BoundaryConditionsTest is Test {
     address public bob;
 
     uint256 internal constant ONE_BTC = 1e8;
-    uint256 internal constant VESTING_PERIOD = 1093 days;
+    uint256 internal constant VESTING_PERIOD = 1129 days;
     uint256 internal constant WITHDRAWAL_PERIOD = 30 days;
-    uint256 internal constant DORMANCY_THRESHOLD = 1093 days;
+    uint256 internal constant DORMANCY_THRESHOLD = 1129 days;
     uint256 internal constant GRACE_PERIOD = 30 days;
 
     function setUp() public {
@@ -51,7 +51,7 @@ contract BoundaryConditionsTest is Test {
 
     function test_Vesting_OneDayBefore() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         uint256 mintTime = block.timestamp;
 
@@ -65,7 +65,7 @@ contract BoundaryConditionsTest is Test {
 
     function test_Vesting_ExactlyAt() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         uint256 mintTime = block.timestamp;
 
@@ -79,7 +79,7 @@ contract BoundaryConditionsTest is Test {
 
     function test_Vesting_OneDayAfter() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         uint256 mintTime = block.timestamp;
 
@@ -93,7 +93,7 @@ contract BoundaryConditionsTest is Test {
 
     function test_Vesting_OneSecondBefore() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         uint256 mintTime = block.timestamp;
 
@@ -109,7 +109,7 @@ contract BoundaryConditionsTest is Test {
 
     function test_WithdrawalPeriod_OneDayBefore() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -127,7 +127,7 @@ contract BoundaryConditionsTest is Test {
 
     function test_WithdrawalPeriod_ExactlyAt() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -144,7 +144,7 @@ contract BoundaryConditionsTest is Test {
 
     function test_WithdrawalPeriod_OneDayAfter() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -168,7 +168,7 @@ contract BoundaryConditionsTest is Test {
         offset = bound(offset, 0, 10 days);
 
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         uint256 mintTime = block.timestamp;
 
@@ -189,7 +189,7 @@ contract BoundaryConditionsTest is Test {
         offset = bound(offset, 0, 10 days);
 
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
         vm.prank(alice);
@@ -212,7 +212,7 @@ contract BoundaryConditionsTest is Test {
 
     function test_ZenoParadox_NeverReachesZero() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -251,13 +251,13 @@ contract BoundaryConditionsTest is Test {
 
     function test_MinimumCollateral_Withdrawal() public {
         // Mint with minimum collateral that produces non-zero withdrawal
-        // rate = 833, basis = 100000
-        // collateral * 833 / 100000 >= 1
+        // rate = 875, basis = 100000
+        // collateral * 875 / 100000 >= 1
         // collateral >= 121 satoshis
         uint256 minCollateral = 121;
 
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), minCollateral, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), minCollateral);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -271,7 +271,7 @@ contract BoundaryConditionsTest is Test {
         uint256 dustCollateral = 1;
 
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), dustCollateral, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), dustCollateral);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 

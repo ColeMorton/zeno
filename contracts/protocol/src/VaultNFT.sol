@@ -22,7 +22,6 @@ contract VaultNFT is ERC721, IVaultNFT {
     mapping(uint256 => address) private _collateralToken;
     mapping(uint256 => uint256) private _collateralAmount;
     mapping(uint256 => uint256) private _mintTimestamp;
-    mapping(uint256 => uint8) private _tier;
     mapping(uint256 => uint256) private _lastWithdrawal;
     mapping(uint256 => uint256) private _lastActivity;
     mapping(uint256 => uint256) private _btcTokenAmount;
@@ -55,14 +54,12 @@ contract VaultNFT is ERC721, IVaultNFT {
         address treasureContract_,
         uint256 treasureTokenId_,
         address collateralToken_,
-        uint256 collateralAmount_,
-        uint8 tier_
+        uint256 collateralAmount_
     ) external returns (uint256 tokenId) {
         if (!acceptedCollateralTokens[collateralToken_]) {
             revert InvalidCollateralToken(collateralToken_);
         }
         if (collateralAmount_ == 0) revert ZeroCollateral();
-        if (tier_ > 2) revert InvalidTier(tier_);
 
         IERC721(treasureContract_).transferFrom(msg.sender, address(this), treasureTokenId_);
         IERC20(collateralToken_).safeTransferFrom(msg.sender, address(this), collateralAmount_);
@@ -75,7 +72,6 @@ contract VaultNFT is ERC721, IVaultNFT {
         _collateralToken[tokenId] = collateralToken_;
         _collateralAmount[tokenId] = collateralAmount_;
         _mintTimestamp[tokenId] = block.timestamp;
-        _tier[tokenId] = tier_;
         _lastActivity[tokenId] = block.timestamp;
 
         totalActiveCollateral += collateralAmount_;
@@ -85,8 +81,7 @@ contract VaultNFT is ERC721, IVaultNFT {
             msg.sender,
             treasureContract_,
             treasureTokenId_,
-            collateralAmount_,
-            tier_
+            collateralAmount_
         );
     }
 
@@ -100,7 +95,7 @@ contract VaultNFT is ERC721, IVaultNFT {
             revert WithdrawalTooSoon(tokenId, _lastWithdrawal[tokenId] + VaultMath.WITHDRAWAL_PERIOD);
         }
 
-        amount = VaultMath.calculateWithdrawal(_collateralAmount[tokenId], _tier[tokenId]);
+        amount = VaultMath.calculateWithdrawal(_collateralAmount[tokenId]);
         if (amount == 0) return 0;
 
         _collateralAmount[tokenId] -= amount;
@@ -323,7 +318,6 @@ contract VaultNFT is ERC721, IVaultNFT {
             address collateralToken_,
             uint256 collateralAmount_,
             uint256 mintTimestamp_,
-            uint8 tier_,
             uint256 lastWithdrawal_,
             uint256 lastActivity_,
             uint256 btcTokenAmount_,
@@ -337,7 +331,6 @@ contract VaultNFT is ERC721, IVaultNFT {
             _collateralToken[tokenId],
             _collateralAmount[tokenId],
             _mintTimestamp[tokenId],
-            _tier[tokenId],
             _lastWithdrawal[tokenId],
             _lastActivity[tokenId],
             _btcTokenAmount[tokenId],
@@ -358,7 +351,7 @@ contract VaultNFT is ERC721, IVaultNFT {
         if (!VaultMath.canWithdraw(_lastWithdrawal[tokenId], block.timestamp)) {
             return 0;
         }
-        return VaultMath.calculateWithdrawal(_collateralAmount[tokenId], _tier[tokenId]);
+        return VaultMath.calculateWithdrawal(_collateralAmount[tokenId]);
     }
 
     function treasureContract(uint256 tokenId) external view returns (address) {
@@ -384,11 +377,6 @@ contract VaultNFT is ERC721, IVaultNFT {
     function mintTimestamp(uint256 tokenId) external view returns (uint256) {
         _requireOwned(tokenId);
         return _mintTimestamp[tokenId];
-    }
-
-    function tier(uint256 tokenId) external view returns (uint8) {
-        _requireOwned(tokenId);
-        return _tier[tokenId];
     }
 
     function lastWithdrawal(uint256 tokenId) external view returns (uint256) {
@@ -446,7 +434,6 @@ contract VaultNFT is ERC721, IVaultNFT {
         delete _collateralToken[tokenId];
         delete _collateralAmount[tokenId];
         delete _mintTimestamp[tokenId];
-        delete _tier[tokenId];
         delete _lastWithdrawal[tokenId];
         delete _lastActivity[tokenId];
         delete _btcTokenAmount[tokenId];
@@ -547,7 +534,7 @@ contract VaultNFT is ERC721, IVaultNFT {
         // Calculate delegate's withdrawal amount from the total pool
         // The pool should be calculated from the collateral at the beginning of the period
         uint256 currentCollateral = _collateralAmount[tokenId];
-        uint256 totalPool = VaultMath.calculateWithdrawal(currentCollateral, _tier[tokenId]);
+        uint256 totalPool = VaultMath.calculateWithdrawal(currentCollateral);
         withdrawnAmount = (totalPool * permission.percentageBPS) / 10000;
 
         if (withdrawnAmount == 0) return 0;
@@ -596,7 +583,7 @@ contract VaultNFT is ERC721, IVaultNFT {
 
         // Calculate available amount
         uint256 currentCollateral = _collateralAmount[tokenId];
-        uint256 totalPool = VaultMath.calculateWithdrawal(currentCollateral, _tier[tokenId]);
+        uint256 totalPool = VaultMath.calculateWithdrawal(currentCollateral);
         amount = (totalPool * permission.percentageBPS) / 10000;
 
         return (amount > 0, amount);

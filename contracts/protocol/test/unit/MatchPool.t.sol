@@ -20,7 +20,7 @@ contract MatchPoolTest is Test {
     address public dave;
 
     uint256 constant ONE_BTC = 1e8;
-    uint256 constant VESTING_PERIOD = 1093 days;
+    uint256 constant VESTING_PERIOD = 1129 days;
     uint256 constant WITHDRAWAL_PERIOD = 30 days;
 
     function setUp() public {
@@ -63,13 +63,13 @@ contract MatchPoolTest is Test {
 
     function test_MatchPool_ClaimOrderFairness() public {
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 2 * ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 2 * ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC, 0);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
 
         vm.prank(charlie);
-        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), ONE_BTC, 0);
+        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + 500 days);
 
@@ -104,16 +104,16 @@ contract MatchPoolTest is Test {
 
     function test_MatchPool_MultipleRedemptions() public {
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC, 0);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
 
         vm.prank(charlie);
-        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), 2 * ONE_BTC, 0);
+        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), 2 * ONE_BTC);
 
         vm.prank(dave);
-        uint256 daveToken = vault.mint(address(treasure), 30, address(wbtc), ONE_BTC, 0);
+        uint256 daveToken = vault.mint(address(treasure), 30, address(wbtc), ONE_BTC);
 
         assertEq(vault.matchPool(), 0);
 
@@ -151,10 +151,10 @@ contract MatchPoolTest is Test {
 
     function test_MatchPool_LateJoiner() public {
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC, 0);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + 365 days);
 
@@ -162,7 +162,7 @@ contract MatchPoolTest is Test {
         (, uint256 forfeited1) = vault.earlyRedeem(aliceToken);
 
         vm.prank(charlie);
-        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), ONE_BTC, 0);
+        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + 365 days);
 
@@ -179,10 +179,10 @@ contract MatchPoolTest is Test {
 
     function test_MatchPool_AfterWithdrawals_IncreasedCollateral() public {
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), 2 * ONE_BTC, 0);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), 2 * ONE_BTC);
 
         vm.warp(block.timestamp + 500 days);
 
@@ -201,7 +201,7 @@ contract MatchPoolTest is Test {
 
         vm.warp(block.timestamp + WITHDRAWAL_PERIOD);
 
-        uint256 expectedWithdrawal = (bobCollateralAfter * 833) / 100000;
+        uint256 expectedWithdrawal = (bobCollateralAfter * 875) / 100000;
 
         vm.prank(bob);
         uint256 withdrawn = vault.withdraw(bobToken);
@@ -211,13 +211,13 @@ contract MatchPoolTest is Test {
 
     function test_MatchPool_ProRataDistribution() public {
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 5 * ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 5 * ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), 3 * ONE_BTC, 0);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), 3 * ONE_BTC);
 
         vm.prank(charlie);
-        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), 2 * ONE_BTC, 0);
+        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), 2 * ONE_BTC);
 
         vm.warp(block.timestamp + 500 days);
 
@@ -239,7 +239,7 @@ contract MatchPoolTest is Test {
 
     function test_MatchPool_EmptyPool_RevertOnClaim() public {
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -250,10 +250,10 @@ contract MatchPoolTest is Test {
 
     function test_MatchPool_FullDrain() public {
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC, 0);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + 500 days);
 
@@ -275,10 +275,10 @@ contract MatchPoolTest is Test {
 
     function test_MatchPool_MaturesFlagOnClaim() public {
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC, 0);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
 
         assertEq(vault.totalActiveCollateral(), 2 * ONE_BTC);
         assertFalse(vault.matured(bobToken));
@@ -301,10 +301,10 @@ contract MatchPoolTest is Test {
 
     function test_MatchPool_ClaimDoesNotAffectBtcToken() public {
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC, 0);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + 500 days);
 

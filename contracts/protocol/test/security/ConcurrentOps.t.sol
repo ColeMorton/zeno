@@ -20,7 +20,7 @@ contract ConcurrentOpsTest is Test {
     address public dave;
 
     uint256 internal constant ONE_BTC = 1e8;
-    uint256 internal constant VESTING_PERIOD = 1093 days;
+    uint256 internal constant VESTING_PERIOD = 1129 days;
     uint256 internal constant WITHDRAWAL_PERIOD = 30 days;
 
     function setUp() public {
@@ -52,7 +52,7 @@ contract ConcurrentOpsTest is Test {
     function test_MultipleDelegatesWithdrawSamePeriod() public {
         // Alice mints vault with 10 BTC
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
         // Grant 30% to Bob, 30% to Charlie (60% total, leaving 40% for owner)
         vm.startPrank(alice);
@@ -87,7 +87,7 @@ contract ConcurrentOpsTest is Test {
 
     function test_OwnerAndDelegateWithdrawSamePeriod() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
         // Grant 50% to Bob
         vm.prank(alice);
@@ -110,7 +110,7 @@ contract ConcurrentOpsTest is Test {
         // Both withdrawals should have reduced collateral
         assertEq(collateralBefore - collateralAfter, ownerWithdrawn + delegateWithdrawn);
 
-        // Owner gets full tier rate
+        // Owner gets full withdrawal rate
         // Delegate gets 50% of remaining pool
         assertGt(ownerWithdrawn, 0);
         assertGt(delegateWithdrawn, 0);
@@ -118,7 +118,7 @@ contract ConcurrentOpsTest is Test {
 
     function test_DelegateCannotWithdrawAfterRevocation() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
         vm.prank(alice);
         vault.grantWithdrawalDelegate(tokenId, bob, 5000);
@@ -144,7 +144,7 @@ contract ConcurrentOpsTest is Test {
 
     function test_DelegationPersistsAfterTransfer() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
         // Grant delegation to bob
         vm.prank(alice);
@@ -178,14 +178,14 @@ contract ConcurrentOpsTest is Test {
     function test_MatchClaimWhileOthersActive() public {
         // Create two vaults - use different treasure token IDs
         vm.prank(alice);
-        uint256 tokenId1 = vault.mint(address(treasure), 0, address(wbtc), 5 * ONE_BTC, 0);
+        uint256 tokenId1 = vault.mint(address(treasure), 0, address(wbtc), 5 * ONE_BTC);
 
         wbtc.mint(bob, 100 * ONE_BTC);
         treasure.mintBatch(bob, 10); // Bob gets tokenIds 10-19
         vm.startPrank(bob);
         wbtc.approve(address(vault), type(uint256).max);
         treasure.setApprovalForAll(address(vault), true);
-        uint256 tokenId2 = vault.mint(address(treasure), 10, address(wbtc), 5 * ONE_BTC, 1);
+        uint256 tokenId2 = vault.mint(address(treasure), 10, address(wbtc), 5 * ONE_BTC);
         vm.stopPrank();
 
         // Alice early redeems, funding match pool
@@ -216,18 +216,18 @@ contract ConcurrentOpsTest is Test {
         treasure.mintBatch(charlie, 10); // Charlie gets tokenIds 20-29
 
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
         vm.startPrank(bob);
         wbtc.approve(address(vault), type(uint256).max);
         treasure.setApprovalForAll(address(vault), true);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), 5 * ONE_BTC, 0);
+        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), 5 * ONE_BTC);
         vm.stopPrank();
 
         vm.startPrank(charlie);
         wbtc.approve(address(vault), type(uint256).max);
         treasure.setApprovalForAll(address(vault), true);
-        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), 5 * ONE_BTC, 0);
+        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), 5 * ONE_BTC);
         vm.stopPrank();
 
         // Alice early redeems at midpoint
@@ -263,7 +263,7 @@ contract ConcurrentOpsTest is Test {
 
     function test_DelegationLimitEnforced() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
         vm.startPrank(alice);
 
@@ -295,7 +295,7 @@ contract ConcurrentOpsTest is Test {
         charliePercent = uint16(bound(charliePercent, 100, 10000 - bobPercent - 100)); // Leave room for owner
 
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), collateral, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), collateral);
 
         vm.startPrank(alice);
         vault.grantWithdrawalDelegate(tokenId, bob, bobPercent);

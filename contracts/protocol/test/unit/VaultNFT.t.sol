@@ -19,9 +19,9 @@ contract VaultNFTTest is Test {
     address public bob;
 
     uint256 constant ONE_BTC = 1e8;
-    uint256 constant VESTING_PERIOD = 1093 days;
+    uint256 constant VESTING_PERIOD = 1129 days;
     uint256 constant WITHDRAWAL_PERIOD = 30 days;
-    uint256 constant DORMANCY_THRESHOLD = 1093 days;
+    uint256 constant DORMANCY_THRESHOLD = 1129 days;
     uint256 constant GRACE_PERIOD = 30 days;
 
     function setUp() public {
@@ -56,12 +56,11 @@ contract VaultNFTTest is Test {
 
     function test_Mint() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         assertEq(tokenId, 0);
         assertEq(vault.ownerOf(tokenId), alice);
         assertEq(vault.collateralAmount(tokenId), ONE_BTC);
-        assertEq(vault.tier(tokenId), 0);
         assertEq(vault.totalActiveCollateral(), ONE_BTC);
     }
 
@@ -69,28 +68,22 @@ contract VaultNFTTest is Test {
         address fakeToken = makeAddr("fakeToken");
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.InvalidCollateralToken.selector, fakeToken));
-        vault.mint(address(treasure), 0, fakeToken, ONE_BTC, 0);
+        vault.mint(address(treasure), 0, fakeToken, ONE_BTC);
     }
 
     function test_Mint_RevertIf_ZeroCollateral() public {
         vm.prank(alice);
         vm.expectRevert(IVaultNFT.ZeroCollateral.selector);
-        vault.mint(address(treasure), 0, address(wbtc), 0, 0);
-    }
-
-    function test_Mint_RevertIf_InvalidTier() public {
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.InvalidTier.selector, 3));
-        vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 3);
+        vault.mint(address(treasure), 0, address(wbtc), 0);
     }
 
     function test_Withdraw_AfterVesting() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
-        uint256 expectedWithdrawal = (ONE_BTC * 833) / 100000;
+        uint256 expectedWithdrawal = (ONE_BTC * 875) / 100000;
         uint256 aliceBalanceBefore = wbtc.balanceOf(alice);
 
         vm.prank(alice);
@@ -103,7 +96,7 @@ contract VaultNFTTest is Test {
 
     function test_Withdraw_RevertIf_StillVesting() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.StillVesting.selector, tokenId));
@@ -112,7 +105,7 @@ contract VaultNFTTest is Test {
 
     function test_Withdraw_RevertIf_TooSoon() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -128,14 +121,14 @@ contract VaultNFTTest is Test {
 
     function test_Withdraw_MultipleWithdrawals() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
         uint256 remainingCollateral = ONE_BTC;
 
         for (uint256 i = 0; i < 3; i++) {
-            uint256 expectedWithdrawal = (remainingCollateral * 833) / 100000;
+            uint256 expectedWithdrawal = (remainingCollateral * 875) / 100000;
 
             vm.prank(alice);
             uint256 withdrawn = vault.withdraw(tokenId);
@@ -151,7 +144,7 @@ contract VaultNFTTest is Test {
 
     function test_EarlyRedeem() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + 365 days);
 
@@ -174,7 +167,7 @@ contract VaultNFTTest is Test {
 
     function test_EarlyRedeem_AtDayZero() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         uint256 aliceBalanceBefore = wbtc.balanceOf(alice);
 
@@ -188,7 +181,7 @@ contract VaultNFTTest is Test {
 
     function test_EarlyRedeem_AfterFullVesting() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -204,7 +197,7 @@ contract VaultNFTTest is Test {
 
     function test_MintBtcToken() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -219,7 +212,7 @@ contract VaultNFTTest is Test {
 
     function test_MintBtcToken_RevertIf_NotVested() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.StillVesting.selector, tokenId));
@@ -228,7 +221,7 @@ contract VaultNFTTest is Test {
 
     function test_MintBtcToken_RevertIf_AlreadyMinted() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -242,7 +235,7 @@ contract VaultNFTTest is Test {
 
     function test_ReturnBtcToken() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -259,7 +252,7 @@ contract VaultNFTTest is Test {
 
     function test_ReturnBtcToken_RevertIf_NoBtcToken() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -270,7 +263,7 @@ contract VaultNFTTest is Test {
 
     function test_EarlyRedeem_WithBtcToken_RequiresFull() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -289,10 +282,10 @@ contract VaultNFTTest is Test {
 
     function test_ClaimMatch() public {
         vm.prank(alice);
-        uint256 aliceTokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 aliceTokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobTokenId = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC, 0);
+        uint256 bobTokenId = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + 365 days);
 
@@ -314,7 +307,7 @@ contract VaultNFTTest is Test {
 
     function test_ClaimMatch_RevertIf_NotVested() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotVested.selector, tokenId));
@@ -323,10 +316,10 @@ contract VaultNFTTest is Test {
 
     function test_ClaimMatch_RevertIf_AlreadyClaimed() public {
         vm.prank(alice);
-        uint256 aliceTokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 aliceTokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobTokenId = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC, 0);
+        uint256 bobTokenId = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + 365 days);
 
@@ -345,7 +338,7 @@ contract VaultNFTTest is Test {
 
     function test_Dormancy_FullFlow() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -380,12 +373,12 @@ contract VaultNFTTest is Test {
         assertEq(collateral, ONE_BTC);
         assertEq(wbtc.balanceOf(bob), bobWbtcBefore + ONE_BTC);
         assertEq(btcToken.balanceOf(bob), 0);
-        assertEq(treasure.ownerOf(0), alice);
+        assertEq(treasure.ownerOf(0), address(0xdead));
     }
 
     function test_Dormancy_ProveActivity() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -410,7 +403,7 @@ contract VaultNFTTest is Test {
 
     function test_Dormancy_NotEligible_OwnerHoldsBtcToken() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -425,7 +418,7 @@ contract VaultNFTTest is Test {
 
     function test_Dormancy_NotEligible_NoBtcToken() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD + DORMANCY_THRESHOLD);
 
@@ -435,7 +428,7 @@ contract VaultNFTTest is Test {
 
     function test_IsVested() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         assertFalse(vault.isVested(tokenId));
 
@@ -448,13 +441,13 @@ contract VaultNFTTest is Test {
 
     function test_GetWithdrawableAmount() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         assertEq(vault.getWithdrawableAmount(tokenId), 0);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
-        uint256 expected = (ONE_BTC * 833) / 100000;
+        uint256 expected = (ONE_BTC * 875) / 100000;
         assertEq(vault.getWithdrawableAmount(tokenId), expected);
 
         vm.prank(alice);
@@ -465,13 +458,13 @@ contract VaultNFTTest is Test {
         vm.warp(block.timestamp + WITHDRAWAL_PERIOD);
 
         uint256 remaining = ONE_BTC - expected;
-        uint256 nextExpected = (remaining * 833) / 100000;
+        uint256 nextExpected = (remaining * 875) / 100000;
         assertEq(vault.getWithdrawableAmount(tokenId), nextExpected);
     }
 
     function test_Transfer_UpdatesActivity() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         uint256 initialActivity = vault.lastActivity(tokenId);
 
@@ -484,28 +477,28 @@ contract VaultNFTTest is Test {
         assertEq(vault.ownerOf(tokenId), bob);
     }
 
-    function testFuzz_Withdraw_TierRates(uint8 tier) public {
-        vm.assume(tier <= 2);
+    function testFuzz_Withdraw(uint256 collateral) public {
+        collateral = bound(collateral, ONE_BTC / 100, 100 * ONE_BTC);
 
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, tier);
+        vm.startPrank(alice);
+        wbtc.mint(alice, collateral);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), collateral);
+        vm.stopPrank();
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
         vm.prank(alice);
         uint256 withdrawn = vault.withdraw(tokenId);
 
-        uint256 expectedRate = tier == 0 ? 833 : (tier == 1 ? 1140 : 1590);
-        uint256 expected = (ONE_BTC * expectedRate) / 100000;
-
+        uint256 expected = (collateral * 875) / 100000;
         assertEq(withdrawn, expected);
     }
 
     function testFuzz_EarlyRedeem_LinearUnlock(uint256 daysHeld) public {
-        daysHeld = bound(daysHeld, 0, 1093);
+        daysHeld = bound(daysHeld, 0, 1129);
 
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + daysHeld * 1 days);
 
@@ -522,14 +515,14 @@ contract VaultNFTTest is Test {
 
     function test_GetCollateralClaim_NoBtcToken() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         assertEq(vault.getCollateralClaim(tokenId), 0);
     }
 
     function test_GetCollateralClaim_WithBtcToken() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -541,7 +534,7 @@ contract VaultNFTTest is Test {
 
     function test_GetClaimValue() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 

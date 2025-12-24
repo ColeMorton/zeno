@@ -20,7 +20,7 @@ contract InvariantsTest is Test {
     address public charlie;
 
     uint256 constant ONE_BTC = 1e8;
-    uint256 constant VESTING_PERIOD = 1093 days;
+    uint256 constant VESTING_PERIOD = 1129 days;
     uint256 constant WITHDRAWAL_PERIOD = 30 days;
 
     function setUp() public {
@@ -69,7 +69,7 @@ contract InvariantsTest is Test {
         uint256 aliceWbtcBefore = wbtc.balanceOf(alice);
 
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), depositAmount, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), depositAmount);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -109,13 +109,13 @@ contract InvariantsTest is Test {
         uint256 vaultWbtcBefore = wbtc.balanceOf(address(vault));
 
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), aliceDeposit, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), aliceDeposit);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 100, address(wbtc), bobDeposit, 1);
+        uint256 bobToken = vault.mint(address(treasure), 100, address(wbtc), bobDeposit);
 
         vm.prank(charlie);
-        uint256 charlieToken = vault.mint(address(treasure), 200, address(wbtc), charlieDeposit, 2);
+        uint256 charlieToken = vault.mint(address(treasure), 200, address(wbtc), charlieDeposit);
 
         uint256 totalDeposited = aliceDeposit + bobDeposit + charlieDeposit;
 
@@ -141,12 +141,11 @@ contract InvariantsTest is Test {
         );
     }
 
-    function testFuzz_Invariant_ZenoAllTiers(uint8 tier, uint256 withdrawalCount) public {
-        tier = uint8(bound(tier, 0, 2));
+    function testFuzz_Invariant_Zeno(uint256 withdrawalCount) public {
         withdrawalCount = bound(withdrawalCount, 100, 500);
 
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, tier);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -174,10 +173,10 @@ contract InvariantsTest is Test {
         redeemDay = bound(redeemDay, 1, 1092);
 
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), deposit1, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), deposit1);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 100, address(wbtc), deposit2, 0);
+        uint256 bobToken = vault.mint(address(treasure), 100, address(wbtc), deposit2);
 
         assertEq(vault.matchPool(), 0, "Match pool should start at 0");
 
@@ -200,10 +199,10 @@ contract InvariantsTest is Test {
 
     function test_Invariant_TotalActiveCollateral_TracksCorrectly() public {
         vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 2 * ONE_BTC, 0);
+        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 2 * ONE_BTC);
 
         vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 100, address(wbtc), 3 * ONE_BTC, 1);
+        uint256 bobToken = vault.mint(address(treasure), 100, address(wbtc), 3 * ONE_BTC);
 
         assertEq(vault.totalActiveCollateral(), 5 * ONE_BTC);
 
@@ -224,7 +223,7 @@ contract InvariantsTest is Test {
 
     function test_Invariant_BtcTokenSupply_MatchesOriginalMinted() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0);
+        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         assertEq(btcToken.totalSupply(), 0);
 

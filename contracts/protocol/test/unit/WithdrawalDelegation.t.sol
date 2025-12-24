@@ -21,7 +21,7 @@ contract WithdrawalDelegationTest is Test {
     address public dave;       // Non-delegate
 
     uint256 constant ONE_BTC = 1e8;
-    uint256 constant VESTING_PERIOD = 1093 days;
+    uint256 constant VESTING_PERIOD = 1129 days;
     uint256 constant WITHDRAWAL_PERIOD = 30 days;
 
     uint256 public tokenId;
@@ -51,7 +51,7 @@ contract WithdrawalDelegationTest is Test {
         treasure.setApprovalForAll(address(vault), true);
 
         // Mint a vault NFT
-        tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC, 0); // Conservative tier
+        tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
         vm.stopPrank();
 
         // Fast forward past vesting period
@@ -166,7 +166,7 @@ contract WithdrawalDelegationTest is Test {
         uint256 bobWithdrawn = vault.withdrawAsDelegate(tokenId);
         
         // Calculate Bob's expected amount
-        uint256 bobPool = (currentCollateral * 833) / 100000;
+        uint256 bobPool = (currentCollateral * 875) / 100000;
         uint256 expectedBobShare = (bobPool * 6000) / 10000;   // 60%
         assertEq(bobWithdrawn, expectedBobShare);
         assertEq(wbtc.balanceOf(bob), bobBalanceBefore + expectedBobShare);
@@ -178,7 +178,7 @@ contract WithdrawalDelegationTest is Test {
         uint256 charlieWithdrawn = vault.withdrawAsDelegate(tokenId);
         
         // Calculate Charlie's expected amount from remaining collateral
-        uint256 charliePool = (remainingCollateral * 833) / 100000;
+        uint256 charliePool = (remainingCollateral * 875) / 100000;
         uint256 expectedCharlieShare = (charliePool * 4000) / 10000; // 40%
         assertEq(charlieWithdrawn, expectedCharlieShare);
         assertEq(wbtc.balanceOf(charlie), charlieBalanceBefore + expectedCharlieShare);
@@ -278,7 +278,7 @@ contract WithdrawalDelegationTest is Test {
         vm.stopPrank();
 
         uint256 currentCollateral = vault.collateralAmount(tokenId);
-        uint256 totalPool = (currentCollateral * 833) / 100000; // Conservative tier
+        uint256 totalPool = (currentCollateral * 875) / 100000; // 0.875% monthly rate
         uint256 expectedAmount = (totalPool * 6000) / 10000;    // 60%
 
         uint256 bobBalanceBefore = wbtc.balanceOf(bob);
@@ -303,7 +303,7 @@ contract WithdrawalDelegationTest is Test {
     function test_WithdrawAsDelegate_RevertIf_StillVesting() public {
         // Create new vault and don't fast forward
         vm.startPrank(alice);
-        uint256 newTokenId = vault.mint(address(treasure), 1, address(wbtc), ONE_BTC, 0);
+        uint256 newTokenId = vault.mint(address(treasure), 1, address(wbtc), ONE_BTC);
         vault.grantWithdrawalDelegate(newTokenId, bob, 6000);
         vm.stopPrank();
 
@@ -333,8 +333,8 @@ contract WithdrawalDelegationTest is Test {
         vm.stopPrank();
 
         // Drain the vault collateral significantly
-        // With 0.833% withdrawal rate per period, after N withdrawals:
-        // Remaining = initial * (1 - 0.00833)^N
+        // With 0.875% withdrawal rate per period, after N withdrawals:
+        // Remaining = initial * (1 - 0.00875)^N
         // After 100 withdrawals: ~43% remains
         // After 200 withdrawals: ~19% remains
         // After 300 withdrawals: ~8% remains
@@ -350,7 +350,7 @@ contract WithdrawalDelegationTest is Test {
 
         // Bob's withdrawal should be very small after 300 owner withdrawals
         // Remaining collateral: ~8% of 10 BTC = 0.8 BTC
-        // Bob's share: 60% of (0.8 BTC * 0.833%) = ~0.004 BTC = 400,000 sats
+        // Bob's share: 60% of (0.8 BTC * 0.875%) = ~0.004 BTC = 400,000 sats
         vm.prank(bob);
         uint256 withdrawn = vault.withdrawAsDelegate(tokenId);
         assertLt(withdrawn, ONE_BTC / 100); // Less than 0.01 BTC after 300 periods
@@ -403,7 +403,7 @@ contract WithdrawalDelegationTest is Test {
         vm.stopPrank();
 
         uint256 currentCollateral = vault.collateralAmount(tokenId);
-        uint256 totalPool = (currentCollateral * 833) / 100000;
+        uint256 totalPool = (currentCollateral * 875) / 100000;
 
         // Bob withdraws his 60%
         vm.prank(bob);
@@ -419,7 +419,7 @@ contract WithdrawalDelegationTest is Test {
         
         // Owner gets full withdrawal amount from remaining collateral
         uint256 remainingCollateral = currentCollateral - bobWithdrawn;
-        uint256 expectedOwnerAmount = (remainingCollateral * 833) / 100000;
+        uint256 expectedOwnerAmount = (remainingCollateral * 875) / 100000;
         assertEq(ownerWithdrawn, expectedOwnerAmount);
     }
 
@@ -455,7 +455,7 @@ contract WithdrawalDelegationTest is Test {
 
         // Bob withdraws first - from original collateral
         uint256 collateralBeforeBob = vault.collateralAmount(tokenId);
-        uint256 bobPool = (collateralBeforeBob * 833) / 100000;
+        uint256 bobPool = (collateralBeforeBob * 875) / 100000;
         uint256 expectedBob = (bobPool * percentage1) / 10000;
 
         vm.prank(bob);
@@ -465,7 +465,7 @@ contract WithdrawalDelegationTest is Test {
 
         // Charlie withdraws second - from REDUCED collateral (after Bob's withdrawal)
         uint256 collateralBeforeCharlie = vault.collateralAmount(tokenId);
-        uint256 charliePool = (collateralBeforeCharlie * 833) / 100000;
+        uint256 charliePool = (collateralBeforeCharlie * 875) / 100000;
         uint256 expectedCharlie = (charliePool * percentage2) / 10000;
 
         vm.prank(charlie);
