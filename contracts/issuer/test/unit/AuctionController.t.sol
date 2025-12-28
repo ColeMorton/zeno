@@ -32,7 +32,14 @@ contract AuctionControllerTest is Test {
         vault = new MockVaultNFT();
         wbtc = new MockWBTC();
 
-        controller = new AuctionController(address(treasure), address(vault));
+        // Prepare collateral and protocol arrays (single collateral for tests)
+        address[] memory collaterals = new address[](1);
+        collaterals[0] = address(wbtc);
+
+        address[] memory protocols = new address[](1);
+        protocols[0] = address(vault);
+
+        controller = new AuctionController(address(treasure), collaterals, protocols);
 
         // Authorize controller as minter
         treasure.authorizeMinter(address(controller));

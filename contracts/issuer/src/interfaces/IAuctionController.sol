@@ -118,6 +118,7 @@ interface IAuctionController {
     error AlreadySettled(uint256 auctionId, uint256 slot);
     error NoBidsOnSlot(uint256 auctionId, uint256 slot);
     error ZeroMaxSupply();
+    error UnsupportedCollateral(address collateralToken);
 
     // ==================== Dutch Auction Functions ====================
 

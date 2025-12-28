@@ -29,9 +29,11 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
     // ==================== Immutables ====================
 
     ITreasureNFT public immutable treasureNFT;
-    IVaultMint public immutable protocol;
 
     // ==================== State ====================
+
+    /// @notice Mapping of collateral token to protocol address
+    mapping(address => IVaultMint) public protocols;
 
     uint256 private _nextAuctionId;
 
@@ -47,10 +49,13 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
 
     constructor(
         address treasureNFT_,
-        address protocol_
+        address[] memory collateralTokens_,
+        address[] memory protocols_
     ) Ownable(msg.sender) {
         treasureNFT = ITreasureNFT(treasureNFT_);
-        protocol = IVaultMint(protocol_);
+        for (uint256 i = 0; i < collateralTokens_.length; i++) {
+            protocols[collateralTokens_[i]] = IVaultMint(protocols_[i]);
+        }
     }
 
     // ==================== Dutch Auction Functions ====================
@@ -132,15 +137,21 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
         // Transfer payment from buyer
         IERC20(auction.collateralToken).safeTransferFrom(msg.sender, address(this), price);
 
+        // Get protocol for this collateral type
+        IVaultMint selectedProtocol = protocols[auction.collateralToken];
+        if (address(selectedProtocol) == address(0)) {
+            revert UnsupportedCollateral(auction.collateralToken);
+        }
+
         // Mint treasure
         uint256 treasureId = treasureNFT.mint(address(this));
 
         // Approve protocol
-        IERC721(address(treasureNFT)).approve(address(protocol), treasureId);
-        IERC20(auction.collateralToken).approve(address(protocol), price);
+        IERC721(address(treasureNFT)).approve(address(selectedProtocol), treasureId);
+        IERC20(auction.collateralToken).approve(address(selectedProtocol), price);
 
         // Mint vault (price becomes collateral)
-        vaultId = protocol.mint(
+        vaultId = selectedProtocol.mint(
             address(treasureNFT),
             treasureId,
             auction.collateralToken,
@@ -148,7 +159,7 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
         );
 
         // Transfer vault to buyer
-        IERC721(address(protocol)).transferFrom(address(this), msg.sender, vaultId);
+        IERC721(address(selectedProtocol)).transferFrom(address(this), msg.sender, vaultId);
 
         auction.mintedCount++;
 
@@ -287,15 +298,21 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
         _slotSettled[auctionId][slot] = true;
         auction.state = AuctionState.ENDED;
 
+        // Get protocol for this collateral type
+        IVaultMint selectedProtocol = protocols[auction.collateralToken];
+        if (address(selectedProtocol) == address(0)) {
+            revert UnsupportedCollateral(auction.collateralToken);
+        }
+
         // Mint treasure
         uint256 treasureId = treasureNFT.mint(address(this));
 
         // Approve protocol
-        IERC721(address(treasureNFT)).approve(address(protocol), treasureId);
-        IERC20(auction.collateralToken).approve(address(protocol), winningBid.amount);
+        IERC721(address(treasureNFT)).approve(address(selectedProtocol), treasureId);
+        IERC20(auction.collateralToken).approve(address(selectedProtocol), winningBid.amount);
 
         // Mint vault (winning bid becomes collateral)
-        vaultId = protocol.mint(
+        vaultId = selectedProtocol.mint(
             address(treasureNFT),
             treasureId,
             auction.collateralToken,
@@ -303,7 +320,7 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
         );
 
         // Transfer vault to winner
-        IERC721(address(protocol)).transferFrom(address(this), winningBid.bidder, vaultId);
+        IERC721(address(selectedProtocol)).transferFrom(address(this), winningBid.bidder, vaultId);
 
         auction.mintedCount++;
 

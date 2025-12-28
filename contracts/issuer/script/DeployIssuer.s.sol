@@ -19,7 +19,13 @@ contract DeployIssuer is Script {
         string memory treasureSymbol = vm.envString("TREASURE_SYMBOL");
         string memory treasureBaseURI = vm.envString("TREASURE_BASE_URI");
 
-        address vaultNFT = vm.envAddress("VAULT_NFT");
+        // Load protocol addresses for each collateral type
+        address wbtc = vm.envAddress("WBTC");
+        address cbbtc = vm.envAddress("CBBTC");
+        address tbtc = vm.envAddress("TBTC");
+        address vaultWBTC = vm.envAddress("VAULT_WBTC");
+        address vaultCBBTC = vm.envAddress("VAULT_CBBTC");
+        address vaultTBTC = vm.envAddress("VAULT_TBTC");
 
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
@@ -41,11 +47,23 @@ contract DeployIssuer is Script {
         TreasureNFT treasure = new TreasureNFT(treasureName, treasureSymbol, treasureBaseURI);
         console.log("TreasureNFT deployed at:", address(treasure));
 
+        // Prepare collateral and protocol arrays
+        address[] memory collaterals = new address[](3);
+        collaterals[0] = wbtc;
+        collaterals[1] = cbbtc;
+        collaterals[2] = tbtc;
+
+        address[] memory protocols = new address[](3);
+        protocols[0] = vaultWBTC;
+        protocols[1] = vaultCBBTC;
+        protocols[2] = vaultTBTC;
+
         // Deploy AchievementMinter
         AchievementMinter minter = new AchievementMinter(
             address(achievement),
             address(treasure),
-            vaultNFT
+            collaterals,
+            protocols
         );
         console.log("AchievementMinter deployed at:", address(minter));
 
@@ -62,6 +80,8 @@ contract DeployIssuer is Script {
         console.log("ACHIEVEMENT_NFT:", address(achievement));
         console.log("TREASURE_NFT:", address(treasure));
         console.log("ACHIEVEMENT_MINTER:", address(minter));
-        console.log("VAULT_NFT:", vaultNFT);
+        console.log("VAULT_WBTC:", vaultWBTC);
+        console.log("VAULT_CBBTC:", vaultCBBTC);
+        console.log("VAULT_TBTC:", vaultTBTC);
     }
 }

@@ -45,10 +45,19 @@ contract AchievementMinterTest is Test {
         // Deploy issuer contracts
         achievement = new AchievementNFT("Achievements", "ACH", "https://achievements.com/", true);
         treasure = new TreasureNFT("Treasure", "TREASURE", "https://treasure.com/");
+
+        // Prepare collateral and protocol arrays (single collateral for tests)
+        address[] memory collaterals = new address[](1);
+        collaterals[0] = address(wbtc);
+
+        address[] memory protocols = new address[](1);
+        protocols[0] = address(vault);
+
         minter = new AchievementMinter(
             address(achievement),
             address(treasure),
-            address(vault)
+            collaterals,
+            protocols
         );
 
         // Configure permissions
@@ -115,7 +124,7 @@ contract AchievementMinterTest is Test {
         (uint256 vaultId,) = _mintVaultForAlice();
 
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
         assertTrue(achievement.hasAchievement(alice, MINTER));
     }
@@ -126,7 +135,7 @@ contract AchievementMinterTest is Test {
         vm.prank(alice);
         vm.expectEmit(true, true, false, false);
         emit AchievementMinter.MinterAchievementClaimed(alice, vaultId);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
     }
 
     function test_ClaimMinterAchievement_RevertIf_NotVaultOwner() public {
@@ -136,7 +145,7 @@ contract AchievementMinterTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(AchievementMinter.NotVaultOwner.selector, vaultId, bob)
         );
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
     }
 
     function test_ClaimMinterAchievement_RevertIf_WrongTreasure() public {
@@ -169,14 +178,14 @@ contract AchievementMinterTest is Test {
                 address(otherTreasure)
             )
         );
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
     }
 
     function test_ClaimMinterAchievement_RevertIf_AlreadyClaimed() public {
         (uint256 vaultId,) = _mintVaultForAlice();
 
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
         // Mint another vault for alice
         vm.prank(owner);
@@ -204,7 +213,7 @@ contract AchievementMinterTest is Test {
                 MINTER
             )
         );
-        minter.claimMinterAchievement(vaultId2);
+        minter.claimMinterAchievement(vaultId2, address(wbtc));
     }
 
     // ==================== claimMaturedAchievement Tests ====================
@@ -214,7 +223,7 @@ contract AchievementMinterTest is Test {
 
         // Claim MINTER first
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
         // Set vault as vested and match claimed
         vault.setVested(vaultId, true);
@@ -222,7 +231,7 @@ contract AchievementMinterTest is Test {
 
         // Claim MATURED
         vm.prank(alice);
-        minter.claimMaturedAchievement(vaultId);
+        minter.claimMaturedAchievement(vaultId, address(wbtc));
 
         assertTrue(achievement.hasAchievement(alice, MATURED));
     }
@@ -231,7 +240,7 @@ contract AchievementMinterTest is Test {
         (uint256 vaultId,) = _mintVaultForAlice();
 
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
         vault.setVested(vaultId, true);
         vault.setMatchClaimed(vaultId, true);
@@ -239,7 +248,7 @@ contract AchievementMinterTest is Test {
         vm.prank(alice);
         vm.expectEmit(true, true, false, false);
         emit AchievementMinter.MaturedAchievementClaimed(alice, vaultId);
-        minter.claimMaturedAchievement(vaultId);
+        minter.claimMaturedAchievement(vaultId, address(wbtc));
     }
 
     function test_ClaimMaturedAchievement_RevertIf_MissingMinter() public {
@@ -252,14 +261,14 @@ contract AchievementMinterTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(AchievementMinter.MissingMinterAchievement.selector, alice)
         );
-        minter.claimMaturedAchievement(vaultId);
+        minter.claimMaturedAchievement(vaultId, address(wbtc));
     }
 
     function test_ClaimMaturedAchievement_RevertIf_NotVested() public {
         (uint256 vaultId,) = _mintVaultForAlice();
 
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
         // NOT vested
         vault.setMatchClaimed(vaultId, true);
@@ -268,14 +277,14 @@ contract AchievementMinterTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(AchievementMinter.VaultNotVested.selector, vaultId)
         );
-        minter.claimMaturedAchievement(vaultId);
+        minter.claimMaturedAchievement(vaultId, address(wbtc));
     }
 
     function test_ClaimMaturedAchievement_RevertIf_MatchNotClaimed() public {
         (uint256 vaultId,) = _mintVaultForAlice();
 
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
         // Vested but match NOT claimed
         vault.setVested(vaultId, true);
@@ -284,7 +293,7 @@ contract AchievementMinterTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(AchievementMinter.MatchNotClaimed.selector, vaultId)
         );
-        minter.claimMaturedAchievement(vaultId);
+        minter.claimMaturedAchievement(vaultId, address(wbtc));
     }
 
     // ==================== claimDurationAchievement Tests ====================
@@ -296,7 +305,7 @@ contract AchievementMinterTest is Test {
         vm.warp(block.timestamp + 30 days);
 
         vm.prank(alice);
-        minter.claimDurationAchievement(vaultId, FIRST_MONTH);
+        minter.claimDurationAchievement(vaultId, address(wbtc), FIRST_MONTH);
 
         assertTrue(achievement.hasAchievement(alice, FIRST_MONTH));
     }
@@ -308,7 +317,7 @@ contract AchievementMinterTest is Test {
         vm.warp(block.timestamp + 91 days);
 
         vm.prank(alice);
-        minter.claimDurationAchievement(vaultId, QUARTER_STACK);
+        minter.claimDurationAchievement(vaultId, address(wbtc), QUARTER_STACK);
 
         assertTrue(achievement.hasAchievement(alice, QUARTER_STACK));
     }
@@ -319,27 +328,27 @@ contract AchievementMinterTest is Test {
         // First month
         vm.warp(block.timestamp + 30 days);
         vm.prank(alice);
-        minter.claimDurationAchievement(vaultId, FIRST_MONTH);
+        minter.claimDurationAchievement(vaultId, address(wbtc), FIRST_MONTH);
 
         // Quarter stack
         vm.warp(block.timestamp + 61 days); // 91 total
         vm.prank(alice);
-        minter.claimDurationAchievement(vaultId, QUARTER_STACK);
+        minter.claimDurationAchievement(vaultId, address(wbtc), QUARTER_STACK);
 
         // Half year
         vm.warp(block.timestamp + 91 days); // 182 total
         vm.prank(alice);
-        minter.claimDurationAchievement(vaultId, HALF_YEAR);
+        minter.claimDurationAchievement(vaultId, address(wbtc), HALF_YEAR);
 
         // Annual
         vm.warp(block.timestamp + 183 days); // 365 total
         vm.prank(alice);
-        minter.claimDurationAchievement(vaultId, ANNUAL);
+        minter.claimDurationAchievement(vaultId, address(wbtc), ANNUAL);
 
         // Diamond hands
         vm.warp(block.timestamp + 365 days); // 730 total
         vm.prank(alice);
-        minter.claimDurationAchievement(vaultId, DIAMOND_HANDS);
+        minter.claimDurationAchievement(vaultId, address(wbtc), DIAMOND_HANDS);
 
         assertTrue(achievement.hasAchievement(alice, FIRST_MONTH));
         assertTrue(achievement.hasAchievement(alice, QUARTER_STACK));
@@ -356,7 +365,7 @@ contract AchievementMinterTest is Test {
         vm.prank(alice);
         vm.expectEmit(true, true, true, false);
         emit AchievementMinter.DurationAchievementClaimed(alice, vaultId, FIRST_MONTH);
-        minter.claimDurationAchievement(vaultId, FIRST_MONTH);
+        minter.claimDurationAchievement(vaultId, address(wbtc), FIRST_MONTH);
     }
 
     function test_ClaimDurationAchievement_RevertIf_InvalidType() public {
@@ -368,7 +377,7 @@ contract AchievementMinterTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(AchievementMinter.InvalidDurationAchievement.selector, invalidType)
         );
-        minter.claimDurationAchievement(vaultId, invalidType);
+        minter.claimDurationAchievement(vaultId, address(wbtc), invalidType);
     }
 
     function test_ClaimDurationAchievement_RevertIf_DurationNotMet() public {
@@ -387,7 +396,7 @@ contract AchievementMinterTest is Test {
                 15 days
             )
         );
-        minter.claimDurationAchievement(vaultId, FIRST_MONTH);
+        minter.claimDurationAchievement(vaultId, address(wbtc), FIRST_MONTH);
     }
 
     function test_ClaimDurationAchievement_RevertIf_NotVaultOwner() public {
@@ -399,7 +408,7 @@ contract AchievementMinterTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(AchievementMinter.NotVaultOwner.selector, vaultId, bob)
         );
-        minter.claimDurationAchievement(vaultId, FIRST_MONTH);
+        minter.claimDurationAchievement(vaultId, address(wbtc), FIRST_MONTH);
     }
 
     function test_ClaimDurationAchievement_RevertIf_WrongTreasure() public {
@@ -434,7 +443,7 @@ contract AchievementMinterTest is Test {
                 address(otherTreasure)
             )
         );
-        minter.claimDurationAchievement(vaultId, FIRST_MONTH);
+        minter.claimDurationAchievement(vaultId, address(wbtc), FIRST_MONTH);
     }
 
     // ==================== mintHodlerSupremeVault Tests ====================
@@ -444,13 +453,13 @@ contract AchievementMinterTest is Test {
 
         // Get both prerequisites
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
         vault.setVested(vaultId, true);
         vault.setMatchClaimed(vaultId, true);
 
         vm.prank(alice);
-        minter.claimMaturedAchievement(vaultId);
+        minter.claimMaturedAchievement(vaultId, address(wbtc));
 
         // Mint collateral for Hodler Supreme vault
         vm.prank(owner);
@@ -472,13 +481,13 @@ contract AchievementMinterTest is Test {
         (uint256 vaultId,) = _mintVaultForAlice();
 
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
         vault.setVested(vaultId, true);
         vault.setMatchClaimed(vaultId, true);
 
         vm.prank(alice);
-        minter.claimMaturedAchievement(vaultId);
+        minter.claimMaturedAchievement(vaultId, address(wbtc));
 
         vm.prank(owner);
         wbtc.mint(alice, COLLATERAL_AMOUNT);
@@ -515,7 +524,7 @@ contract AchievementMinterTest is Test {
         (uint256 vaultId,) = _mintVaultForAlice();
 
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
         vm.prank(owner);
         wbtc.mint(alice, COLLATERAL_AMOUNT);
@@ -534,13 +543,13 @@ contract AchievementMinterTest is Test {
         (uint256 vaultId,) = _mintVaultForAlice();
 
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
         vault.setVested(vaultId, true);
         vault.setMatchClaimed(vaultId, true);
 
         vm.prank(alice);
-        minter.claimMaturedAchievement(vaultId);
+        minter.claimMaturedAchievement(vaultId, address(wbtc));
 
         vm.prank(alice);
         vm.expectRevert(AchievementMinter.ZeroCollateral.selector);
@@ -552,7 +561,7 @@ contract AchievementMinterTest is Test {
     function test_CanClaimMinterAchievement() public {
         (uint256 vaultId,) = _mintVaultForAlice();
 
-        (bool canClaim, string memory reason) = minter.canClaimMinterAchievement(alice, vaultId);
+        (bool canClaim, string memory reason) = minter.canClaimMinterAchievement(alice, vaultId, address(wbtc));
         assertTrue(canClaim);
         assertEq(reason, "");
     }
@@ -561,9 +570,9 @@ contract AchievementMinterTest is Test {
         (uint256 vaultId,) = _mintVaultForAlice();
 
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
-        (bool canClaim, string memory reason) = minter.canClaimMinterAchievement(alice, vaultId);
+        (bool canClaim, string memory reason) = minter.canClaimMinterAchievement(alice, vaultId, address(wbtc));
         assertFalse(canClaim);
         assertEq(reason, "Already has MINTER achievement");
     }
@@ -571,7 +580,7 @@ contract AchievementMinterTest is Test {
     function test_CanClaimMinterAchievement_NotOwner() public {
         (uint256 vaultId,) = _mintVaultForAlice();
 
-        (bool canClaim, string memory reason) = minter.canClaimMinterAchievement(bob, vaultId);
+        (bool canClaim, string memory reason) = minter.canClaimMinterAchievement(bob, vaultId, address(wbtc));
         assertFalse(canClaim);
         assertEq(reason, "Not vault owner");
     }
@@ -580,12 +589,12 @@ contract AchievementMinterTest is Test {
         (uint256 vaultId,) = _mintVaultForAlice();
 
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
         vault.setVested(vaultId, true);
         vault.setMatchClaimed(vaultId, true);
 
-        (bool canClaim, string memory reason) = minter.canClaimMaturedAchievement(alice, vaultId);
+        (bool canClaim, string memory reason) = minter.canClaimMaturedAchievement(alice, vaultId, address(wbtc));
         assertTrue(canClaim);
         assertEq(reason, "");
     }
@@ -593,7 +602,7 @@ contract AchievementMinterTest is Test {
     function test_CanClaimMaturedAchievement_MissingMinter() public {
         (uint256 vaultId,) = _mintVaultForAlice();
 
-        (bool canClaim, string memory reason) = minter.canClaimMaturedAchievement(alice, vaultId);
+        (bool canClaim, string memory reason) = minter.canClaimMaturedAchievement(alice, vaultId, address(wbtc));
         assertFalse(canClaim);
         assertEq(reason, "Missing MINTER achievement");
     }
@@ -603,7 +612,7 @@ contract AchievementMinterTest is Test {
 
         vm.warp(block.timestamp + 30 days);
 
-        (bool canClaim, string memory reason) = minter.canClaimDurationAchievement(alice, vaultId, FIRST_MONTH);
+        (bool canClaim, string memory reason) = minter.canClaimDurationAchievement(alice, vaultId, address(wbtc), FIRST_MONTH);
         assertTrue(canClaim);
         assertEq(reason, "");
     }
@@ -614,7 +623,7 @@ contract AchievementMinterTest is Test {
         // Only 15 days elapsed
         vm.warp(block.timestamp + 15 days);
 
-        (bool canClaim, string memory reason) = minter.canClaimDurationAchievement(alice, vaultId, FIRST_MONTH);
+        (bool canClaim, string memory reason) = minter.canClaimDurationAchievement(alice, vaultId, address(wbtc), FIRST_MONTH);
         assertFalse(canClaim);
         assertEq(reason, "Duration not met");
     }
@@ -622,7 +631,7 @@ contract AchievementMinterTest is Test {
     function test_CanClaimDurationAchievement_InvalidType() public {
         (uint256 vaultId,) = _mintVaultForAlice();
 
-        (bool canClaim, string memory reason) = minter.canClaimDurationAchievement(alice, vaultId, keccak256("INVALID"));
+        (bool canClaim, string memory reason) = minter.canClaimDurationAchievement(alice, vaultId, address(wbtc), keccak256("INVALID"));
         assertFalse(canClaim);
         assertEq(reason, "Invalid duration achievement");
     }
@@ -631,21 +640,21 @@ contract AchievementMinterTest is Test {
         (uint256 vaultId,) = _mintVaultForAlice();
 
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
         vault.setVested(vaultId, true);
         vault.setMatchClaimed(vaultId, true);
 
         vm.prank(alice);
-        minter.claimMaturedAchievement(vaultId);
+        minter.claimMaturedAchievement(vaultId, address(wbtc));
 
-        (bool canMint, string memory reason) = minter.canMintHodlerSupremeVault(alice);
+        (bool canMint, string memory reason) = minter.canMintHodlerSupremeVault(alice, address(wbtc));
         assertTrue(canMint);
         assertEq(reason, "");
     }
 
     function test_CanMintHodlerSupremeVault_MissingMinter() public view {
-        (bool canMint, string memory reason) = minter.canMintHodlerSupremeVault(alice);
+        (bool canMint, string memory reason) = minter.canMintHodlerSupremeVault(alice, address(wbtc));
         assertFalse(canMint);
         assertEq(reason, "Missing MINTER achievement");
     }
@@ -654,9 +663,9 @@ contract AchievementMinterTest is Test {
         (uint256 vaultId,) = _mintVaultForAlice();
 
         vm.prank(alice);
-        minter.claimMinterAchievement(vaultId);
+        minter.claimMinterAchievement(vaultId, address(wbtc));
 
-        (bool canMint, string memory reason) = minter.canMintHodlerSupremeVault(alice);
+        (bool canMint, string memory reason) = minter.canMintHodlerSupremeVault(alice, address(wbtc));
         assertFalse(canMint);
         assertEq(reason, "Missing MATURED achievement");
     }

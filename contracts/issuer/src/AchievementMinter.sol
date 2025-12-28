@@ -54,7 +54,9 @@ contract AchievementMinter is Ownable {
 
     IAchievementNFT public immutable achievements;
     ITreasureNFT public immutable treasureNFT;
-    IVaultState public immutable protocol;
+
+    /// @notice Mapping of collateral token to protocol address
+    mapping(address => IVaultState) public protocols;
 
     /// @notice Maps achievement type to required duration (0 = not a duration achievement)
     mapping(bytes32 => uint256) public durationThresholds;
@@ -86,17 +88,21 @@ contract AchievementMinter is Ownable {
     error ZeroCollateral();
     error InvalidDurationAchievement(bytes32 achievementType);
     error DurationNotMet(uint256 vaultId, bytes32 achievementType, uint256 required, uint256 elapsed);
+    error UnsupportedCollateral(address collateralToken);
 
     // ==================== Constructor ====================
 
     constructor(
         address achievements_,
         address treasureNFT_,
-        address protocol_
+        address[] memory collateralTokens_,
+        address[] memory protocols_
     ) Ownable(msg.sender) {
         achievements = IAchievementNFT(achievements_);
         treasureNFT = ITreasureNFT(treasureNFT_);
-        protocol = IVaultState(protocol_);
+        for (uint256 i = 0; i < collateralTokens_.length; i++) {
+            protocols[collateralTokens_[i]] = IVaultState(protocols_[i]);
+        }
 
         // Initialize duration thresholds
         durationThresholds[FIRST_MONTH] = FIRST_MONTH_DURATION;
@@ -111,14 +117,20 @@ contract AchievementMinter is Ownable {
     /// @notice Claim the MINTER achievement
     /// @dev Verifies caller owns a vault containing issuer's Treasure NFT
     /// @param vaultId The vault token ID to verify
-    function claimMinterAchievement(uint256 vaultId) external {
+    /// @param collateralToken The collateral token to identify the protocol
+    function claimMinterAchievement(uint256 vaultId, address collateralToken) external {
+        IVaultState selectedProtocol = protocols[collateralToken];
+        if (address(selectedProtocol) == address(0)) {
+            revert UnsupportedCollateral(collateralToken);
+        }
+
         // 1. Verify caller owns the vault
-        if (protocol.ownerOf(vaultId) != msg.sender) {
+        if (selectedProtocol.ownerOf(vaultId) != msg.sender) {
             revert NotVaultOwner(vaultId, msg.sender);
         }
 
         // 2. Verify vault contains issuer's treasure
-        address vaultTreasure = protocol.treasureContract(vaultId);
+        address vaultTreasure = selectedProtocol.treasureContract(vaultId);
         if (vaultTreasure != address(treasureNFT)) {
             revert VaultNotUsingIssuerTreasure(vaultId, vaultTreasure);
         }
@@ -132,30 +144,36 @@ contract AchievementMinter is Ownable {
     /// @notice Claim the MATURED achievement
     /// @dev Verifies vault is vested and match pool has been claimed
     /// @param vaultId The vault token ID to verify
-    function claimMaturedAchievement(uint256 vaultId) external {
+    /// @param collateralToken The collateral token to identify the protocol
+    function claimMaturedAchievement(uint256 vaultId, address collateralToken) external {
+        IVaultState selectedProtocol = protocols[collateralToken];
+        if (address(selectedProtocol) == address(0)) {
+            revert UnsupportedCollateral(collateralToken);
+        }
+
         // 1. Verify wallet has MINTER achievement
         if (!achievements.hasAchievement(msg.sender, MINTER)) {
             revert MissingMinterAchievement(msg.sender);
         }
 
         // 2. Verify caller owns the vault
-        if (protocol.ownerOf(vaultId) != msg.sender) {
+        if (selectedProtocol.ownerOf(vaultId) != msg.sender) {
             revert NotVaultOwner(vaultId, msg.sender);
         }
 
         // 3. Verify vault contains issuer's treasure
-        address vaultTreasure = protocol.treasureContract(vaultId);
+        address vaultTreasure = selectedProtocol.treasureContract(vaultId);
         if (vaultTreasure != address(treasureNFT)) {
             revert VaultNotUsingIssuerTreasure(vaultId, vaultTreasure);
         }
 
         // 4. Verify vault is vested
-        if (!protocol.isVested(vaultId)) {
+        if (!selectedProtocol.isVested(vaultId)) {
             revert VaultNotVested(vaultId);
         }
 
         // 5. Verify match was claimed
-        if (!protocol.matchClaimed(vaultId)) {
+        if (!selectedProtocol.matchClaimed(vaultId)) {
             revert MatchNotClaimed(vaultId);
         }
 
@@ -170,26 +188,32 @@ contract AchievementMinter is Ownable {
     /// @notice Claim a duration-based achievement
     /// @dev Verifies vault has been held for the required duration
     /// @param vaultId The vault token ID to verify
+    /// @param collateralToken The collateral token to identify the protocol
     /// @param achievementType The duration achievement type to claim
-    function claimDurationAchievement(uint256 vaultId, bytes32 achievementType) external {
+    function claimDurationAchievement(uint256 vaultId, address collateralToken, bytes32 achievementType) external {
+        IVaultState selectedProtocol = protocols[collateralToken];
+        if (address(selectedProtocol) == address(0)) {
+            revert UnsupportedCollateral(collateralToken);
+        }
+
         uint256 threshold = durationThresholds[achievementType];
         if (threshold == 0) {
             revert InvalidDurationAchievement(achievementType);
         }
 
         // 1. Verify caller owns the vault
-        if (protocol.ownerOf(vaultId) != msg.sender) {
+        if (selectedProtocol.ownerOf(vaultId) != msg.sender) {
             revert NotVaultOwner(vaultId, msg.sender);
         }
 
         // 2. Verify vault contains issuer's treasure
-        address vaultTreasure = protocol.treasureContract(vaultId);
+        address vaultTreasure = selectedProtocol.treasureContract(vaultId);
         if (vaultTreasure != address(treasureNFT)) {
             revert VaultNotUsingIssuerTreasure(vaultId, vaultTreasure);
         }
 
         // 3. Verify duration met
-        uint256 elapsed = block.timestamp - protocol.mintTimestamp(vaultId);
+        uint256 elapsed = block.timestamp - selectedProtocol.mintTimestamp(vaultId);
         if (elapsed < threshold) {
             revert DurationNotMet(vaultId, achievementType, threshold, elapsed);
         }
@@ -211,6 +235,11 @@ contract AchievementMinter is Ownable {
         address collateralToken,
         uint256 collateralAmount
     ) external returns (uint256 vaultId) {
+        IVaultState selectedProtocol = protocols[collateralToken];
+        if (address(selectedProtocol) == address(0)) {
+            revert UnsupportedCollateral(collateralToken);
+        }
+
         // 1. Verify MINTER achievement
         if (!achievements.hasAchievement(msg.sender, MINTER)) {
             revert MissingMinterAchievement(msg.sender);
@@ -235,11 +264,11 @@ contract AchievementMinter is Ownable {
         IERC20(collateralToken).safeTransferFrom(msg.sender, address(this), collateralAmount);
 
         // 6. Approve protocol to take treasure and collateral
-        IERC721(address(treasureNFT)).approve(address(protocol), treasureId);
-        IERC20(collateralToken).approve(address(protocol), collateralAmount);
+        IERC721(address(treasureNFT)).approve(address(selectedProtocol), treasureId);
+        IERC20(collateralToken).approve(address(selectedProtocol), collateralAmount);
 
         // 7. Mint vault on protocol
-        vaultId = protocol.mint(
+        vaultId = selectedProtocol.mint(
             address(treasureNFT),
             treasureId,
             collateralToken,
@@ -247,7 +276,7 @@ contract AchievementMinter is Ownable {
         );
 
         // 8. Transfer vault to caller
-        IERC721(address(protocol)).transferFrom(address(this), msg.sender, vaultId);
+        IERC721(address(selectedProtocol)).transferFrom(address(this), msg.sender, vaultId);
 
         emit HodlerSupremeVaultMinted(msg.sender, vaultId, treasureId, collateralAmount);
     }
@@ -257,22 +286,28 @@ contract AchievementMinter is Ownable {
     /// @notice Check if a wallet can claim MINTER achievement for a vault
     /// @param wallet Address to check
     /// @param vaultId Vault to verify
+    /// @param collateralToken The collateral token to identify the protocol
     /// @return canClaim Whether the achievement can be claimed
     /// @return reason Failure reason if cannot claim
-    function canClaimMinterAchievement(address wallet, uint256 vaultId)
+    function canClaimMinterAchievement(address wallet, uint256 vaultId, address collateralToken)
         external
         view
         returns (bool canClaim, string memory reason)
     {
+        IVaultState selectedProtocol = protocols[collateralToken];
+        if (address(selectedProtocol) == address(0)) {
+            return (false, "Unsupported collateral");
+        }
+
         if (achievements.hasAchievement(wallet, MINTER)) {
             return (false, "Already has MINTER achievement");
         }
 
-        if (protocol.ownerOf(vaultId) != wallet) {
+        if (selectedProtocol.ownerOf(vaultId) != wallet) {
             return (false, "Not vault owner");
         }
 
-        if (protocol.treasureContract(vaultId) != address(treasureNFT)) {
+        if (selectedProtocol.treasureContract(vaultId) != address(treasureNFT)) {
             return (false, "Vault not using issuer treasure");
         }
 
@@ -282,13 +317,19 @@ contract AchievementMinter is Ownable {
     /// @notice Check if a wallet can claim MATURED achievement for a vault
     /// @param wallet Address to check
     /// @param vaultId Vault to verify
+    /// @param collateralToken The collateral token to identify the protocol
     /// @return canClaim Whether the achievement can be claimed
     /// @return reason Failure reason if cannot claim
-    function canClaimMaturedAchievement(address wallet, uint256 vaultId)
+    function canClaimMaturedAchievement(address wallet, uint256 vaultId, address collateralToken)
         external
         view
         returns (bool canClaim, string memory reason)
     {
+        IVaultState selectedProtocol = protocols[collateralToken];
+        if (address(selectedProtocol) == address(0)) {
+            return (false, "Unsupported collateral");
+        }
+
         if (!achievements.hasAchievement(wallet, MINTER)) {
             return (false, "Missing MINTER achievement");
         }
@@ -297,19 +338,19 @@ contract AchievementMinter is Ownable {
             return (false, "Already has MATURED achievement");
         }
 
-        if (protocol.ownerOf(vaultId) != wallet) {
+        if (selectedProtocol.ownerOf(vaultId) != wallet) {
             return (false, "Not vault owner");
         }
 
-        if (protocol.treasureContract(vaultId) != address(treasureNFT)) {
+        if (selectedProtocol.treasureContract(vaultId) != address(treasureNFT)) {
             return (false, "Vault not using issuer treasure");
         }
 
-        if (!protocol.isVested(vaultId)) {
+        if (!selectedProtocol.isVested(vaultId)) {
             return (false, "Vault not vested");
         }
 
-        if (!protocol.matchClaimed(vaultId)) {
+        if (!selectedProtocol.matchClaimed(vaultId)) {
             return (false, "Match not claimed");
         }
 
@@ -319,14 +360,20 @@ contract AchievementMinter is Ownable {
     /// @notice Check if a wallet can claim a duration achievement for a vault
     /// @param wallet Address to check
     /// @param vaultId Vault to verify
+    /// @param collateralToken The collateral token to identify the protocol
     /// @param achievementType Duration achievement type
     /// @return canClaim Whether the achievement can be claimed
     /// @return reason Failure reason if cannot claim
-    function canClaimDurationAchievement(address wallet, uint256 vaultId, bytes32 achievementType)
+    function canClaimDurationAchievement(address wallet, uint256 vaultId, address collateralToken, bytes32 achievementType)
         external
         view
         returns (bool canClaim, string memory reason)
     {
+        IVaultState selectedProtocol = protocols[collateralToken];
+        if (address(selectedProtocol) == address(0)) {
+            return (false, "Unsupported collateral");
+        }
+
         uint256 threshold = durationThresholds[achievementType];
         if (threshold == 0) {
             return (false, "Invalid duration achievement");
@@ -336,15 +383,15 @@ contract AchievementMinter is Ownable {
             return (false, "Already has this achievement");
         }
 
-        if (protocol.ownerOf(vaultId) != wallet) {
+        if (selectedProtocol.ownerOf(vaultId) != wallet) {
             return (false, "Not vault owner");
         }
 
-        if (protocol.treasureContract(vaultId) != address(treasureNFT)) {
+        if (selectedProtocol.treasureContract(vaultId) != address(treasureNFT)) {
             return (false, "Vault not using issuer treasure");
         }
 
-        uint256 elapsed = block.timestamp - protocol.mintTimestamp(vaultId);
+        uint256 elapsed = block.timestamp - selectedProtocol.mintTimestamp(vaultId);
         if (elapsed < threshold) {
             return (false, "Duration not met");
         }
@@ -354,13 +401,18 @@ contract AchievementMinter is Ownable {
 
     /// @notice Check if a wallet can mint Hodler Supreme vault
     /// @param wallet Address to check
+    /// @param collateralToken The collateral token to identify the protocol
     /// @return canMint Whether the vault can be minted
     /// @return reason Failure reason if cannot mint
-    function canMintHodlerSupremeVault(address wallet)
+    function canMintHodlerSupremeVault(address wallet, address collateralToken)
         external
         view
         returns (bool canMint, string memory reason)
     {
+        if (address(protocols[collateralToken]) == address(0)) {
+            return (false, "Unsupported collateral");
+        }
+
         if (!achievements.hasAchievement(wallet, MINTER)) {
             return (false, "Missing MINTER achievement");
         }
