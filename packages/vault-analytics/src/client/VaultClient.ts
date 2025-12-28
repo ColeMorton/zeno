@@ -321,7 +321,7 @@ export class VaultClient {
    *   scope: { type: 'issuer', address: issuerAddress },
    *   filters: { vestingStatus: 'vested' }
    * });
-   * const isWhale = ranking?.tier === 'Whale';
+   * const isDiamond = ranking?.tier === 'Diamond';
    * ```
    */
   async getVaultRanking(

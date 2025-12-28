@@ -32,7 +32,7 @@ const vestedVaults = filterVaults(vaults, { vestingStatus: 'vested' });
 const ranked = rankByCollateral(vestedVaults);
 
 console.log(ranked[0]);
-// { vault: {...}, rank: 1, percentile: 99, tier: 'Whale' }
+// { vault: {...}, rank: 1, percentile: 99, tier: 'Diamond' }
 ```
 
 ## API Reference
@@ -110,8 +110,8 @@ const ranked = rankByCollateral(vaults);
 Get tier name for a percentile value.
 
 ```typescript
-getPercentileTier(99);  // 'Whale'
-getPercentileTier(95);  // 'Diamond'
+getPercentileTier(99);  // 'Diamond'
+getPercentileTier(95);  // 'Platinum'
 getPercentileTier(90);  // 'Gold'
 getPercentileTier(75);  // 'Silver'
 getPercentileTier(50);  // 'Bronze'
@@ -173,8 +173,8 @@ import {
 
 | Tier | Percentile |
 |------|------------|
-| Whale | ≥ 99% |
-| Diamond | ≥ 95% |
+| Diamond | ≥ 99% |
+| Platinum | ≥ 95% |
 | Gold | ≥ 90% |
 | Silver | ≥ 75% |
 | Bronze | ≥ 50% |

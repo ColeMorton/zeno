@@ -25,16 +25,16 @@ const createMockVault = (overrides: Partial<Vault> = {}): Vault => ({
 });
 
 describe('getPercentileTier', () => {
-  it('returns Whale for 99th percentile and above', () => {
-    expect(getPercentileTier(99)).toBe('Whale');
-    expect(getPercentileTier(99.5)).toBe('Whale');
-    expect(getPercentileTier(100)).toBe('Whale');
+  it('returns Diamond for 99th percentile and above', () => {
+    expect(getPercentileTier(99)).toBe('Diamond');
+    expect(getPercentileTier(99.5)).toBe('Diamond');
+    expect(getPercentileTier(100)).toBe('Diamond');
   });
 
-  it('returns Diamond for 95th-98th percentile', () => {
-    expect(getPercentileTier(95)).toBe('Diamond');
-    expect(getPercentileTier(98)).toBe('Diamond');
-    expect(getPercentileTier(98.9)).toBe('Diamond');
+  it('returns Platinum for 95th-98th percentile', () => {
+    expect(getPercentileTier(95)).toBe('Platinum');
+    expect(getPercentileTier(98)).toBe('Platinum');
+    expect(getPercentileTier(98.9)).toBe('Platinum');
   });
 
   it('returns Gold for 90th-94th percentile', () => {
@@ -59,14 +59,14 @@ describe('getPercentileTier', () => {
 
   it('respects custom thresholds', () => {
     const customThresholds = {
-      whale: 98,
-      diamond: 90,
+      diamond: 98,
+      platinum: 90,
       gold: 80,
       silver: 60,
       bronze: 40,
     };
-    expect(getPercentileTier(98, customThresholds)).toBe('Whale');
-    expect(getPercentileTier(97, customThresholds)).toBe('Diamond');
+    expect(getPercentileTier(98, customThresholds)).toBe('Diamond');
+    expect(getPercentileTier(97, customThresholds)).toBe('Platinum');
     expect(getPercentileTier(85, customThresholds)).toBe('Gold');
     expect(getPercentileTier(65, customThresholds)).toBe('Silver');
     expect(getPercentileTier(45, customThresholds)).toBe('Bronze');

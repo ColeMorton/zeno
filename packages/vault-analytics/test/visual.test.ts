@@ -33,7 +33,7 @@ const createMockRankedVault = (
   vault: createMockVault(),
   rank: 1,
   percentile: 95,
-  tier: 'Diamond',
+  tier: 'Platinum',
   ...overrides,
 });
 
@@ -50,20 +50,20 @@ const createMockAchievementStatus = (
 });
 
 describe('getTierVisualConfig', () => {
-  it('returns Whale config for 99+ percentile', () => {
-    const config = getTierVisualConfig(99.5, 'Whale');
-    expect(config.tier).toBe('Whale');
+  it('returns Diamond config for 99+ percentile', () => {
+    const config = getTierVisualConfig(99.5, 'Diamond');
+    expect(config.tier).toBe('Diamond');
     expect(config.percentile).toBe(99.5);
-    expect(config.frame.style).toBe('unique');
-    expect(config.frame.color).toBe('#00D4FF');
+    expect(config.frame.style).toBe('crystalline');
+    expect(config.frame.color).toBe('#E8F4FF');
     expect(config.frame.glow).toBe(true);
     expect(config.leaderboard).toBe(true);
   });
 
-  it('returns Diamond config', () => {
-    const config = getTierVisualConfig(96, 'Diamond');
-    expect(config.tier).toBe('Diamond');
-    expect(config.frame.style).toBe('animated');
+  it('returns Platinum config', () => {
+    const config = getTierVisualConfig(96, 'Platinum');
+    expect(config.tier).toBe('Platinum');
+    expect(config.frame.style).toBe('metallic');
     expect(config.frame.animation).toBe('shimmer');
     expect(config.leaderboard).toBe(false);
   });
@@ -163,7 +163,7 @@ describe('composeVisualHierarchy', () => {
     const rankedVault = createMockRankedVault({
       vault: createMockVault({ tokenId: 42n }),
       percentile: 98,
-      tier: 'Diamond',
+      tier: 'Platinum',
     });
 
     const achievements = createMockAchievementStatus({
@@ -176,7 +176,7 @@ describe('composeVisualHierarchy', () => {
     const hierarchy = composeVisualHierarchy(rankedVault, achievements);
 
     expect(hierarchy.vaultId).toBe(42n);
-    expect(hierarchy.displayTier.tier).toBe('Diamond');
+    expect(hierarchy.displayTier.tier).toBe('Platinum');
     expect(hierarchy.displayTier.percentile).toBe(98);
     expect(hierarchy.achievements).toHaveLength(1);
     expect(hierarchy.highestAchievement?.type).toBe('MINTER');
@@ -214,16 +214,16 @@ describe('composeVisualHierarchy', () => {
 describe('TIER_VISUALS', () => {
   it('defines all 5 tiers', () => {
     expect(Object.keys(TIER_VISUALS)).toHaveLength(5);
-    expect(TIER_VISUALS.Whale).toBeDefined();
     expect(TIER_VISUALS.Diamond).toBeDefined();
+    expect(TIER_VISUALS.Platinum).toBeDefined();
     expect(TIER_VISUALS.Gold).toBeDefined();
     expect(TIER_VISUALS.Silver).toBeDefined();
     expect(TIER_VISUALS.Bronze).toBeDefined();
   });
 
-  it('only Whale has leaderboard enabled', () => {
-    expect(TIER_VISUALS.Whale.leaderboard).toBe(true);
-    expect(TIER_VISUALS.Diamond.leaderboard).toBe(false);
+  it('only Diamond has leaderboard enabled', () => {
+    expect(TIER_VISUALS.Diamond.leaderboard).toBe(true);
+    expect(TIER_VISUALS.Platinum.leaderboard).toBe(false);
     expect(TIER_VISUALS.Gold.leaderboard).toBe(false);
     expect(TIER_VISUALS.Silver.leaderboard).toBe(false);
     expect(TIER_VISUALS.Bronze.leaderboard).toBe(false);

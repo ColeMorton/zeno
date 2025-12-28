@@ -11,12 +11,12 @@ export type DisplayTier = PercentileTier | null;
 /**
  * Frame style for tier visualization
  */
-export type FrameStyle = 'standard' | 'metallic' | 'animated' | 'unique';
+export type FrameStyle = 'standard' | 'metallic' | 'animated' | 'crystalline';
 
 /**
  * Frame animation type
  */
-export type FrameAnimation = 'pulse' | 'shimmer' | 'sparkle';
+export type FrameAnimation = 'pulse' | 'shimmer' | 'sparkle' | 'prismatic';
 
 /**
  * Visual tier configuration for rendering
@@ -44,7 +44,7 @@ export interface TierVisualConfig {
     /** Display label */
     label: string;
   };
-  /** Whether eligible for leaderboard feature (Whale only) */
+  /** Whether eligible for leaderboard feature (Diamond only) */
   leaderboard: boolean;
 }
 

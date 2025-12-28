@@ -3,7 +3,7 @@ import type { Vault } from './vault.js';
 /**
  * Percentile tier names
  */
-export type PercentileTier = 'Whale' | 'Diamond' | 'Gold' | 'Silver' | 'Bronze';
+export type PercentileTier = 'Diamond' | 'Platinum' | 'Gold' | 'Silver' | 'Bronze';
 
 /**
  * Vault with calculated rank and percentile
@@ -23,10 +23,10 @@ export interface RankedVault {
  * Percentile tier thresholds
  */
 export interface PercentileThresholds {
-  /** Minimum percentile for Whale tier (default: 99) */
-  whale: number;
-  /** Minimum percentile for Diamond tier (default: 95) */
+  /** Minimum percentile for Diamond tier (default: 99) */
   diamond: number;
+  /** Minimum percentile for Platinum tier (default: 95) */
+  platinum: number;
   /** Minimum percentile for Gold tier (default: 90) */
   gold: number;
   /** Minimum percentile for Silver tier (default: 75) */

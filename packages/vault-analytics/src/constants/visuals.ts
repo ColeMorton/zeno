@@ -11,14 +11,14 @@ type TierVisualDefaults = Omit<TierVisualConfig, 'tier' | 'percentile'>;
  * Display tier visual configurations
  */
 export const TIER_VISUALS: Record<PercentileTier, TierVisualDefaults> = {
-  Whale: {
-    frame: { style: 'unique', color: '#00D4FF', glow: true, animation: 'sparkle' },
-    badge: { icon: '/badges/whale.svg', label: 'Whale' },
+  Diamond: {
+    frame: { style: 'crystalline', color: '#E8F4FF', glow: true, animation: 'prismatic' },
+    badge: { icon: '/badges/diamond.svg', label: 'Diamond' },
     leaderboard: true,
   },
-  Diamond: {
-    frame: { style: 'animated', color: '#B9F2FF', glow: true, animation: 'shimmer' },
-    badge: { icon: '/badges/diamond.svg', label: 'Diamond' },
+  Platinum: {
+    frame: { style: 'metallic', color: '#E5E4E2', glow: true, animation: 'shimmer' },
+    badge: { icon: '/badges/platinum.svg', label: 'Platinum' },
     leaderboard: false,
   },
   Gold: {

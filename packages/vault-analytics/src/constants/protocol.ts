@@ -30,8 +30,8 @@ export const BTC_DECIMALS = 8;
  * Default percentile tier thresholds
  */
 export const DEFAULT_PERCENTILE_THRESHOLDS = {
-  whale: 99,
-  diamond: 95,
+  diamond: 99,
+  platinum: 95,
   gold: 90,
   silver: 75,
   bronze: 50,

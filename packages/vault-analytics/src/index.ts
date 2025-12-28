@@ -66,6 +66,53 @@ export {
   getHighestRarityAchievement,
   getAchievementVisuals,
   composeVisualHierarchy,
+  // Aggregation
+  calculatePortfolioStats,
+  calculateTierDistribution,
+  calculateVestingDistribution,
+  formatPortfolioStats,
+  type PortfolioStats,
+  type TierDistribution,
+  type VestingDistribution,
+  type Distribution,
+  // Time-series
+  buildGrowthTimeSeries,
+  buildWithdrawalTimeSeries,
+  buildRedemptionTimeSeries,
+  calculateGrowthRate,
+  calculateMovingAverage,
+  type TimeInterval,
+  type GrowthTimeSeriesPoint,
+  type WithdrawalTimeSeriesPoint,
+  type RedemptionTimeSeriesPoint,
+  // Cohorts
+  buildCohortAnalysis,
+  buildRetentionMatrix,
+  formatCohortAnalysis,
+  type Cohort,
+  type CohortAnalysis,
+  // Health
+  calculateDormancyRisk,
+  analyzeDormancyRisks,
+  calculateEcosystemHealth,
+  formatEcosystemHealth,
+  groupByRiskLevel,
+  calculateCollateralAtRisk,
+  DEFAULT_DORMANCY_THRESHOLDS,
+  type RiskLevel,
+  type DormancyRisk,
+  type DormancyThresholds,
+  type EcosystemHealth,
+  // Achievement Analytics
+  calculateAchievementDistribution,
+  calculateAchievementFunnel,
+  buildWalletProfiles,
+  getAchievementLeaderboard,
+  formatAchievementDistribution,
+  formatAchievementFunnel,
+  type AchievementDistribution,
+  type AchievementFunnel,
+  type WalletAchievementProfile,
 } from './analytics/index.js';
 
 // Metadata exports
@@ -104,6 +151,101 @@ export {
   ACHIEVEMENT_VISUALS,
   RARITY_ORDER,
 } from './constants/index.js';
+
+// Event schema exports
+export type {
+  EventMetadata,
+  DormancyState,
+  EventType,
+  IndexedEvent,
+  ProtocolEvent,
+  VaultMintedEvent,
+  WithdrawnEvent,
+  EarlyRedemptionEvent,
+  BtcTokenMintedEvent,
+  BtcTokenReturnedEvent,
+  MatchClaimedEvent,
+  MatchPoolFundedEvent,
+  DormantPokedEvent,
+  DormancyStateChangedEvent,
+  ActivityProvenEvent,
+  DormantCollateralClaimedEvent,
+  WithdrawalDelegateGrantedEvent,
+  WithdrawalDelegateRevokedEvent,
+  AllWithdrawalDelegatesRevokedEvent,
+  DelegatedWithdrawalEvent,
+  AchievementEvent,
+  MinterAchievementClaimedEvent,
+  MaturedAchievementClaimedEvent,
+  DurationAchievementClaimedEvent,
+  HodlerSupremeVaultMintedEvent,
+  AuctionEvent,
+  DutchAuctionCreatedEvent,
+  DutchPurchaseEvent,
+  EnglishAuctionCreatedEvent,
+  BidPlacedEvent,
+  BidRefundedEvent,
+  SlotSettledEvent,
+  AuctionFinalizedEvent,
+} from './events/index.js';
+
+export { EVENT_TYPES, parseDormancyState } from './events/index.js';
+
+// Indexer exports
+export {
+  AnvilIndexer,
+  createAnvilIndexer,
+  type ContractAddresses,
+  type EventFilter,
+  type AnvilIndexerConfig,
+} from './indexer/index.js';
+
+// Simulation exports
+export {
+  SimulationReporter,
+  createSimulationReporter,
+  type SimulationReport,
+  type SimulationSummary,
+  type SimulationReporterConfig,
+  readGhostVariables,
+  formatGhostVariables,
+  calculateConservation,
+  type GhostVariables,
+  type ProtocolGhostVariables,
+  type CrossLayerGhostVariables,
+  type CallCounterVariables,
+} from './simulation/index.js';
+
+// Export utilities
+export {
+  exportVaults,
+  exportRankedVaults,
+  exportEvents,
+  exportPortfolioStats,
+  exportEcosystemHealth,
+  exportDormancyRisks,
+  exportAchievementDistribution,
+  exportCohorts,
+  type ExportFormat,
+  type ExportOptions,
+} from './export/index.js';
+
+// Unified API exports
+export {
+  AnalyticsAPI,
+  createAnalyticsAPI,
+  AnvilAdapter,
+  SubgraphAdapter,
+  createAnvilAdapter,
+  createSubgraphAdapter,
+  type AnalyticsAPIConfig,
+  type LeaderboardOptions,
+  type DataSource,
+  type DataSourceAdapter,
+  type AdapterEventFilter,
+  type AnvilAdapterConfig,
+  type SubgraphAdapterConfig,
+} from './api/index.js';
 
 // Type exports
 export type {

@@ -14,7 +14,7 @@ import {
  * Get the percentile tier for a given percentile value.
  *
  * Maps percentile values to tier names based on configurable thresholds.
- * Default tiers: Whale (99+), Diamond (95+), Gold (90+), Silver (75+), Bronze (50+).
+ * Default tiers: Diamond (99+), Platinum (95+), Gold (90+), Silver (75+), Bronze (50+).
  *
  * @param percentile - Percentile value (0-100)
  * @param thresholds - Custom tier thresholds (optional)
@@ -22,22 +22,22 @@ import {
  *
  * @example Get tier for percentile
  * ```typescript
- * getPercentileTier(99.5); // 'Whale'
- * getPercentileTier(95);   // 'Diamond'
+ * getPercentileTier(99.5); // 'Diamond'
+ * getPercentileTier(95);   // 'Platinum'
  * getPercentileTier(49);   // null
  * ```
  *
  * @example Custom thresholds
  * ```typescript
- * getPercentileTier(97, { whale: 98, diamond: 90 }); // 'Diamond'
+ * getPercentileTier(97, { diamond: 98, platinum: 90 }); // 'Platinum'
  * ```
  */
 export function getPercentileTier(
   percentile: number,
   thresholds: PercentileThresholds = DEFAULT_PERCENTILE_THRESHOLDS
 ): PercentileTier | null {
-  if (percentile >= thresholds.whale) return 'Whale';
   if (percentile >= thresholds.diamond) return 'Diamond';
+  if (percentile >= thresholds.platinum) return 'Platinum';
   if (percentile >= thresholds.gold) return 'Gold';
   if (percentile >= thresholds.silver) return 'Silver';
   if (percentile >= thresholds.bronze) return 'Bronze';
@@ -77,19 +77,19 @@ export function calculatePercentile(rank: number, total: number): number {
  *   - `vault`: Original vault data
  *   - `rank`: Position (1 = highest collateral)
  *   - `percentile`: Value from 0-100
- *   - `tier`: 'Whale' | 'Diamond' | 'Gold' | 'Silver' | 'Bronze' | null
+ *   - `tier`: 'Diamond' | 'Platinum' | 'Gold' | 'Silver' | 'Bronze' | null
  *
  * @example Basic ranking
  * ```typescript
  * const ranked = rankByCollateral(vaults);
  * console.log(ranked[0]);
- * // { vault: {...}, rank: 1, percentile: 99.5, tier: 'Whale' }
+ * // { vault: {...}, rank: 1, percentile: 99.5, tier: 'Diamond' }
  * ```
  *
  * @example Custom thresholds
  * ```typescript
  * const ranked = rankByCollateral(vaults, {
- *   thresholds: { whale: 98, diamond: 90, gold: 80, silver: 60, bronze: 40 }
+ *   thresholds: { diamond: 98, platinum: 90, gold: 80, silver: 60, bronze: 40 }
  * });
  * ```
  *
