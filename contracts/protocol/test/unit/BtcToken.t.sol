@@ -12,15 +12,15 @@ contract BtcTokenTest is Test {
     function setUp() public {
         vault = makeAddr("vault");
         user = makeAddr("user");
-        btcToken = new BtcToken(vault);
+        btcToken = new BtcToken(vault, "vestedBTC-wBTC", "vWBTC");
     }
 
     function test_Name() public view {
-        assertEq(btcToken.name(), "vBTC");
+        assertEq(btcToken.name(), "vestedBTC-wBTC");
     }
 
     function test_Symbol() public view {
-        assertEq(btcToken.symbol(), "vBTC");
+        assertEq(btcToken.symbol(), "vWBTC");
     }
 
     function test_Decimals() public view {

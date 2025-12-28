@@ -15,11 +15,10 @@ contract VaultNFT is ERC721, IVaultNFT {
     uint256 private _nextTokenId;
 
     IBtcToken public immutable btcToken;
-    mapping(address => bool) public acceptedCollateralTokens;
+    address public immutable collateralToken;
 
     mapping(uint256 => address) private _treasureContract;
     mapping(uint256 => uint256) private _treasureTokenId;
-    mapping(uint256 => address) private _collateralToken;
     mapping(uint256 => uint256) private _collateralAmount;
     mapping(uint256 => uint256) private _mintTimestamp;
     mapping(uint256 => uint256) private _lastWithdrawal;
@@ -42,12 +41,12 @@ contract VaultNFT is ERC721, IVaultNFT {
 
     constructor(
         address _btcToken,
-        address[] memory _acceptedTokens
-    ) ERC721("Vault NFT", "VAULT") {
+        address _collateralToken,
+        string memory _name,
+        string memory _symbol
+    ) ERC721(_name, _symbol) {
         btcToken = IBtcToken(_btcToken);
-        for (uint256 i = 0; i < _acceptedTokens.length; i++) {
-            acceptedCollateralTokens[_acceptedTokens[i]] = true;
-        }
+        collateralToken = _collateralToken;
     }
 
     function mint(
@@ -56,7 +55,7 @@ contract VaultNFT is ERC721, IVaultNFT {
         address collateralToken_,
         uint256 collateralAmount_
     ) external returns (uint256 tokenId) {
-        if (!acceptedCollateralTokens[collateralToken_]) {
+        if (collateralToken_ != collateralToken) {
             revert InvalidCollateralToken(collateralToken_);
         }
         if (collateralAmount_ == 0) revert ZeroCollateral();
@@ -69,7 +68,6 @@ contract VaultNFT is ERC721, IVaultNFT {
 
         _treasureContract[tokenId] = treasureContract_;
         _treasureTokenId[tokenId] = treasureTokenId_;
-        _collateralToken[tokenId] = collateralToken_;
         _collateralAmount[tokenId] = collateralAmount_;
         _mintTimestamp[tokenId] = block.timestamp;
         _lastActivity[tokenId] = block.timestamp;
@@ -102,7 +100,7 @@ contract VaultNFT is ERC721, IVaultNFT {
         _lastWithdrawal[tokenId] = block.timestamp;
         _updateActivity(tokenId);
 
-        IERC20(_collateralToken[tokenId]).safeTransfer(msg.sender, amount);
+        IERC20(collateralToken).safeTransfer(msg.sender, amount);
 
         emit Withdrawn(tokenId, msg.sender, amount);
     }
@@ -141,7 +139,6 @@ contract VaultNFT is ERC721, IVaultNFT {
 
         address treasureContract_ = _treasureContract[tokenId];
         uint256 treasureTokenId_ = _treasureTokenId[tokenId];
-        address collateralToken_ = _collateralToken[tokenId];
 
         IERC721(treasureContract_).transferFrom(address(this), address(0xdead), treasureTokenId_);
 
@@ -149,7 +146,7 @@ contract VaultNFT is ERC721, IVaultNFT {
         _burn(tokenId);
 
         if (returned > 0) {
-            IERC20(collateralToken_).safeTransfer(msg.sender, returned);
+            IERC20(collateralToken).safeTransfer(msg.sender, returned);
         }
 
         emit EarlyRedemption(tokenId, msg.sender, returned, forfeited);
@@ -265,7 +262,6 @@ contract VaultNFT is ERC721, IVaultNFT {
         collateral = _collateralAmount[tokenId];
         address treasureContract_ = _treasureContract[tokenId];
         uint256 treasureTokenId_ = _treasureTokenId[tokenId];
-        address collateralToken_ = _collateralToken[tokenId];
 
         btcToken.burnFrom(msg.sender, required);
 
@@ -273,7 +269,7 @@ contract VaultNFT is ERC721, IVaultNFT {
         _burn(tokenId);
 
         IERC721(treasureContract_).transferFrom(address(this), address(0xdead), treasureTokenId_);
-        IERC20(collateralToken_).safeTransfer(msg.sender, collateral);
+        IERC20(collateralToken).safeTransfer(msg.sender, collateral);
 
         emit DormantCollateralClaimed(tokenId, originalOwner, msg.sender, collateral);
     }
@@ -328,7 +324,7 @@ contract VaultNFT is ERC721, IVaultNFT {
         return (
             _treasureContract[tokenId],
             _treasureTokenId[tokenId],
-            _collateralToken[tokenId],
+            collateralToken,
             _collateralAmount[tokenId],
             _mintTimestamp[tokenId],
             _lastWithdrawal[tokenId],
@@ -362,11 +358,6 @@ contract VaultNFT is ERC721, IVaultNFT {
     function treasureTokenId(uint256 tokenId) external view returns (uint256) {
         _requireOwned(tokenId);
         return _treasureTokenId[tokenId];
-    }
-
-    function collateralToken(uint256 tokenId) external view returns (address) {
-        _requireOwned(tokenId);
-        return _collateralToken[tokenId];
     }
 
     function collateralAmount(uint256 tokenId) external view returns (uint256) {
@@ -431,7 +422,6 @@ contract VaultNFT is ERC721, IVaultNFT {
     function _clearVaultState(uint256 tokenId) internal {
         delete _treasureContract[tokenId];
         delete _treasureTokenId[tokenId];
-        delete _collateralToken[tokenId];
         delete _collateralAmount[tokenId];
         delete _mintTimestamp[tokenId];
         delete _lastWithdrawal[tokenId];
@@ -547,7 +537,7 @@ contract VaultNFT is ERC721, IVaultNFT {
         _updateActivity(tokenId);
 
         // Transfer to delegate
-        IERC20(_collateralToken[tokenId]).safeTransfer(msg.sender, withdrawnAmount);
+        IERC20(collateralToken).safeTransfer(msg.sender, withdrawnAmount);
 
         emit DelegatedWithdrawal(tokenId, msg.sender, withdrawnAmount);
 

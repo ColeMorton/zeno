@@ -14,7 +14,11 @@ contract BtcToken is ERC20, IBtcToken {
         _;
     }
 
-    constructor(address _vault) ERC20("vBTC", "vBTC") {
+    constructor(
+        address _vault,
+        string memory _name,
+        string memory _symbol
+    ) ERC20(_name, _symbol) {
         vault = _vault;
     }
 

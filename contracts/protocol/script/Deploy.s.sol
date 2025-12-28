@@ -22,16 +22,18 @@ contract Deploy is Script {
         MockTreasure treasure = new MockTreasure();
         console.log("MockTreasure deployed at:", address(treasure));
 
-        address[] memory acceptedTokens = new address[](1);
-        acceptedTokens[0] = address(wbtc);
-
         uint256 nonce = vm.getNonce(deployer);
         address predictedVault = vm.computeCreateAddress(deployer, nonce + 1);
 
-        BtcToken btcToken = new BtcToken(predictedVault);
+        BtcToken btcToken = new BtcToken(predictedVault, "vestedBTC-wBTC", "vWBTC");
         console.log("BtcToken deployed at:", address(btcToken));
 
-        VaultNFT vault = new VaultNFT(address(btcToken), acceptedTokens);
+        VaultNFT vault = new VaultNFT(
+            address(btcToken),
+            address(wbtc),
+            "Vault NFT-wBTC",
+            "VAULT-W"
+        );
         console.log("VaultNFT deployed at:", address(vault));
 
         require(address(vault) == predictedVault, "Vault address mismatch");

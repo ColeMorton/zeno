@@ -143,6 +143,8 @@ interface IVaultNFT is IERC721 {
 
     function getClaimValue(address holder, uint256 tokenId) external view returns (uint256);
 
+    function collateralToken() external view returns (address);
+
     // ========== Withdrawal Delegation Functions ==========
     
     function grantWithdrawalDelegate(

@@ -31,12 +31,9 @@ abstract contract BaseTest is Test {
         treasure = new MockTreasure();
         wbtc = new MockWBTC();
 
-        address[] memory acceptedTokens = new address[](1);
-        acceptedTokens[0] = address(wbtc);
-
         address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
-        btcToken = new BtcToken(vaultAddr);
-        vault = new VaultNFT(address(btcToken), acceptedTokens);
+        btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
+        vault = new VaultNFT(address(btcToken), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
 
         _fundUser(alice, 1000);
         _fundUser(bob, 1000);
