@@ -424,11 +424,11 @@ Seasons align with the 1129-day vesting period to create natural engagement cade
 | Achievement Hunter | Total achievements earned | Merit |
 | Streak Master | Longest withdrawal streak | Merit |
 | Collector | Number of vaults owned | Merit |
-| Whale Watch | Total BTC collateral | Vanity (separate) |
+| Diamond Watch | Total BTC collateral | Vanity (separate) |
 
 **Critical:** Merit and vanity leaderboards must be SEPARATE.
 
-> **Note:** Vanity tiers (Bronze/Silver/Gold/Diamond/Whale) are NOT achievements. They are automatically assigned based on collateral percentile ranking and are documented in the [Vault Percentile Specification](./Vault_Percentile_Specification.md).
+> **Note:** Vanity tiers (Bronze/Silver/Gold/Platinum/Diamond) are NOT achievements. They are automatically assigned based on collateral percentile ranking and are documented in the [Vault Percentile Specification](./Vault_Percentile_Specification.md).
 
 ---
 
@@ -574,3 +574,9 @@ All achievements provide cosmetic recognition only:
 | User journey with achievements | [Holder Experience](./Holder_Experience.md) |
 | Issuer integration patterns | [Integration Guide](./Integration_Guide.md) |
 | Contract mechanics | [Technical Specification](../protocol/Technical_Specification.md) |
+
+---
+
+## Navigation
+
+← [Issuer Layer](./README.md) | [Documentation Home](../README.md)

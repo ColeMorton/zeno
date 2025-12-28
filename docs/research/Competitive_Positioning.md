@@ -6,7 +6,7 @@
 > **Related Documents:**
 > - [Product Specification](../protocol/Product_Specification.md)
 > - [Technical Specification](../protocol/Technical_Specification.md)
-> - [Issuer Guide](./Issuer_Guide.md)
+> - [Integration Guide](./Integration_Guide.md)
 
 ---
 

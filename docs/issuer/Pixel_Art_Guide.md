@@ -1,10 +1,11 @@
 # Pixel Art Guide
 
 > **Version:** 1.0
-> **Status:** Draft
-> **Last Updated:** 2025-12-23
+> **Status:** Artist Guide
+> **Last Updated:** 2025-12-28
 > **Related Documents:**
 > - [Visual Assets Guide](./Visual_Assets_Guide.md)
+> - [NFT Artwork Creation](./NFT_Artwork_Creation.md) - AI-assisted artwork workflow
 > - [Achievement NFT Visual Implementation](./Achievement_NFT_Visual_Implementation.md)
 > - [Integration Guide](./Integration_Guide.md)
 > - [Vault Percentile Specification](./Vault_Percentile_Specification.md)
@@ -266,11 +267,11 @@ Integrate with the established BTCNFT Protocol palette:
 
 | Tier | Primary | Light | Dark |
 |------|---------|-------|------|
-| Whale | `#e0e0ff` | `#f0f0ff` | `#b0b0e0` |
-| Diamond | `#b9f2ff` | `#d0f8ff` | `#7fdbff` |
-| Gold | `#ffd700` | `#ffec8b` | `#b8860b` |
-| Silver | `#c0c0c0` | `#e0e0e0` | `#808080` |
-| Bronze | `#cd7f32` | `#daa520` | `#8b4513` |
+| Diamond | `#E8F4FF` | `#F0F8FF` | `#D0E8FF` |
+| Platinum | `#E5E4E2` | `#F0F0EE` | `#D8D8D6` |
+| Gold | `#FFD700` | `#FFEC8B` | `#B8860B` |
+| Silver | `#C0C0C0` | `#E0E0E0` | `#808080` |
+| Bronze | `#CD7F32` | `#DAA520` | `#8B4513` |
 
 **Usage Rules:**
 - Reserve BTC Orange for rare traits
@@ -1005,7 +1006,7 @@ Composition Architecture:
 ┌─────────────────────────────────────────────┐
 │ ┌─────────────────────────────────────────┐ │
 │ │ SVG TIER FRAME                          │ │
-│ │ (Gold/Diamond/Whale frame)              │ │
+│ │ (Gold/Platinum/Diamond frame)           │ │
 │ │ ┌─────────────────────────────────────┐ │ │
 │ │ │                                     │ │ │
 │ │ │   PIXEL ART TREASURE                │ │ │
@@ -1024,8 +1025,8 @@ Composition Architecture:
 | Bronze | 4% | None | None |
 | Silver | 4% | None | None |
 | Gold | 5% | Subtle | None |
-| Diamond | 6% | Medium | Optional shimmer |
-| Whale | 8% | Strong | Required sparkle |
+| Platinum | 6% | Medium | Optional shimmer |
+| Diamond | 8% | Strong | Required prismatic |
 
 **Compositing Process:**
 
@@ -1038,7 +1039,7 @@ Composition Architecture:
            ↓
 4. Add tier badge in corner
            ↓
-5. Apply glow/animation (Diamond/Whale)
+5. Apply glow/animation (Platinum/Diamond)
            ↓
 6. Export as PNG (static) or WebP (animated)
 ```
@@ -1104,35 +1105,10 @@ For permanent on-chain storage, the protocol uses **packed bitmaps** via `PixelA
 
 | Format | Resolution | Colors | Bitmap | Total Storage |
 |--------|------------|--------|--------|---------------|
-| **64×64 16-color** | 4,096 px | 16 indexed | 2,048 B | ~2.1 KB |
 | **128×128 monochrome** | 16,384 px | 2 (B&W) | 2,048 B | ~2.1 KB |
 | **256×256 monochrome** | 65,536 px | 2 (B&W) | 8,192 B | ~8.2 KB |
 
-The 64×64 and 128×128 formats achieve identical storage costs through inverse resolution/color depth trade-offs. The 256×256 format provides 4× the resolution of 128×128 at 4× the storage cost.
-
-#### 64×64 16-Color Format
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Palette: 48 bytes (16 colors × 3 bytes RGB)                │
-│  Bitmap:  2,048 bytes (4,096 pixels × 4 bits)               │
-│  Total:   2,096 bytes                                       │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Conversion:**
-```bash
-node scripts/svg-to-pixelart.js source.svg output_name --size 64 --crop "x,y,w,h"
-```
-
-**Solidity Library:**
-```solidity
-library MyPixelArt {
-    function getPalette() internal pure returns (bytes memory);  // 48 bytes
-    function getBitmap() internal pure returns (bytes memory);   // 2,048 bytes
-    function getSVG() internal pure returns (string memory);
-}
-```
+The 256×256 format provides 4× the resolution of 128×128 at 4× the storage cost.
 
 #### 128×128 Monochrome (1-bit) Format
 
@@ -1146,7 +1122,7 @@ library MyPixelArt {
 
 **Conversion:**
 ```bash
-node scripts/svg-to-1bit.js source.svg output_name --size 128 --crop "x,y,w,h"
+pbsep source.png output_name --size 128
 ```
 
 **Solidity Library:**
@@ -1170,7 +1146,7 @@ library MyPixelArt128Mono {
 
 **Conversion:**
 ```bash
-node scripts/svg-to-1bit.js source.svg output_name --size 256 --crop "x,y,w,h"
+pbsep source.png output_name --size 256
 ```
 
 **Solidity Library:**
@@ -1184,12 +1160,12 @@ library MyPixelArt256Mono {
 
 #### When to Use Each Format
 
-| Criteria | 64×64 16-color | 128×128 monochrome | 256×256 monochrome |
-|----------|----------------|---------------------|---------------------|
-| Resolution | 4,096 pixels | 16,384 pixels (4×) | 65,536 pixels (16×) |
-| Colors | Up to 16 | Single color only | Single color only |
-| Best for | Colored artwork | High-detail silhouettes | Maximum detail silhouettes |
-| Storage | ~2.1 KB | ~2.1 KB | ~8.2 KB |
+| Criteria | 128×128 monochrome | 256×256 monochrome |
+|----------|---------------------|---------------------|
+| Resolution | 16,384 pixels | 65,536 pixels (4×) |
+| Colors | Single color only | Single color only |
+| Best for | Compact silhouettes | Maximum detail silhouettes |
+| Storage | ~2.1 KB | ~8.2 KB |
 
 #### On-Chain vs Off-Chain Decision
 
@@ -1220,15 +1196,15 @@ Core Colors:
 └─────────────┴─────────┴────────────────┘
 
 Tier Colors:
-┌─────────┬─────────┬─────────┬─────────┐
-│ Tier    │ Primary │ Light   │ Dark    │
-├─────────┼─────────┼─────────┼─────────┤
-│ Whale   │ #e0e0ff │ #f0f0ff │ #b0b0e0 │
-│ Diamond │ #b9f2ff │ #d0f8ff │ #7fdbff │
-│ Gold    │ #ffd700 │ #ffec8b │ #b8860b │
-│ Silver  │ #c0c0c0 │ #e0e0e0 │ #808080 │
-│ Bronze  │ #cd7f32 │ #daa520 │ #8b4513 │
-└─────────┴─────────┴─────────┴─────────┘
+┌──────────┬─────────┬─────────┬─────────┐
+│ Tier     │ Primary │ Light   │ Dark    │
+├──────────┼─────────┼─────────┼─────────┤
+│ Diamond  │ #E8F4FF │ #F0F8FF │ #D0E8FF │
+│ Platinum │ #E5E4E2 │ #F0F0EE │ #D8D8D6 │
+│ Gold     │ #FFD700 │ #FFEC8B │ #B8860B │
+│ Silver   │ #C0C0C0 │ #E0E0E0 │ #808080 │
+│ Bronze   │ #CD7F32 │ #DAA520 │ #8B4513 │
+└──────────┴─────────┴─────────┴─────────┘
 ```
 
 ---
@@ -1268,6 +1244,7 @@ Include:
 | Document | Relationship |
 |----------|--------------|
 | [Visual Assets Guide](./Visual_Assets_Guide.md) | SVG/on-chain standards, tier frames |
+| [NFT Artwork Creation](./NFT_Artwork_Creation.md) | AI-assisted artwork workflow |
 | [Achievement NFT Visual Implementation](./Achievement_NFT_Visual_Implementation.md) | On-chain SVG patterns |
 | [Vault Percentile Specification](./Vault_Percentile_Specification.md) | Tier calculation |
 | [Integration Guide](./Integration_Guide.md) | Metadata service requirements |

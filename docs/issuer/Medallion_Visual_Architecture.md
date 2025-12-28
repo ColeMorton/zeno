@@ -1,5 +1,9 @@
 # Medallion Visual Architecture
 
+> **Version:** 1.0
+> **Status:** Draft
+> **Last Updated:** 2025-12-28
+
 The foundational visual metaphor for Achievement NFTs: physical medallions with progressive embellishment based on holder wealth tier.
 
 ---
@@ -25,7 +29,7 @@ This architecture creates a deliberate permanence gradient:
 | Layer | Storage | Permanence |
 |-------|---------|------------|
 | Core visual (Tier 0) | On-chain SVG | Eternal (blockchain survival) |
-| Medallion elements (Bronze–Whale) | IPFS/Arweave | Long-term (economic incentives) |
+| Medallion elements (Bronze–Diamond) | IPFS/Arweave | Long-term (economic incentives) |
 
 The most essential element—what makes each achievement recognizable—lives on-chain. The ornamental layers that reflect wealth status live off-chain, where storage is abundant and inexpensive.
 
@@ -100,7 +104,7 @@ Tier 0 (On-Chain)          Bronze              Silver              Gold
                          + minimal frame       frame             + ornate frame
 
 
-    Diamond                    Whale
+    Platinum                   Diamond
 ┌─────────────┐         ┌─────────────┐
 │    ╭─╮      │         │    ╭─╮ ~~~~ │
 │    │○│      │         │    │○│      │
@@ -110,17 +114,17 @@ Tier 0 (On-Chain)          Bronze              Silver              Gold
 │ ╔═════════╗ │         │ ≈≈≈≈≈≈≈≈≈≈≈ │
 └─────────────┘         └─────────────┘
   + chain                 + animated chain
-  + elaborate frame       + iridescent frame
-  + crystalline bg        + animated bg
+  + elaborate frame       + crystalline frame
+  + refined bg            + prismatic bg
 ```
 
 ### Layer Matrix
 
-| Layer | Tier 0 | Bronze | Silver | Gold | Diamond | Whale |
-|-------|--------|--------|--------|------|---------|-------|
+| Layer | Tier 0 | Bronze | Silver | Gold | Platinum | Diamond |
+|-------|--------|--------|--------|------|----------|---------|
 | Core visual | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Background | — | Simple | Subtle | Radiant | Crystalline | Animated |
-| Frame | — | Minimal | Detailed | Ornate | Elaborate | Iridescent |
+| Background | — | Simple | Subtle | Radiant | Refined | Prismatic |
+| Frame | — | Minimal | Detailed | Ornate | Elaborate | Crystalline |
 | Hoop | — | — | — | Simple | Detailed | Complete |
 | Chain | — | — | — | — | Static | Animated |
 
@@ -131,8 +135,8 @@ Tier 0 (On-Chain)          Bronze              Silver              Gold
 | Bronze | 0–50th | Entry-level collectors |
 | Silver | 50–75th | Established holders |
 | Gold | 75–90th | Significant commitment |
-| Diamond | 90–99th | Top 10% by collateral |
-| Whale | 99th+ | Top 1% elite |
+| Platinum | 90–99th | Top 10% by collateral |
+| Diamond | 99th+ | Top 1% elite |
 
 ---
 
@@ -185,17 +189,17 @@ Hoop: 10% of canvas height
 - Inner glow effect
 - 4px stroke width
 
-**Diamond**
+**Platinum**
 - Faceted border segments
-- Crystalline gradient (#b9f2ff → #ffffff)
-- Light refraction effects
-- Sparkle points at vertices
+- Refined gradient (#E5E4E2 → #F0F0EE)
+- Subtle shimmer effects
+- Metallic highlights
 - 5px stroke width
 
-**Whale**
-- Iridescent gradient (shifting hues)
-- Animated color cycle (8s loop)
-- Particle effects
+**Diamond**
+- Crystalline gradient (#E8F4FF → #FFFFFF)
+- Animated prismatic cycle (8s loop)
+- Light refraction effects
 - Subtle outer glow pulse
 - 6px stroke width
 
@@ -204,8 +208,8 @@ Hoop: 10% of canvas height
 **Bronze**: Solid dark with 5% lighter center
 **Silver**: Radial gradient, subtle rays
 **Gold**: Pronounced radial rays, warm glow center
-**Diamond**: Crystalline facets, cold/pure aesthetic
-**Whale**: Animated aurora effect, slow-moving color waves
+**Platinum**: Refined metallic facets, elegant aesthetic
+**Diamond**: Animated prismatic effect, slow-moving crystalline waves
 
 ### Hoop & Chain Specifications
 
@@ -214,25 +218,25 @@ Hoop: 10% of canvas height
 - Gold color matching frame
 - No chain attached
 
-**Diamond Hoop + Chain**
+**Platinum Hoop + Chain**
 - Detailed ring with inner bevel, 50px diameter
 - 5 chain links visible
 - Static positioning
 - Diamond-tone metallic
 
-**Whale Hoop + Chain**
+**Diamond Hoop + Chain**
 - Complete decorative ring, 60px diameter
 - 8+ chain links extending upward
 - Subtle sway animation (3s loop)
-- Iridescent metallic matching frame
+- Crystalline metallic matching frame
 
 ### Color Palette
 
-| Element | Bronze | Silver | Gold | Diamond | Whale |
-|---------|--------|--------|------|---------|-------|
-| Primary | #cd7f32 | #c0c0c0 | #ffd700 | #b9f2ff | Iridescent |
-| Secondary | #a0522d | #a8a8a8 | #ffecb3 | #ffffff | Shifting |
-| Glow | — | — | #fff8dc | #e0ffff | Animated |
+| Element | Bronze | Silver | Gold | Platinum | Diamond |
+|---------|--------|--------|------|----------|---------|
+| Primary | #CD7F32 | #C0C0C0 | #FFD700 | #E5E4E2 | #E8F4FF |
+| Secondary | #A0522D | #A8A8A8 | #FFECB3 | #F0F0EE | #FFFFFF |
+| Glow | — | — | #FFF8DC | #F5F5F3 | Animated |
 
 ### Animation Standards
 
@@ -247,8 +251,8 @@ All animations respect `prefers-reduced-motion`:
 | Tier | Animated Elements |
 |------|-------------------|
 | Bronze–Gold | None (static) |
-| Diamond | Optional sparkle (subtle) |
-| Whale | Background + chain + frame glow |
+| Platinum | Optional shimmer (subtle) |
+| Diamond | Background + chain + frame glow |
 
 Animation timing:
 - Background aurora: 8s loop
@@ -265,7 +269,7 @@ The off-chain medallion **wraps** the on-chain core:
 
 ```
 Off-Chain Medallion (IPFS/Arweave)
-├── Chain layer (topmost, Whale only)
+├── Chain layer (topmost, Diamond only)
 ├── Hoop layer (Gold+)
 ├── Frame layer
 ├── Core visual ← referenced from on-chain
@@ -278,14 +282,14 @@ Off-chain metadata includes a pointer to the on-chain SVG:
 
 ```json
 {
-  "name": "MINTER Achievement - Whale Tier",
-  "image": "ipfs://Qm.../whale-minter.svg",
+  "name": "MINTER Achievement - Diamond Tier",
+  "image": "ipfs://Qm.../diamond-minter.svg",
   "on_chain_core": {
     "contract": "0x...",
     "tokenId": 1,
     "method": "tokenURI"
   },
-  "tier": "whale",
+  "tier": "diamond",
   "layers": ["background", "frame", "hoop", "chain"]
 }
 ```
@@ -305,7 +309,7 @@ Off-chain metadata includes a pointer to the on-chain SVG:
 ### Current State
 
 - **Tier 0**: Complete. 8 achievements on-chain, 2-5KB each.
-- **Bronze–Whale**: Not implemented. Specification only.
+- **Bronze–Diamond**: Not implemented. Specification only.
 
 ### Future Implementation
 
@@ -329,7 +333,7 @@ Off-chain metadata includes a pointer to the on-chain SVG:
 The medallion architecture separates **essence** from **ornamentation**:
 
 - **Tier 0 (On-Chain)**: The permanent, minimal core—what makes each achievement recognizable
-- **Bronze–Whale (Off-Chain)**: Progressive embellishment that reflects holder wealth tier
+- **Bronze–Diamond (Off-Chain)**: Progressive embellishment that reflects holder wealth tier
 
 This creates a visual language where:
 - Every holder sees the same core achievement identity

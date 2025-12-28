@@ -1,7 +1,8 @@
 # Protocol Layer Documentation
 
 > **Version:** 1.0
-> **Last Updated:** 2025-12-21
+> **Status:** Final
+> **Last Updated:** 2025-12-28
 
 Developer-focused documentation for the BTCNFT Protocol smart contracts.
 
@@ -28,13 +29,12 @@ The BTCNFT Protocol is an immutable permissionless smart contract providing perp
 |----------|-------------|
 | [Collateral Matching](./Collateral_Matching.md) | Match pool mechanics for early redemption distribution |
 | [Withdrawal Delegation](./Withdrawal_Delegation.md) | Delegation permissions for automated withdrawals |
-| [Quantitative Validation](./Quantitative_Validation.md) | Historical BTC data analysis supporting design constraints |
 
 ### Extensions
 
 | Document | Description |
 |----------|-------------|
-| [Hybrid Vault](./Hybrid_Vault.md) | Phase 2 hybrid vault mechanics |
+| [Dual-Collateral Vault](./Dual_Collateral_Vault.md) | Liquidity expansion mechanism (80% WBTC + 20% LP) |
 
 ---
 
@@ -50,7 +50,7 @@ The BTCNFT Protocol is an immutable permissionless smart contract providing perp
 
 1. [Technical Specification](./Technical_Specification.md) - All contract mechanics
 2. [Product Specification](./Product_Specification.md) - Business context
-3. [Quantitative Validation](./Quantitative_Validation.md) - Parameter justification
+3. [Quantitative Validation](../research/Quantitative_Validation.md) - Parameter justification
 
 ### For Integrators
 

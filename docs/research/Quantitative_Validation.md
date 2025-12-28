@@ -6,7 +6,6 @@
 > **Related Documents:**
 > - [Product Specification](./Product_Specification.md)
 > - [Technical Specification](./Technical_Specification.md)
-> - [Market Analysis](../issuer/Market_Analysis.md)
 
 > **Disclaimer:** This analysis is based on historical BTC price data from 2017-2025. Past performance does not guarantee future results. The data period includes significant institutional adoption and may not be representative of future market conditions. vestedBTC is BTC-denominated (not pegged to USD). "Stability" refers to historical patterns, not a forward-looking guarantee.
 

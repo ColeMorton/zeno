@@ -33,7 +33,7 @@ Display Vault NFT collections with percentile rankings based on BTC collateral a
 | Use Case | Description |
 |----------|-------------|
 | **Portfolio Analysis** | Issuer reviews distribution of vault sizes across their ecosystem |
-| **Whale Identification** | Identify top-tier vaults for community recognition or outreach |
+| **Diamond Tier Identification** | Identify top-tier vaults for community recognition or outreach |
 | **Health Monitoring** | Track vesting progress and separation rates |
 | **Dormancy Detection** | Identify at-risk vaults requiring holder engagement |
 
@@ -101,11 +101,11 @@ Where:
 
 | Tier | Percentile | Frame Color | Visual Enhancement |
 |------|------------|-------------|-------------------|
-| **Whale** | 99th+ | `#e0e0ff` | Unique frame + leaderboard feature |
-| **Diamond** | 90-99th | `#b9f2ff` | Diamond frame + effects |
-| **Gold** | 75-90th | `#ffd700` | Gold frame |
-| **Silver** | 50-75th | `#c0c0c0` | Silver frame |
-| **Bronze** | 0-50th | `#cd7f32` | Standard frame |
+| **Diamond** | 99th+ | `#E8F4FF` | Crystalline frame + leaderboard feature |
+| **Platinum** | 90-99th | `#E5E4E2` | Platinum frame + shimmer |
+| **Gold** | 75-90th | `#FFD700` | Gold frame |
+| **Silver** | 50-75th | `#C0C0C0` | Silver frame |
+| **Bronze** | 0-50th | `#CD7F32` | Standard frame |
 
 > **Note:** Display tiers are **VISUAL ONLY** - they provide no rate/reward advantages. Tiers are applied to Treasure NFT artwork based on the vault's collateral percentile.
 
@@ -277,7 +277,7 @@ Query VaultMinted events WHERE treasureContract == target
 
 **Result:** All vaults minted through issuer's windows, sorted by collateral with percentile badges relative to that issuer's ecosystem.
 
-### Scenario 2: Whale Identification
+### Scenario 2: Diamond Tier Identification
 
 **Goal:** Find top 1% vaults across the protocol.
 
@@ -287,7 +287,7 @@ Query VaultMinted events WHERE treasureContract == target
 | Vesting Status | `vested` |
 | Separation Status | `combined` |
 
-**Result:** Only vested, combined vaults. Filter to "Top 1%" tier to identify whales.
+**Result:** Only vested, combined vaults. Filter to "Top 1%" tier to identify Diamond tier vaults.
 
 ### Scenario 3: At-Risk Vault Detection
 
@@ -320,3 +320,9 @@ Query VaultMinted events WHERE treasureContract == target
 | [Technical Specification](../protocol/Technical_Specification.md) | Vault data model, dormancy mechanics |
 | [Integration Guide](./Integration_Guide.md) | Issuer implementation patterns |
 | [Holder Experience](./Holder_Experience.md) | End-user vault interactions |
+
+---
+
+## Navigation
+
+← [Issuer Layer](./README.md) | [Documentation Home](../README.md)

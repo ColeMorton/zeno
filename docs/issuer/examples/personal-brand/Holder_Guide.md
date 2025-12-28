@@ -141,7 +141,7 @@ Mint Vault #1 → Claim MINTER achievement
 ### Entry
 
 **How do I get a Treasure NFT?**
-Acquire a [BRAND_NAME] Treasure through auction, direct mint, or secondary market. Details at [placeholder].
+Acquire a [BRAND_NAME] Treasure through auction, direct mint, or secondary market. Details at [YOUR_MINTING_PAGE_URL].
 
 **How do achievements work?**
 Achievements are soulbound NFTs (ERC-5192) that attest your on-chain actions. You claim them by calling functions on the AchievementMinter contract.
@@ -173,12 +173,12 @@ Yes, if you have an eligible badge for that series.
 ## Support
 
 For [BRAND_NAME] specific questions:
-- [Discord/Community link placeholder]
-- [Support contact placeholder]
+- [YOUR_DISCORD_OR_COMMUNITY_URL]
+- [YOUR_SUPPORT_EMAIL_OR_CONTACT]
 
 For protocol questions, see:
-- [Holder Experience](../issuer/Holder_Experience.md)
-- [Product Specification](../protocol/Product_Specification.md)
+- [Holder Experience](../../Holder_Experience.md)
+- [Product Specification](../../../protocol/Product_Specification.md)
 
 ---
 

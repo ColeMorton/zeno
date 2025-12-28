@@ -90,7 +90,7 @@ import type {
 #### `DisplayTier`
 
 ```typescript
-type DisplayTier = 'Whale' | 'Diamond' | 'Gold' | 'Silver' | 'Bronze' | null;
+type DisplayTier = 'Diamond' | 'Platinum' | 'Gold' | 'Silver' | 'Bronze' | null;
 ```
 
 #### `TierVisualConfig`
@@ -102,16 +102,16 @@ interface TierVisualConfig {
   tier: DisplayTier;
   percentile: number;
   frame: {
-    style: 'standard' | 'metallic' | 'animated' | 'unique';
+    style: 'standard' | 'metallic' | 'animated' | 'crystalline';
     color: string;  // hex
     glow: boolean;
-    animation?: 'pulse' | 'shimmer' | 'sparkle';
+    animation?: 'pulse' | 'shimmer' | 'sparkle' | 'prismatic';
   };
   badge: {
     icon: string;
     label: string;
   };
-  leaderboard: boolean;  // Whale only
+  leaderboard: boolean;  // Diamond only
 }
 ```
 
@@ -238,8 +238,8 @@ Get visual configuration for a specific tier.
 ```typescript
 import { getTierVisualConfig } from '@btcnft/vault-analytics';
 
-const config = getTierVisualConfig(98.5, 'Diamond');
-console.log(config.frame.color);     // '#B9F2FF'
+const config = getTierVisualConfig(98.5, 'Platinum');
+console.log(config.frame.color);     // '#E5E4E2'
 console.log(config.frame.animation); // 'shimmer'
 ```
 
@@ -326,8 +326,8 @@ getDurationThreshold('DIAMOND_HANDS')  // 730 days in seconds
 ```typescript
 import { TIER_VISUALS, ACHIEVEMENT_VISUALS, RARITY_ORDER } from '@btcnft/vault-analytics';
 
-TIER_VISUALS.Whale.frame.color  // '#00D4FF'
-TIER_VISUALS.Whale.leaderboard  // true
+TIER_VISUALS.Diamond.frame.color  // '#E8F4FF'
+TIER_VISUALS.Diamond.leaderboard  // true
 
 ACHIEVEMENT_VISUALS.MINTER.rarity      // 'common'
 ACHIEVEMENT_VISUALS.HODLER_SUPREME.rarity  // 'legendary'

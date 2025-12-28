@@ -1,12 +1,11 @@
 # BTCNFT Protocol Collateral Matching Mechanism
 
-> **Version:** 2.1
+> **Version:** 2.2
 > **Status:** Draft
-> **Last Updated:** 2025-12-16
+> **Last Updated:** 2025-12-28
 > **Related Documents:**
 > - [Technical Specification](./Technical_Specification.md)
 > - [Product Specification](./Product_Specification.md)
-> - [E2E Competitive Flow](../issuer/E2E_Competitive_Flow.md)
 
 ---
 
@@ -46,6 +45,22 @@ Match amounts are derived deterministically from on-chain state at claim time.
 │  Match amount = matchPool × (holderCollateral / totalActive)   │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+### Isolated Match Pools Per Collateral Type
+
+Each protocol deployment (one per collateral type) maintains its own independent match pool:
+
+| Collateral | Match Pool | vestedBTC Token |
+|------------|------------|-----------------|
+| wBTC | Isolated wBTC pool | vWBTC |
+| cbBTC | Isolated cbBTC pool | vCBBTC |
+| tBTC | Isolated tBTC pool | vTBTC |
+
+**Key Implications:**
+- Early redemptions from vWBTC vaults only benefit vWBTC holders
+- Match pool distributions cannot cross collateral boundaries
+- If one wrapped BTC experiences issues, other pools remain unaffected
+- Users can choose which match pool to participate in based on collateral risk profile
 
 ### Relationship to Base Specification
 
@@ -242,3 +257,9 @@ Day 1494: Carol vests, calls claimMatch()
 | Snapshot denominator | Before state change | Fair regardless of claim order |
 | Governance params | Zero | Maximum elegance, minimum attack surface |
 | Claim gas | O(1) | Scalable to any number of NFTs |
+
+---
+
+## Navigation
+
+← [Protocol Layer](./README.md) | [Documentation Home](../README.md)

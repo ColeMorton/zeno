@@ -6,7 +6,7 @@
 > **Related Documents:**
 > - [Holder Guide](./Holder_Guide.md)
 > - [Roadmap](./Roadmap.md)
-> - [Issuer Guide](../issuer/Issuer_Guide.md)
+> - [Integration Guide](../../Integration_Guide.md)
 
 ---
 
@@ -132,17 +132,17 @@ Entry Badge + BTC → Vault #1 → Achievements → Achievement + BTC → Vault 
 |-------------|--------|------|
 | Longest Hold | Days held | Merit |
 | Achievement Hunter | Total achievements | Merit |
-| Whale Watch | Total BTC collateral | Vanity |
+| Diamond Watch | Total BTC collateral | Vanity |
 
 ### Display Tiers
 
 | Tier | Percentile | Frame Color | Cosmetic |
 |------|------------|-------------|----------|
-| Bronze | 0-50th | `#cd7f32` | Standard frame |
-| Silver | 50-75th | `#c0c0c0` | Silver frame |
-| Gold | 75-90th | `#ffd700` | Gold frame |
-| Diamond | 90-99th | `#b9f2ff` | Diamond frame + effects |
-| Whale | 99th+ | `#e0e0ff` | Unique frame + leaderboard feature |
+| Bronze | 0-50th | `#CD7F32` | Standard frame |
+| Silver | 50-75th | `#C0C0C0` | Silver frame |
+| Gold | 75-90th | `#FFD700` | Gold frame |
+| Platinum | 90-99th | `#E5E4E2` | Platinum frame + shimmer |
+| Diamond | 99th+ | `#E8F4FF` | Crystalline frame + leaderboard feature |
 
 > Frame SVG templates: [Visual_Assets_Guide.md](../../Visual_Assets_Guide.md) Section 3
 

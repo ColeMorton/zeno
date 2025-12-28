@@ -1,7 +1,8 @@
 # BTCNFT Protocol Documentation
 
 > **Version:** 1.0
-> **Last Updated:** 2025-12-21
+> **Status:** Final
+> **Last Updated:** 2025-12-28
 
 ---
 
@@ -31,7 +32,7 @@ Smart contract specifications for developers, auditors, and technical integrator
 | [Collateral Matching](./protocol/Collateral_Matching.md) | Match pool mechanics |
 | [Quantitative Validation](./protocol/Quantitative_Validation.md) | Historical data analysis |
 | [Withdrawal Delegation](./protocol/Withdrawal_Delegation.md) | Delegation mechanics |
-| [Hybrid Vault](./protocol/Hybrid_Vault.md) | Phase 2 product spec |
+| [Dual-Collateral Vault](./protocol/Dual_Collateral_Vault.md) | Liquidity expansion mechanism |
 
 See [protocol/README.md](./protocol/README.md) for detailed navigation.
 

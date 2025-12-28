@@ -6,7 +6,6 @@
 > **Related Documents:**
 > - [Technical Specification](./Technical_Specification.md)
 > - [Quantitative Validation](./Quantitative_Validation.md)
-> - [Market Analysis](../issuer/Market_Analysis.md)
 > - [Withdrawal Delegation](./Withdrawal_Delegation.md)
 
 ---
@@ -418,3 +417,9 @@ Total Stack: 12% + 7-17% = 19-29% APY
 | Collateral on claim | Transferred to claimer | Claimer receives BTC directly |
 | Vault NFT on claim | Burned | Empty shell after extraction - no value |
 | vestedBTC on claim | Burned | Economic equivalence with recombination |
+
+---
+
+## Navigation
+
+← [Protocol Layer](./README.md) | [Documentation Home](../README.md)

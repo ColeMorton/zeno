@@ -1,13 +1,13 @@
 # BTCNFT Protocol Holder Experience
 
 > **Version:** 1.0
-> **Status:** Draft
-> **Last Updated:** 2025-12-16
+> **Status:** User Guide
+> **Last Updated:** 2025-12-28
 > **Related Documents:**
 > - [Achievements Specification](./Achievements_Specification.md)
 > - [Product Specification](../protocol/Product_Specification.md)
 > - [Technical Specification](../protocol/Technical_Specification.md)
-> - [Issuer Guide](./Issuer_Guide.md)
+> - [Integration Guide](./Integration_Guide.md)
 
 ---
 
@@ -62,7 +62,7 @@ Your NFT's appearance is determined by TWO independent systems:
 - Determined by your vault's collateral percentile
 - Dynamic (changes as protocol TVL shifts)
 - Applied to your Treasure NFT's visual frame
-- Tiers: Bronze → Silver → Gold → Diamond → Whale
+- Tiers: Bronze → Silver → Gold → Platinum → Diamond
 
 **Example:** You can earn DIAMOND_HANDS (730-day hold) while displaying a "Silver" tier frame (if your collateral is 50-75th percentile). These systems are independent.
 
@@ -341,4 +341,10 @@ Withdrawals represent transfer of your own property from smart contract to walle
 | Contract mechanics | [Technical Specification](../protocol/Technical_Specification.md) |
 | Product definition | [Product Specification](../protocol/Product_Specification.md) |
 | Collateral matching details | [Collateral Matching](../protocol/Collateral_Matching.md) |
-| Issuer options | [Issuer Guide](./Issuer_Guide.md) |
+| Issuer options | [Integration Guide](./Integration_Guide.md) |
+
+---
+
+## Navigation
+
+← [Issuer Layer](./README.md) | [Documentation Home](../README.md)

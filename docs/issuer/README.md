@@ -70,8 +70,8 @@ Display Tier (Wealth-Based)
 ├─ Bronze (0-50th percentile)
 ├─ Silver (50-75th)
 ├─ Gold (75-90th)
-├─ Diamond (90-99th)
-└─ Whale (99th+)
+├─ Platinum (90-99th)
+└─ Diamond (99th+)
 ```
 
 > **Implementation:** Achievement badges (Section 2), Tier frames (Section 3), Metadata schemas (Section 5) in [Visual_Assets_Guide.md](./Visual_Assets_Guide.md)
@@ -96,11 +96,7 @@ Display Tier (Wealth-Based)
    - User journey, withdrawal mechanics
    - FAQ, common questions
 
-4. **[Competitive Positioning](./Competitive_Positioning.md)** - Market context
-   - Target markets, differentiators
-   - Competitive analysis
-
-5. **[Vault Percentile Specification](./Vault_Percentile_Specification.md)** - Analytics specification
+4. **[Vault Percentile Specification](./Vault_Percentile_Specification.md)** - Analytics specification
    - Vault ranking by collateral
    - Filtering and display patterns
 
@@ -167,11 +163,19 @@ protocol.registerIssuer();
 | Term | Definition |
 |------|------------|
 | **Tier 0** | Base visual form (Achievement NFT) without wealth-based embellishments |
-| **Display Tier** | Bronze/Silver/Gold/Diamond/Whale ranking based on collateral percentile |
+| **Display Tier** | Bronze/Silver/Gold/Platinum/Diamond ranking based on collateral percentile |
 | **Merit** | Achievement system basis (actions, holding duration) |
 | **Wealth** | Display tier basis (collateral amount relative to protocol TVL) |
 | **Orthogonal** | Merit and wealth systems are independent; one does not affect the other |
 | **Soulbound** | Non-transferable token bound permanently to the earning wallet (ERC-5192) |
+
+---
+
+## Background Reading
+
+| Document | Purpose |
+|----------|---------|
+| [NFT Artwork Guide](../NFT_Artwork_Guide.md) | Philosophical exploration of digital art and NFT ownership |
 
 ---
 

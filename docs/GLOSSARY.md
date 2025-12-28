@@ -1,7 +1,8 @@
 # BTCNFT Protocol Glossary
 
-> **Version:** 1.0
-> **Last Updated:** 2025-12-21
+> **Version:** 1.1
+> **Status:** Final
+> **Last Updated:** 2025-12-28
 
 Standardized terminology for BTCNFT Protocol documentation.
 
@@ -29,18 +30,29 @@ The primary asset of the protocol. A composable NFT that holds both a Treasure N
 
 Any ERC-721 NFT that can be deposited into a Vault. Issuers define which Treasure contracts are eligible for their minting windows.
 
-### vestedBTC (vBTC)
+### vestedBTC
 
 | Attribute | Value |
 |-----------|-------|
 | Standard | ERC-20 (Fungible) |
-| Symbol | vBTC |
 | Decimals | 8 (matches WBTC) |
 | Backing | 1:1 with Vault collateral at mint |
 
 **Also known as:** btcToken (internal contract name)
 
 Fungible token representing a claim on BTC collateral. Created by separating collateral from a Vault NFT. Enables DeFi composability (DEX trading, lending, liquidity pools).
+
+#### vestedBTC Variants
+
+Each collateral type has its own vestedBTC token to maintain risk isolation:
+
+| Symbol | Name | Backed By |
+|--------|------|-----------|
+| vWBTC | vestedBTC-wBTC | Wrapped Bitcoin (BitGo custodial) |
+| vCBBTC | vestedBTC-cbBTC | Coinbase Bitcoin (Coinbase custodial) |
+| vTBTC | vestedBTC-tBTC | Threshold Bitcoin (decentralized threshold network) |
+
+**Note:** Each variant has independent pricing and risk profile based on its underlying collateral's custody model.
 
 ---
 
@@ -164,15 +176,15 @@ Process by which vestedBTC holders claim collateral from abandoned (dormant) Vau
 
 ### Display Tier
 
-Wealth-based visual tier (Bronze/Silver/Gold/Diamond/Whale) dynamically computed from collateral percentile. Unlike achievements which are merit-based, display tiers reflect relative collateral position within the protocol.
+Wealth-based visual tier (Bronze/Silver/Gold/Platinum/Diamond) dynamically computed from collateral percentile. Unlike achievements which are merit-based, display tiers reflect relative collateral position within the protocol.
 
 | Tier | Percentile Range |
 |------|-----------------|
 | Bronze | 0–50th |
 | Silver | 50–75th |
 | Gold | 75–90th |
-| Diamond | 90–99th |
-| Whale | 99th+ |
+| Platinum | 90–99th |
+| Diamond | 99th+ |
 
 **Note:** Thresholds are keeper-updated based on current collateral distribution.
 

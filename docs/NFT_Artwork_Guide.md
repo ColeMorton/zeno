@@ -1,5 +1,9 @@
 # NFT Artwork Guide
 
+> **Version:** 1.0
+> **Status:** Draft
+> **Last Updated:** 2025-12-28
+
 A philosophical exploration of digital art on the blockchain.
 
 ---

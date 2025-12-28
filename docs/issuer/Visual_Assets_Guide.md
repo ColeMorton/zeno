@@ -5,6 +5,7 @@
 > **Last Updated:** 2025-12-22
 > **Related Documents:**
 > - [Pixel Art Guide](./Pixel_Art_Guide.md) - Raster/off-chain pixel art standards
+> - [NFT Artwork Creation](./NFT_Artwork_Creation.md) - AI-assisted artwork workflow
 > - [Achievements Specification](./Achievements_Specification.md)
 > - [Vault Percentile Specification](./Vault_Percentile_Specification.md)
 > - [Integration Guide](./Integration_Guide.md)
@@ -199,11 +200,11 @@ Achievement badges must visually communicate non-transferability:
 
 | Tier | Percentile | Frame Color | Effects |
 |------|------------|-------------|---------|
-| **Whale** | 99th+ | Iridescent | Animated glow + featured badge |
-| **Diamond** | 90-99th | `#b9f2ff` | Diamond sparkle animation |
-| **Gold** | 75-90th | `#ffd700` | Subtle gold shimmer |
-| **Silver** | 50-75th | `#c0c0c0` | Clean metallic |
-| **Bronze** | 0-50th | `#cd7f32` | Standard frame |
+| **Diamond** | 99th+ | `#E8F4FF` | Crystalline frame + prismatic animation |
+| **Platinum** | 90-99th | `#E5E4E2` | Platinum frame + shimmer |
+| **Gold** | 75-90th | `#FFD700` | Subtle gold shimmer |
+| **Silver** | 50-75th | `#C0C0C0` | Clean metallic |
+| **Bronze** | 0-50th | `#CD7F32` | Standard frame |
 
 ### 3.2 Tier Frame Architecture
 
@@ -214,7 +215,7 @@ Achievement badges must visually communicate non-transferability:
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │ ┌────────────────────────────────────────────────────────┐ │ │
-│  │ │ OUTER GLOW (Whale/Diamond only)                        │ │ │
+│  │ │ OUTER GLOW (Diamond/Platinum only)                      │ │ │
 │  │ │ ┌────────────────────────────────────────────────────┐ │ │ │
 │  │ │ │ TIER FRAME (color by tier)                         │ │ │ │
 │  │ │ │ ┌────────────────────────────────────────────────┐ │ │ │ │
@@ -237,7 +238,7 @@ Achievement badges must visually communicate non-transferability:
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
   <title>Treasure NFT with [TIER] Frame</title>
 
-  <!-- Outer glow (Whale/Diamond only) -->
+  <!-- Outer glow (Diamond/Platinum only) -->
   <filter id="tier-glow">
     <feGaussianBlur stdDeviation="8" result="blur"/>
     <feMerge>
@@ -630,11 +631,11 @@ function estimateStorageGas(dataUri) {
 
 | Tier | Primary | Gradient Start | Gradient End |
 |------|---------|----------------|--------------|
-| Whale | `#e0e0ff` | `#b9f2ff` | `#e0b0ff` |
-| Diamond | `#b9f2ff` | `#7fdbff` | `#b9f2ff` |
-| Gold | `#ffd700` | `#ffec8b` | `#b8860b` |
-| Silver | `#c0c0c0` | `#e0e0e0` | `#808080` |
-| Bronze | `#cd7f32` | `#daa520` | `#8b4513` |
+| Diamond | `#E8F4FF` | `#D0E8FF` | `#F0F8FF` |
+| Platinum | `#E5E4E2` | `#D8D8D6` | `#F0F0EE` |
+| Gold | `#FFD700` | `#FFEC8B` | `#B8860B` |
+| Silver | `#C0C0C0` | `#E0E0E0` | `#808080` |
+| Bronze | `#CD7F32` | `#DAA520` | `#8B4513` |
 
 ### 7.3 Achievement Category Colors
 
@@ -697,8 +698,8 @@ function estimateStorageGas(dataUri) {
   □ Bronze frame
   □ Silver frame
   □ Gold frame
+  □ Platinum frame
   □ Diamond frame
-  □ Whale frame
 
 □ Design System
   □ Color palette documentation
@@ -719,6 +720,7 @@ function estimateStorageGas(dataUri) {
 
 | Document | Purpose |
 |----------|---------|
+| [NFT Artwork Creation](./NFT_Artwork_Creation.md) | AI-assisted artwork workflow |
 | [Achievements Specification](./Achievements_Specification.md) | Achievement taxonomy |
 | [Vault Percentile Specification](./Vault_Percentile_Specification.md) | Tier calculation |
 | [Integration Guide](./Integration_Guide.md) | Issuer implementation |
@@ -727,3 +729,9 @@ function estimateStorageGas(dataUri) {
 ---
 
 *This guide establishes the visual standards for BTCNFT Protocol. All visual assets should conform to these specifications to ensure consistency, gas efficiency, and cross-platform compatibility.*
+
+---
+
+## Navigation
+
+← [Issuer Layer](./README.md) | [Documentation Home](../README.md)

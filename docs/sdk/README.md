@@ -37,7 +37,7 @@ const vestedVaults = filterVaults(vaults, { vestingStatus: 'vested' });
 
 // Rank by collateral and get percentile tiers
 const ranked = rankByCollateral(vestedVaults);
-// { vault: {...}, rank: 1, percentile: 99, tier: 'Whale' }
+// { vault: {...}, rank: 1, percentile: 99, tier: 'Diamond' }
 ```
 
 **Features:**
@@ -84,3 +84,9 @@ See [Technical Specification](../protocol/Technical_Specification.md) for comple
 | **Protocol** | [protocol/](../protocol/) |
 | **Issuer** | [issuer/](../issuer/) |
 | **Glossary** | [GLOSSARY.md](../GLOSSARY.md) |
+
+---
+
+## Navigation
+
+← [Documentation Home](../README.md)

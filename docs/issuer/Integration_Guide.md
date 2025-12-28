@@ -321,7 +321,7 @@ Issuers can create time-limited campaigns with achievement rewards:
 | Leaderboard | Type | Purpose |
 |-------------|------|---------|
 | Merit-based | Longest Hold, Achievement Hunter | Engagement recognition |
-| Vanity | Whale Watch | Collateral display (separate) |
+| Vanity | Diamond Watch | Collateral display (separate) |
 
 **Critical:** Merit and vanity leaderboards must be SEPARATE. Vanity tiers are VISUAL ONLY with no rate/reward advantage.
 
@@ -558,11 +558,11 @@ Display tiers are calculated **OFF-CHAIN** based on collateral percentile:
 
 | Tier | Percentile | Frame Color | Visual Enhancement |
 |------|------------|-------------|-------------------|
-| **Whale** | 99th+ | `#e0e0ff` | Unique frame + leaderboard feature |
-| **Diamond** | 90-99th | `#b9f2ff` | Diamond frame + effects |
-| **Gold** | 75-90th | `#ffd700` | Gold frame |
-| **Silver** | 50-75th | `#c0c0c0` | Silver frame |
-| **Bronze** | 0-50th | `#cd7f32` | Standard frame |
+| **Diamond** | 99th+ | `#E8F4FF` | Crystalline frame + leaderboard feature |
+| **Platinum** | 90-99th | `#E5E4E2` | Platinum frame + shimmer |
+| **Gold** | 75-90th | `#FFD700` | Gold frame |
+| **Silver** | 50-75th | `#C0C0C0` | Silver frame |
+| **Bronze** | 0-50th | `#CD7F32` | Standard frame |
 
 > Frame SVG templates and color specifications: [Visual_Assets_Guide.md](./Visual_Assets_Guide.md) Section 3
 
@@ -587,7 +587,7 @@ Display tiers are calculated **OFF-CHAIN** based on collateral percentile:
 │     └─ percentile = ((total - rank) / total) × 100        │
 │                                                            │
 │  4. Map percentile to tier                                 │
-│     └─ 99+ = Whale, 90-99 = Diamond, etc.                 │
+│     └─ 99+ = Diamond, 90-99 = Platinum, etc.              │
 │                                                            │
 │  5. Apply visual enhancement to Treasure artwork           │
 │     └─ Compose tier frame SVG around IPFS image           │
@@ -688,3 +688,9 @@ event BadgeRedeemed(
 | Analytics | Track health indicators, optimize |
 | Bonding | Optional; deploy for POL accumulation if needed |
 | IOL Bootstrap | Genesis program → Single-sided → Time-locked multipliers |
+
+---
+
+## Navigation
+
+← [Issuer Layer](./README.md) | [Documentation Home](../README.md)

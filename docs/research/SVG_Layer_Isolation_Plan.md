@@ -1,5 +1,9 @@
 # SVG Layer Isolation Plan: Diamond Hands Medallion
 
+> **Version:** 1.0
+> **Status:** Technical
+> **Last Updated:** 2025-12-28
+
 ## Objective
 Isolate the 16-colour SVG into 4 independent semantic layers using geometric reconstruction.
 

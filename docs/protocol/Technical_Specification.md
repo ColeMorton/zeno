@@ -1,12 +1,11 @@
 # BTCNFT Protocol Technical Specification
 
-> **Version:** 2.2
+> **Version:** 2.3
 > **Status:** Draft
-> **Last Updated:** 2025-12-19
+> **Last Updated:** 2025-12-28
 > **Related Documents:**
 > - [Product Specification](./Product_Specification.md)
 > - [Quantitative Validation](./Quantitative_Validation.md)
-> - [Market Analysis](../issuer/Market_Analysis.md)
 > - [Withdrawal Delegation](./Withdrawal_Delegation.md)
 
 ---
@@ -15,7 +14,7 @@
 
 1. [Token Lifecycle](#1-token-lifecycle)
    - 1.1 [Minting](#11-minting)
-   - 1.2 [Multi-Issuer Architecture](#12-multi-issuer-architecture)
+   - 1.2 [Permissionless Minting](#12-permissionless-minting)
    - 1.3 [Vesting Period](#13-vesting-period)
    - 1.4 [Post-Vesting Withdrawals](#14-post-vesting-withdrawals)
    - 1.5 [Withdrawal Delegation](#15-withdrawal-delegation)
@@ -40,6 +39,7 @@
    - 4.2 [Per-Token Parameters](#42-per-token-parameters)
    - 4.3 [vestedBTC Parameters](#43-btctoken-parameters)
    - 4.4 [Dormancy Parameters](#44-dormancy-parameters)
+   - 4.5 [VaultMath Library](#45-vaultmath-library)
 5. [Dormant NFT Claim](#5-dormant-nft-claim)
    - 5.1 [Purpose](#51-purpose)
    - 5.2 [Dormancy Criteria](#52-dormancy-criteria)
@@ -92,6 +92,22 @@ immutable uint256 WITHDRAWAL_RATE = 1000; // 1.0% = 1000/100000
 
 **Verification:** Anyone can read these values from the deployed contract. They match the bytecode and cannot differ from what was compiled.
 
+### Multi-Deployment Architecture
+
+The protocol deploys as **separate VaultNFT + BtcToken pairs per collateral type**, providing complete risk isolation:
+
+| Collateral | vestedBTC Token | vestedBTC Symbol | Vault NFT | Vault Symbol |
+|------------|-----------------|------------------|-----------|--------------|
+| wBTC | vestedBTC-wBTC | vWBTC | Vault NFT-wBTC | VAULT-W |
+| cbBTC | vestedBTC-cbBTC | vCBBTC | Vault NFT-cbBTC | VAULT-CB |
+| tBTC | vestedBTC-tBTC | vTBTC | Vault NFT-tBTC | VAULT-T |
+
+**Architecture Benefits:**
+- **Risk Isolation:** A custodian compromise in one wrapped BTC variant cannot affect users holding vaults backed by other collateral types
+- **Separate Match Pools:** Each deployment maintains its own match pool for collateral matching, preventing cross-contamination
+- **Clear Token Identity:** Users know exactly which wrapped BTC backs their vestedBTC tokens
+- **Independent Pricing:** Markets can price each vestedBTC variant based on its underlying collateral's risk profile
+
 ---
 
 ## 1. Token Lifecycle
@@ -115,21 +131,14 @@ immutable uint256 WITHDRAWAL_RATE = 1000; // 1.0% = 1000/100000
   - BTC collateral stored (provides backing)
   - Mint timestamp recorded
 
-### 1.2 Multi-Issuer Architecture
+### 1.2 Permissionless Minting
 
-The protocol supports multiple issuers operating independently. The protocol layer is fully permissionless - any address can call `mint()` with valid inputs. Issuers control access through their own contracts (e.g., `AuctionController`, `TreasureNFT` ownership).
-
-#### 1.2.1 Minting Modes
-
-| Mode | Layer | Description |
-|------|-------|-------------|
-| **Direct Mint** | Protocol | Permissionless `mint()` - anyone can mint with valid Treasure + collateral |
-| **Auction Mint** | Issuer | Dutch/English auctions via `AuctionController` - see [Issuer Integration Guide](../issuer/Integration_Guide.md#4-minting-modes) |
-
-**Direct Mint (Protocol Layer):**
+The protocol layer is fully permissionless. Any address can call `mint()` with:
+1. A valid ERC-721 Treasure NFT
+2. Sufficient collateral (WBTC, cbBTC, or tBTC)
 
 ```solidity
-/// @notice Mint a Vault NFT directly (permissionless)
+/// @notice Mint a Vault NFT (permissionless)
 function mint(
     address treasureContract,
     uint256 treasureTokenId,
@@ -138,13 +147,7 @@ function mint(
 ) external returns (uint256 vaultTokenId);
 ```
 
-**Auction Mint (Issuer Layer):**
-
-For controlled minting with price discovery, issuers deploy an `AuctionController` contract that supports:
-- **Dutch Auctions**: Descending price from start to floor over time
-- **English Auctions**: Slot-based ascending bid auctions with anti-sniping
-
-See [Issuer Integration Guide](../issuer/Integration_Guide.md#4-minting-modes) for implementation details.
+The protocol has no concept of "issuers" - it accepts any caller with valid inputs. Organizations building on the protocol may implement their own access control above this permissionless layer. See [Issuer Integration Guide](../issuer/Integration_Guide.md) for integration patterns.
 
 ### 1.3 Vesting Period
 
@@ -605,6 +608,67 @@ uint256 amount = (numerator * multiplier) / denominator; // Solidity default: fl
 | `lastActivity` | mapping(uint256 => uint256) | Per-token timestamp of last activity |
 | `pokeTimestamp` | mapping(uint256 => uint256) | Per-token timestamp when poked (0 = not poked) |
 
+### 4.5 VaultMath Library
+
+All core calculations are implemented in the `VaultMath` library (`contracts/protocol/src/libraries/VaultMath.sol`).
+
+#### Constants
+
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `VESTING_PERIOD` | 1129 days | Time before first withdrawal enabled |
+| `WITHDRAWAL_PERIOD` | 30 days | Minimum time between withdrawals |
+| `DORMANCY_THRESHOLD` | 1129 days | Inactivity period to become dormant |
+| `GRACE_PERIOD` | 30 days | Time after poke to claim dormant collateral |
+| `BASIS_POINTS` | 100000 | Denominator for percentage calculations |
+| `WITHDRAWAL_RATE` | 1000 | 1000/100000 = 1.0% per withdrawal |
+
+#### Calculation Functions
+
+**`calculateWithdrawal(collateral)`**
+
+Returns 1.0% of remaining collateral (12% annually).
+
+```solidity
+function calculateWithdrawal(uint256 collateral) internal pure returns (uint256) {
+    return (collateral * WITHDRAWAL_RATE) / BASIS_POINTS;
+}
+```
+
+**`calculateEarlyRedemption(collateral, mintTimestamp, currentTimestamp)`**
+
+Linear vesting over 1129 days. Returns `(returned, forfeited)`.
+
+```solidity
+// If elapsed >= VESTING_PERIOD: return full collateral, forfeit 0
+// If elapsed < VESTING_PERIOD: returned = collateral × (elapsed/1129), forfeit = remainder
+// If elapsed <= 0: return 0, forfeit all
+```
+
+**`calculateMatchShare(pool, holderCollateral, totalActiveCollateral)`**
+
+Pro-rata distribution from match pool.
+
+```solidity
+function calculateMatchShare(
+    uint256 pool,
+    uint256 holderCollateral,
+    uint256 totalActiveCollateral
+) internal pure returns (uint256) {
+    if (totalActiveCollateral == 0 || pool == 0) return 0;
+    return (pool * holderCollateral) / totalActiveCollateral;
+}
+```
+
+#### Validation Functions
+
+| Function | Returns `true` when |
+|----------|---------------------|
+| `isVested(mintTimestamp, currentTimestamp)` | `currentTimestamp >= mintTimestamp + VESTING_PERIOD` |
+| `canWithdraw(lastWithdrawal, currentTimestamp)` | `currentTimestamp >= lastWithdrawal + WITHDRAWAL_PERIOD` |
+| `isDormant(lastActivity, currentTimestamp)` | `currentTimestamp >= lastActivity + DORMANCY_THRESHOLD` |
+| `isGracePeriodExpired(pokeTimestamp, currentTimestamp)` | `pokeTimestamp != 0 && currentTimestamp >= pokeTimestamp + GRACE_PERIOD` |
+
 ---
 
 ## 5. Dormant Vault Claim
@@ -1029,3 +1093,9 @@ Case 2: claimDormantCollateral() executes first
 | Delegate independence | Separate cooldowns | Prevents withdrawal conflicts between owner and delegates |
 | Delegation limits | Max 100% total | Prevents over-allocation of withdrawal rights |
 | Delegation revocation | Owner-only, immediate | Maintains owner sovereignty over vault |
+
+---
+
+## Navigation
+
+← [Protocol Layer](./README.md) | [Documentation Home](../README.md)

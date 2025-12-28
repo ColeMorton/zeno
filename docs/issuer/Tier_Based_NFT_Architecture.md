@@ -1,5 +1,9 @@
 # Tier-Based NFT Architecture
 
+> **Version:** 1.0
+> **Status:** Draft
+> **Last Updated:** 2025-12-28
+
 A first-principles engineering specification for dynamic, tier-based NFT visuals.
 
 ---
@@ -115,19 +119,19 @@ Computing percentile on-chain is expensive:
 ### Tier Resolution (Gas-Free View)
 
 ```solidity
-enum Tier { Bronze, Silver, Gold, Diamond, Whale }
+enum Tier { Bronze, Silver, Gold, Platinum, Diamond }
 enum AchievementType { MINTER, MATURED, HODLER_SUPREME, ... }
 
 struct Thresholds {
-    uint256 silver;   // 50th percentile collateral value
-    uint256 gold;     // 75th percentile
-    uint256 diamond;  // 90th percentile
-    uint256 whale;    // 99th percentile
+    uint256 silver;    // 50th percentile collateral value
+    uint256 gold;      // 75th percentile
+    uint256 platinum;  // 90th percentile
+    uint256 diamond;   // 99th percentile
 }
 
 function computeTier(uint256 collateral) public view returns (Tier) {
-    if (collateral >= thresholds.whale) return Tier.Whale;
     if (collateral >= thresholds.diamond) return Tier.Diamond;
+    if (collateral >= thresholds.platinum) return Tier.Platinum;
     if (collateral >= thresholds.gold) return Tier.Gold;
     if (collateral >= thresholds.silver) return Tier.Silver;
     return Tier.Bronze;
@@ -275,7 +279,7 @@ function composeSVG(AchievementType a, Tier t) view returns (string) {
 **Rejected because:**
 - Contract size limits (~24KB bytecode)
 - 5 backgrounds + 5 frames + 8 cores + 5 mountings = ~50KB+ of SVG
-- Animations in Whale tier would be size-prohibitive
+- Animations in Diamond tier would be size-prohibitive
 - Pre-compose at build time and store CIDs instead
 
 ---
@@ -328,7 +332,7 @@ function composeSVG(AchievementType a, Tier t) view returns (string) {
 ### Phase 2: Asset Generation
 - Create tier frame SVG templates (5 variants)
 - Create background SVG templates (5 variants)
-- Create hoop/chain SVG templates (3 variants: Gold, Diamond, Whale)
+- Create hoop/chain SVG templates (3 variants: Gold, Platinum, Diamond)
 - Build composition script
 - Generate 48 composed images
 
