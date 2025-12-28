@@ -8,26 +8,41 @@
 
 > **Version:** 1.0
 
-Immutable, permissionless smart contracts for perpetual BTC withdrawals.
+Fortify your NFTs with Bitcoin. Built to last generations.
 
 ---
 
 ## What is BTCNFT Protocol?
 
-BTCNFT Protocol enables perpetual withdrawals through percentage-based collateral access. Vault your Treasure NFT + BTC collateral to receive a composable Vault NFT. After a 1129-day vesting period, withdraw a percentage of remaining BTC every 30 days—collateral never depletes.
+Fortify any NFT with Bitcoin collateral to create a Vault, a composable NFT designed to outlast its creator. After a 1129-day commitment period, withdraw 1% of your Bitcoin monthly, forever. The collateral never depletes.
 
-**Core innovation:** vestedBTC (vBTC) ERC-20 tokens enable separation of collateral claims from the Vault NFT, creating tradeable principal positions.
+**Core innovation:** vestedBTC (vBTC) tokens let you trade your collateral claim separately from the Vault itself.
+
+---
+
+## Why 1129 Days?
+
+1129 days (~3 years) is the commitment that unlocks perpetual access. This duration comes from Bitcoin's historical data: the 1129-day moving average has shown **100% positive returns across all windows ever measured**. Time itself becomes the trust mechanism—no oracles, no governance, no intermediaries.
+
+See [Vision & Mission](./docs/research/Vision_and_Mission.md) for the full analysis.
 
 ---
 
 ## Key Features
 
-- **ERC-998 Composable Vaults** — Hold Treasure NFT + BTC collateral in a single transferable NFT
+- **ERC-998 Composable Vaults** — Combine child/subject NFT + BTC collateral in a single transferable vault NFT
 - **Perpetual Withdrawals** — Percentage-based withdrawals ensure collateral never depletes
 - **vestedBTC (vBTC)** — Fungible ERC-20 tokens representing separated collateral claims
 - **Withdrawal Delegation** — Grant third parties permission to withdraw on your behalf
-- **Achievement System** — ERC-5192 soulbound badges for protocol participation
-- **Auction Support** — Dutch and English auction mechanics for vault distribution
+
+---
+
+## Design Principles
+
+- **Zero Fees** — You own 100% of your collateral
+- **Zero Leverage** — No liquidation risk
+- **Self-Custody** — Your NFT, your vault
+- **Immutable** — No admin keys, no upgrades
 
 ---
 
@@ -70,10 +85,9 @@ cd packages/vault-analytics && npm install && npm run build
 
 | Parameter | Value |
 |-----------|-------|
-| Vesting Period | 1129 days (~3.09 years) |
+| Vesting Period and Dormancy Threshold | 1129 days (~3.09 years) |
 | Withdrawal Rate | 1.0%/month (12%/year) |
 | Withdrawal Period | 30 days |
-| Dormancy Threshold | 1129 days |
 | BTC Decimals | 8 |
 
 All parameters are immutable—encoded in bytecode with no admin functions.
@@ -85,9 +99,8 @@ All parameters are immutable—encoded in bytecode with no admin functions.
 | Component | Standard | Purpose |
 |-----------|----------|---------|
 | Vault NFT | ERC-998 | Composable vault holding Treasure + collateral |
-| Treasure NFT | ERC-721 | Issuer-branded collectible wrapped in vault |
+| Child/Treasure NFT | ERC-721 | Any ERC-721/ERC-998 or dedicated issuer NFT wrapped in vault |
 | vestedBTC | ERC-20 | Fungible collateral claim token |
-| Achievement NFT | ERC-5192 | Soulbound participation attestation |
 
 ---
 
@@ -95,6 +108,7 @@ All parameters are immutable—encoded in bytecode with no admin functions.
 
 | Audience | Entry Point |
 |----------|-------------|
+| **Overview** | [Vision & Mission](./docs/research/Vision_and_Mission.md) |
 | **Developers** | [Technical Specification](./docs/protocol/Technical_Specification.md) |
 | **Auditors** | [Technical Specification](./docs/protocol/Technical_Specification.md) |
 | **Issuers** | [Integration Guide](./docs/issuer/Integration_Guide.md) |

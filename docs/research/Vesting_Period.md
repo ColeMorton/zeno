@@ -234,7 +234,7 @@ Day 0                                           Day 1129
 
 | Action | Status |
 |--------|--------|
-| Withdraw 0.875%/month | Available |
+| Withdraw 1.0%/month | Available |
 | Separate to vestedBTC | Available |
 | Claim collateral matching | Available |
 | Delegate withdrawals | Available |

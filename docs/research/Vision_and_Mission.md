@@ -2,7 +2,7 @@
 
 > **Version:** 1.0
 > **Status:** Final
-> **Last Updated:** 2025-12-22
+> **Last Updated:** 2025-12-28
 > **Related Documents:**
 > - [Vesting Period](./Vesting_Period.md)
 > - [Withdrawal Tier](./Withdrawal_Tier.md)
@@ -17,6 +17,20 @@ The 1129-day vesting period is not an arbitrary parameter. It emerges from a pro
 **The Bitcoin 1129-day Simple Moving Average has demonstrated 100% positive returns across all historical windows.**
 
 This single insight transforms Bitcoin—the most volatile major asset class—into something approaching a risk-free yield instrument.
+
+---
+
+## The Profound Simplicity
+
+**Time is the only trust-free smoothing mechanism.**
+
+No oracles. No governance. No admin keys. Just:
+
+```
+1129 days of commitment → access to historically-validated returns
+```
+
+The elegance: Bitcoin's volatility becomes **fuel** rather than liability when averaged across this window.
 
 ---
 
@@ -106,13 +120,22 @@ The 1129-day SMA is a statistical observation. It cannot be "held" directly. The
 | Smoothed volatility exposure | Time-gated access (barrier option) |
 | Trend-following | Post-vesting perpetual yield |
 
+### The Two-Layer Architecture
+
+| Layer | Purpose | Trust Model |
+|-------|---------|-------------|
+| **Protocol** | Immutable vault standard (ERC-998 + vestedBTC) | Zero - code is law |
+| **Issuer** | Example counterparty (achievements, treasures, auctions) | Varies by issuer |
+
+This is not a complete product—it is a **framework**. The protocol layer is immutable and trustless. The issuer layer demonstrates what's possible without being prescriptive. Any entity can build their own implementation.
+
 ### The Elegance
 
 The protocol doesn't track an SMA index or require oracle feeds. Instead, it uses **time** as the averaging mechanism:
 
 1. Holder deposits BTC at time `t`
 2. After 1129 days, holder has "averaged" their entry across an entire market cycle
-3. Withdrawals at 0.875%/month are calibrated to historical validation
+3. Withdrawals at 1.0%/month are calibrated to historical validation
 4. USD value has historically demonstrated positive returns
 
 This is simpler, more robust, and fully on-chain—no external dependencies.
@@ -124,7 +147,7 @@ This is simpler, more robust, and fully on-chain—no external dependencies.
 ### Zeno's Paradox as Financial Design
 
 The withdrawal mechanism embodies Zeno's paradox:
-- 0.875% of remaining collateral per month
+- 1.0% of remaining collateral per month
 - Never reaches zero
 - Perpetual yield stream
 
@@ -145,6 +168,26 @@ Every early exit:
 1. Reduces circulating supply of claimable BTC
 2. Increases per-vault match pool share for remaining holders
 3. Creates a flywheel that rewards commitment
+
+---
+
+## Non-Extractive Economics
+
+```
+Fees:        0% (you own 100%)
+Leverage:    0x (your Bitcoin stays yours)
+Custody:     Self (your NFT, your vault)
+Taxation:    ROC (return of capital, not profit)
+```
+
+The only "penalty" is early termination forfeit—which rewards patient holders, creating aligned incentives.
+
+### Zero Trust Required
+
+- **Immutable**: The keys to the contract do not exist. No protocol upgrades. What's there now will be there in a hundred years.
+- **No Counterparty**: There is no business, group, organisation, or people behind this protocol—and it's a technological impossibility to control.
+- **Not a Security**: No profit-seeking mechanisms involved. Capital is returned, not grown by the protocol.
+- **100% Capital Efficiency**: Zero leverage. Your capital is permanently stored and goes nowhere.
 
 ---
 
@@ -185,18 +228,6 @@ Every early exit:
 
 **Vision:** Transform Bitcoin's volatility from a liability into an asset through the mathematical properties of long-duration moving averages.
 
-**Mission:** Create an immutable, permissionless protocol that productizes the 1129-day SMA insight, enabling any holder to access perpetual yield from Bitcoin without counterparty risk, oracle dependency, or trust assumptions.
+**Mission:** Create an immutable, permissionless framework that productizes the 1129-day SMA insight, enabling any issuer to build Bitcoin-collateralized NFT products without counterparty risk, oracle dependency, or trust assumptions.
 
-**Core Thesis:** Time is the only averaging mechanism that requires no external input. A 1129-day commitment period, combined with withdrawal rates calibrated to historical validation, creates a financial primitive that has never existed: a trustless, self-custodied, historically positive yield instrument backed by the hardest money ever created.
-
----
-
-## Open Contemplations
-
-1. **Is 1129 days optimal?** The historical data validates it with 100% positive returns, providing the minimum window for absolute safety while balancing user experience. Trade-off: user patience vs. statistical confidence.
-
-2. **What happens if the SMA thesis fails?** If Bitcoin enters a prolonged bear market exceeding 1129 days, the model's assumptions break. Risk acknowledgment is essential.
-
-3. **Can this insight be applied to other assets?** The SMA-smoothing approach is universal, but few assets exhibit Bitcoin's consistent long-term appreciation. Protocol could theoretically support other collateral types in the future.
-
-4. **How does this scale?** The protocol is fully permissionless and can absorb any amount of BTC. No liquidity bootstrapping or TVL thresholds required.
+**Core Thesis:** Time is the only averaging mechanism that requires no external input. A 1129-day commitment period, combined with a 12% annual withdrawal rate calibrated to conservative BTC appreciation, creates a financial primitive that has never existed: a trustless, self-custodied, historically positive yield instrument backed by the hardest money ever created.

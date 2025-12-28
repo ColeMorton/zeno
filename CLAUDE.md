@@ -68,3 +68,10 @@ cd contracts/issuer && forge build && forge test
 - **Treasure NFT (ERC-721)**: NFT wrapped within a Vault
 - **1129-day vesting**: Lock period before withdrawals are enabled
 - **Withdrawal rate**: 12% annually (1.0% monthly)
+
+## Command Context
+
+Commands in `.claude/commands/` should dynamically discover project context by:
+1. Reading this CLAUDE.md for repository structure
+2. Reading `docs/GLOSSARY.md` for terminology standards
+3. Scanning relevant directories based on role scope

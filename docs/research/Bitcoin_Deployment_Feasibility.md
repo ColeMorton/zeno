@@ -126,7 +126,7 @@ Data Layer: Off-chain state storage (Stash)
 | Protocol Component | RGB Implementation Feasibility | Complexity |
 |-------------------|-------------------------------|------------|
 | Vault State | High - state machine with time conditions | Medium |
-| 0.875% Withdrawal | High - arithmetic fully supported | Low |
+| 1.0% Withdrawal | High - arithmetic fully supported | Low |
 | Collateral Matching | Medium - requires global state aggregation | High |
 | vestedBTC | High - fungible RGB20 asset | Medium |
 | Withdrawal Delegation | High - multi-signature conditions | Medium |
@@ -160,7 +160,7 @@ BitVM could theoretically enforce Vault withdrawal logic:
 3. Anyone can challenge with fraud proof if:
    - Vesting period incomplete
    - 30-day interval violated
-   - Amount exceeds 0.875%
+   - Amount exceeds 1.0%
 4. Fraud proof triggers penalty (locked collateral forfeited)
 
 **Practical Limitations:**
@@ -217,7 +217,7 @@ This enforces:
 2. After vesting, owner can claim
 3. Alternative: pre-committed withdrawal template
 
-**OP_CTV Limitation**: Cannot perform dynamic calculation. The 0.875% amount must be pre-computed and committed at vault creation, requiring either:
+**OP_CTV Limitation**: Cannot perform dynamic calculation. The 1.0% amount must be pre-computed and committed at vault creation, requiring either:
 - Pre-signed withdrawal transactions at creation
 - Fixed withdrawal amounts (not percentage-based)
 - Off-chain coordination with on-chain settlement
@@ -328,7 +328,7 @@ Cons:
 
 **Professional Recommendation**: RGB20 asset tied to RGB Vault contracts provides cryptographically enforced access control. For broader adoption, a dual-issuance model (RGB20 + Runes with trusted minting service) could serve different user segments.
 
-### 2.3 Withdrawal Mechanics (0.875% Monthly)
+### 2.3 Withdrawal Mechanics (1.0% Monthly)
 
 **Ethereum Implementation:**
 ```solidity
