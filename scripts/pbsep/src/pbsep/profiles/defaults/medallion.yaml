@@ -1,0 +1,47 @@
+# Medallion profile - optimized for luxury jewelry photography
+#
+# Tuned for AI-generated luxury medallions with:
+# - Polished gold and platinum surfaces
+# - Pave diamonds and gemstones
+# - Metallic reflections and studio lighting
+# - Art Deco lettering and engravings
+#
+# Output style: 1-bit monochrome (black on white background)
+# Binarization: Adaptive Gaussian threshold with CLAHE
+# Config: #8 (block=9, C=3, CLAHE, blur=0)
+
+name: medallion
+
+stages:
+  normalize:
+    gamma: 2.2
+    percentile_low: 1
+    percentile_high: 99
+
+  luminance:
+    method: lab_l
+
+  contrast:
+    method: clahe
+    clip_limit: 2.0
+    tile_size: 8
+
+  downscale:
+    interpolation: area
+
+  binarize:
+    method: adaptive_gaussian
+    block_size: 9
+    c_constant: 3
+    pre_blur_sigma: 0.0
+
+  morphology:
+    kernel_shape: ellipse
+    kernel_size: 3
+    close_iterations: 1
+    open_iterations: 1
+
+  export:
+    format: 1bit_png
+    foreground_color: "000000"
+    vectorize: true
