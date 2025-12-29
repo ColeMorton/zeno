@@ -87,16 +87,21 @@ Display Tier (Wealth-Based)
    - Revenue models, Treasure strategy
    - Technical implementation patterns
 
-2. **[Achievements Specification](./Achievements_Specification.md)** - Achievement system
-   - Achievement types, claiming mechanics
-   - Gamification, campaigns, leaderboards
-   - Extension points for custom achievements
+2. **[The Ascent Design](./The_Ascent_Design.md)** - Achievement framework concept
+   - Four-layer architecture
+   - Personal journey narrative
+   - Visual identity and cohort system
 
-3. **[Holder Experience](./Holder_Experience.md)** - What your users experience
+3. **[Achievements Specification](./Achievements_Specification.md)** - Achievement system technical spec
+   - All 20 achievement definitions
+   - Contract interfaces and claiming mechanics
+   - On-chain verification and extension points
+
+4. **[Holder Experience](./Holder_Experience.md)** - What your users experience
    - User journey, withdrawal mechanics
    - FAQ, common questions
 
-4. **[Vault Percentile Specification](./Vault_Percentile_Specification.md)** - Analytics specification
+5. **[Vault Percentile Specification](./Vault_Percentile_Specification.md)** - Analytics specification
    - Vault ranking by collateral
    - Filtering and display patterns
 
@@ -184,5 +189,5 @@ protocol.registerIssuer();
 | Layer | Documents |
 |-------|-----------|
 | **Protocol** | [Technical Spec](../protocol/Technical_Specification.md), [Product Spec](../protocol/Product_Specification.md) |
-| **Issuer** | [Integration Guide](./Integration_Guide.md), [Achievements Specification](./Achievements_Specification.md), [Holder Experience](./Holder_Experience.md), [Visual Assets Guide](./Visual_Assets_Guide.md), [Pixel Art Guide](./Pixel_Art_Guide.md), [Vault Percentile Spec](./Vault_Percentile_Specification.md) |
+| **Issuer** | [Integration Guide](./Integration_Guide.md), [The Ascent Design](./The_Ascent_Design.md), [Achievements Specification](./Achievements_Specification.md), [Holder Experience](./Holder_Experience.md), [Visual Assets Guide](./Visual_Assets_Guide.md), [Pixel Art Guide](./Pixel_Art_Guide.md), [Vault Percentile Spec](./Vault_Percentile_Specification.md) |
 | **Examples** | [examples/README.md](./examples/README.md) |
