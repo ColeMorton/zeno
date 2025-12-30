@@ -2,8 +2,9 @@
 
 > **Version:** 1.0
 > **Status:** Draft
-> **Last Updated:** 2025-12-21
+> **Last Updated:** 2025-12-30
 > **Related Documents:**
+> - [Deployment Guide](./Deployment_Guide.md)
 > - [Achievements Specification](./Achievements_Specification.md)
 > - [Technical Specification](../protocol/Technical_Specification.md)
 > - [Product Specification](../protocol/Product_Specification.md)
@@ -27,6 +28,8 @@
 12. [Liquidity Bootstrapping](#12-liquidity-bootstrapping)
 13. [Display Tier Integration](#13-display-tier-integration)
 14. [Analytics](#14-analytics)
+15. [Withdrawal Automation Service](#15-withdrawal-automation-service)
+16. [Sablier Streaming Integration](#16-sablier-streaming-integration)
 
 ---
 
@@ -95,6 +98,8 @@ An issuer is any entity that creates minting opportunities for BTCNFT Protocol. 
 ---
 
 ## 2. Issuer Registration
+
+> **Note:** For contract deployment instructions, see [Deployment Guide](./Deployment_Guide.md).
 
 ### Permissionless Registration
 
@@ -672,6 +677,217 @@ event BadgeRedeemed(
 );
 ```
 
+### SDK Integration
+
+Use `@btcnft/vault-analytics` for TypeScript-based analytics:
+
+```typescript
+import {
+  createVaultClient,
+  filterVaults,
+  rankByCollateral,
+  calculatePortfolioStats
+} from '@btcnft/vault-analytics';
+
+// Initialize client
+const client = createVaultClient({ chainId: 1 });
+
+// Fetch vaults scoped to your issuer
+const vaults = await client.getVaults({
+  scope: { type: 'issuer', address: '0xYourIssuerAddress' }
+});
+
+// Filter to vested vaults only
+const vestedVaults = filterVaults(vaults, { vestingStatus: 'vested' });
+
+// Rank by collateral with percentile tiers
+const ranked = rankByCollateral(vestedVaults);
+// ranked[0] = { vault, rank: 1, percentile: 99, tier: 'Diamond' }
+
+// Calculate aggregate statistics
+const stats = calculatePortfolioStats(vaults);
+// stats = { totalVaults, totalCollateral, averageCollateral, ... }
+```
+
+**Full SDK Documentation:** [SDK Reference](../sdk/README.md) | [Package README](../../packages/vault-analytics/README.md)
+
+---
+
+## 15. Withdrawal Automation Service
+
+### Overview
+
+Vaults designed for 20+ year income generation benefit from automated monthly withdrawals. Issuers can offer this as a value-added service using ERC-4337 smart accounts with scoped session keys.
+
+> **Protocol Reference:** See [Withdrawal Delegation - ERC-4337 Automation](../protocol/Withdrawal_Delegation.md#8-erc-4337-withdrawal-automation) for technical details.
+
+### Service Tiers
+
+| Tier | Description | Issuer Involvement |
+|------|-------------|-------------------|
+| **Self-Service** | Documentation + guides only | None (documentation) |
+| **Managed** | Issuer operates Gelato tasks | Infrastructure operation |
+| **White-Label** | Embedded in issuer frontend | Full integration |
+
+### Option 1: Documentation + Self-Service
+
+Provide holders with step-by-step guides for setting up their own automation:
+
+1. Create Alchemy Modular Account
+2. Transfer VaultNFT to smart account
+3. Grant delegation to session key
+4. Register Gelato task
+
+**Issuer Effort:** Documentation only
+**Revenue:** None (free value-add)
+
+### Option 2: Managed Automation Service
+
+Issuer operates Gelato Web3 Functions for all holder vaults:
+
+```typescript
+// Issuer manages batch automation
+const issuerTasks = await gelato.createBatchTasks({
+  vaults: issuerVaults.map(v => ({
+    tokenId: v.tokenId,
+    delegateAddress: v.sessionKey,
+    vaultNFTAddress: VAULT_NFT_ADDRESS,
+    smartAccountAddress: v.smartAccount
+  })),
+  trigger: { type: "cron", expression: "0 12 1 * *" }
+});
+```
+
+**Issuer Effort:** Infrastructure + monitoring
+**Revenue Opportunity:** Charge setup fee or % of withdrawals
+
+### Option 3: White-Label Integration
+
+Embed automation setup in issuer's frontend using Alchemy Account Kit:
+
+```typescript
+// In issuer's React app
+import { AlchemyAccountProvider } from "@alchemy/aa-alchemy";
+
+function VaultAutomationSetup({ vaultId }) {
+  const { smartAccount, createSessionKey } = useAlchemyAccount();
+
+  const setupAutomation = async () => {
+    // 1. Create session key scoped to withdrawAsDelegate
+    const sessionKey = await createSessionKey({
+      permissions: [{
+        contract: VAULT_NFT_ADDRESS,
+        selector: "withdrawAsDelegate(uint256)"
+      }]
+    });
+
+    // 2. Grant delegation on protocol
+    await vaultNFT.grantWithdrawalDelegate(
+      vaultId,
+      sessionKey.address,
+      10000 // 100%
+    );
+
+    // 3. Register Gelato task via issuer backend
+    await issuerApi.registerAutomation({
+      vaultId,
+      sessionKey: sessionKey.address,
+      smartAccount: smartAccount.address
+    });
+  };
+
+  return <Button onClick={setupAutomation}>Enable Auto-Withdraw</Button>;
+}
+```
+
+**Issuer Effort:** Frontend + backend development
+**Revenue Opportunity:** Premium feature, subscription model
+
+### Helper Contract
+
+Deploy `WithdrawalAutomationHelper` for batch queries:
+
+```solidity
+// contracts/issuer/src/WithdrawalAutomationHelper.sol
+
+function batchCanDelegateWithdraw(
+    uint256[] calldata tokenIds,
+    address[] calldata delegates
+) external view returns (bool[] memory, uint256[] memory);
+```
+
+### Cost Structure
+
+| Cost Category | Per Vault Per Year | Who Pays |
+|---------------|-------------------|----------|
+| Smart Account Deploy | ~$0.10-0.15 | Holder |
+| Monthly Tx Gas (x12) | ~$0.60-0.90 | Holder or Issuer |
+| Gelato Execution | ~$0.50-0.75 | Issuer (if managed) |
+
+### Monitoring Dashboard
+
+Track automation health across issuer vaults:
+
+| Metric | Query |
+|--------|-------|
+| Active automations | Count Gelato tasks with issuer vaults |
+| Success rate | Successful executions / total attempts |
+| Gas spend | Sum of execution costs |
+| Next withdrawals | `getNextWithdrawalTime()` batch query |
+
+---
+
+## 16. Sablier Streaming Integration
+
+### Overview
+
+Convert discrete monthly withdrawals into continuous Sablier streams for a smoother holder experience.
+
+> **Full Documentation:** [Sablier Streaming Integration](./Sablier_Streaming_Integration.md)
+
+### Why Streaming?
+
+| Discrete Withdrawals | Sablier Streams |
+|----------------------|-----------------|
+| Monthly 1% lump sum | Continuous linear flow |
+| Wait 30 days | Claim anytime |
+| Single transaction | Gradual access |
+
+### Quick Setup
+
+1. **Deploy SablierStreamWrapper:**
+   ```solidity
+   wrapper = new SablierStreamWrapper(vaultNFTAddress, sablierAddress);
+   ```
+
+2. **Vault owner delegates to wrapper:**
+   ```solidity
+   vaultNFT.grantWithdrawalDelegate(address(wrapper), 10000);
+   ```
+
+3. **Configure streaming:**
+   ```solidity
+   wrapper.configureVault(tokenId, recipientAddress, true);
+   ```
+
+4. **Gelato automation:** Creates streams monthly using `streamingWithdrawalChecker.ts`
+
+### Stream Properties
+
+| Property | Value |
+|----------|-------|
+| Duration | 30 days (linear) |
+| Cancelable | No (immutable) |
+| Transferable | Yes (stream NFT tradeable) |
+| Cliff | None |
+
+### Sablier Addresses
+
+| Chain | SablierV2LockupLinear |
+|-------|----------------------|
+| Base | `0xFCF737582d167c7D20A336532eb8BCcA8CF8e350` |
+| Arbitrum | `0xFDD9d122B451F549f48c4942c6fa6646D849e8C1` |
+
 ---
 
 ## Summary
@@ -688,6 +904,8 @@ event BadgeRedeemed(
 | Analytics | Track health indicators, optimize |
 | Bonding | Optional; deploy for POL accumulation if needed |
 | IOL Bootstrap | Genesis program → Single-sided → Time-locked multipliers |
+| Automation | Self-service docs minimum; managed service for revenue |
+| Streaming | Optional Sablier integration for continuous withdrawals |
 
 ---
 

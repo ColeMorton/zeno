@@ -87,21 +87,26 @@ Display Tier (Wealth-Based)
    - Revenue models, Treasure strategy
    - Technical implementation patterns
 
-2. **[The Ascent Design](./The_Ascent_Design.md)** - Achievement framework concept
+2. **[Deployment Guide](./Deployment_Guide.md)** - Contract deployment for developers
+   - Prerequisites and environment setup
+   - Deployment commands and verification
+   - Post-deployment configuration
+
+3. **[The Ascent Design](./The_Ascent_Design.md)** - Achievement framework concept
    - Four-layer architecture
    - Personal journey narrative
    - Visual identity and cohort system
 
-3. **[Achievements Specification](./Achievements_Specification.md)** - Achievement system technical spec
+4. **[Achievements Specification](./Achievements_Specification.md)** - Achievement system technical spec
    - All 20 achievement definitions
    - Contract interfaces and claiming mechanics
    - On-chain verification and extension points
 
-4. **[Holder Experience](./Holder_Experience.md)** - What your users experience
+5. **[Holder Experience](./Holder_Experience.md)** - What your users experience
    - User journey, withdrawal mechanics
    - FAQ, common questions
 
-5. **[Vault Percentile Specification](./Vault_Percentile_Specification.md)** - Analytics specification
+6. **[Vault Percentile Specification](./Vault_Percentile_Specification.md)** - Analytics specification
    - Vault ranking by collateral
    - Filtering and display patterns
 
@@ -127,11 +132,14 @@ See [examples/](./examples/) for concrete implementation patterns:
 
 ## Quick Start
 
-### 1. Register as Issuer
+For complete deployment instructions, see [Deployment Guide](./Deployment_Guide.md).
 
-```solidity
-// Permissionless registration
-protocol.registerIssuer();
+### 1. Deploy Issuer Contracts
+
+```bash
+cd contracts/issuer
+forge build
+forge script script/DeployIssuer.s.sol:DeployIssuer --rpc-url $RPC_URL --broadcast
 ```
 
 ### 2. Choose Minting Mode
@@ -189,5 +197,7 @@ protocol.registerIssuer();
 | Layer | Documents |
 |-------|-----------|
 | **Protocol** | [Technical Spec](../protocol/Technical_Specification.md), [Product Spec](../protocol/Product_Specification.md) |
-| **Issuer** | [Integration Guide](./Integration_Guide.md), [The Ascent Design](./The_Ascent_Design.md), [Achievements Specification](./Achievements_Specification.md), [Holder Experience](./Holder_Experience.md), [Visual Assets Guide](./Visual_Assets_Guide.md), [Pixel Art Guide](./Pixel_Art_Guide.md), [Vault Percentile Spec](./Vault_Percentile_Specification.md) |
+| **Issuer** | [Integration Guide](./Integration_Guide.md), [Deployment Guide](./Deployment_Guide.md), [The Ascent Design](./The_Ascent_Design.md), [Achievements Specification](./Achievements_Specification.md), [Holder Experience](./Holder_Experience.md), [Visual Assets Guide](./Visual_Assets_Guide.md), [Pixel Art Guide](./Pixel_Art_Guide.md), [Vault Percentile Spec](./Vault_Percentile_Specification.md) |
+| **Custody** | [Fireblocks Integration](./custody/Fireblocks_Integration.md), [Copper Integration](./custody/Copper_Integration.md), [Audit Trail](./custody/Audit_Trail.md) |
+| **SDK** | [SDK Overview](../sdk/README.md), [Visual Hierarchy](../sdk/VISUAL_HIERARCHY.md) |
 | **Examples** | [examples/README.md](./examples/README.md) |
