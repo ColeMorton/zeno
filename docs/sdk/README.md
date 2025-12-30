@@ -1,7 +1,7 @@
 # SDK Documentation
 
 > **Status:** Available
-> **Last Updated:** 2025-12-21
+> **Last Updated:** 2025-12-30
 
 Developer tools and integration libraries for the BTCNFT Protocol.
 
@@ -50,13 +50,113 @@ const ranked = rankByCollateral(vestedVaults);
 
 ---
 
+## Additional Features
+
+Beyond the core vault fetching and ranking, the SDK includes:
+
+### Unified Analytics API
+
+The `AnalyticsAPI` class provides a consistent interface across data sources:
+
+```typescript
+import { createAnalyticsAPI } from '@btcnft/vault-analytics';
+
+const api = createAnalyticsAPI({
+  source: 'subgraph',
+  chainId: 1
+});
+
+// Portfolio analytics
+const stats = await api.getPortfolioStats();
+const tiers = await api.getTierDistribution();
+
+// Health monitoring
+const health = await api.getEcosystemHealth();
+const risks = await api.getDormancyRisks();
+
+// Leaderboards
+const topVaults = await api.getCollateralLeaderboard({ limit: 10 });
+const topAchievers = await api.getAchievementLeaderboard({ limit: 10 });
+```
+
+### Event Indexing
+
+Index protocol events from local Anvil nodes for testing:
+
+```typescript
+import { createAnvilIndexer } from '@btcnft/vault-analytics';
+
+const indexer = createAnvilIndexer({
+  rpcUrl: 'http://localhost:8545',
+  addresses: { vaultNft: '0x...', btcToken: '0x...' }
+});
+
+const events = await indexer.getEvents({ fromBlock: 0n });
+```
+
+### Simulation & Testing
+
+Generate simulation reports for protocol testing:
+
+```typescript
+import { createSimulationReporter, readGhostVariables } from '@btcnft/vault-analytics';
+
+const reporter = createSimulationReporter({ outputDir: './reports' });
+const ghost = await readGhostVariables(client, addresses);
+await reporter.generateReport(events, ghost);
+```
+
+### Data Export
+
+Export analytics data in multiple formats:
+
+```typescript
+import { exportVaults, exportEcosystemHealth } from '@btcnft/vault-analytics';
+
+// Export as CSV or JSON
+const csv = exportVaults(vaults, { format: 'csv' });
+const json = exportEcosystemHealth(health, { format: 'json' });
+```
+
+### Achievement Analytics
+
+Track and analyze achievement distributions:
+
+```typescript
+import {
+  calculateAchievementDistribution,
+  calculateAchievementFunnel,
+  buildWalletProfiles
+} from '@btcnft/vault-analytics';
+
+const distribution = calculateAchievementDistribution(events);
+const funnel = calculateAchievementFunnel(events);
+const profiles = buildWalletProfiles(events);
+```
+
+### Subgraph Queries
+
+For custom GraphQL queries, see the query definitions in [`SubgraphClient.ts`](../../packages/vault-analytics/src/client/SubgraphClient.ts).
+
+### Delegation Tracking
+
+For institutional custody audit trails, see [Delegation Subgraph Schema](./Delegation_Subgraph_Schema.md) for GraphQL entities and queries to track:
+
+- Withdrawal delegation grants/revocations
+- Delegated withdrawal events
+- Compliance reporting queries
+
+---
+
 ## Roadmap
 
-Future SDK components:
+Future SDK enhancements:
 
-1. **React Hooks** - Frontend integration helpers
-2. **Subgraph Schema** - GraphQL indexing documentation
-3. **Examples** - Reference implementations
+| Component | Status | Notes |
+|-----------|--------|-------|
+| **React Hooks** | Examples available | See [package README](../../packages/vault-analytics/README.md) for React/Vue/Node.js examples |
+| **Issuer Client** | Planned | Contract interaction wrappers for issuers |
+| **Auction SDK** | Planned | TypeScript utilities for auction management |
 
 ---
 

@@ -1,8 +1,8 @@
 # Visual Hierarchy SDK Reference
 
 > **Version:** 1.0
-> **Status:** Draft
-> **Last Updated:** 2025-12-23
+> **Status:** Final
+> **Last Updated:** 2025-12-30
 > **Package:** `@btcnft/vault-analytics`
 
 ---
