@@ -49,6 +49,15 @@ Documentation for NFT issuers building on the protocol.
 
 See [issuer/README.md](./issuer/README.md) for detailed navigation.
 
+### DeFi Integration
+
+vestedBTC composability with external DeFi protocols.
+
+| Document | Purpose |
+|----------|---------|
+| [Curve Liquidity Pool](./defi/Curve_Liquidity_Pool.md) | vWBTC/WBTC StableSwap pool specification |
+| [Leveraged Lending Protocol](./defi/Leveraged_Lending_Protocol.md) | CDP-based lending architecture |
+
 ### SDK
 
 Developer tools and integration libraries.

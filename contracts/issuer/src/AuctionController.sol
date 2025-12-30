@@ -330,7 +330,7 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
     // ==================== Common Functions ====================
 
     /// @inheritdoc IAuctionController
-    function finalizeAuction(uint256 auctionId) external {
+    function finalizeAuction(uint256 auctionId) external onlyOwner {
         Auction storage auction = _auctions[auctionId];
         if (auction.maxSupply == 0) revert AuctionNotFound(auctionId);
         if (auction.state == AuctionState.FINALIZED) revert AuctionAlreadyFinalized(auctionId);
