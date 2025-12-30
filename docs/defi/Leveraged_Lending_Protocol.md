@@ -118,6 +118,132 @@ interface IVBTCLendingPool {
 interface IVBTCOracle {
     function getPrice() external view returns (uint256 price);  // 18 decimals
     function getTWAP(uint32 period) external view returns (uint256 price);
+    function getCurrentDiscount() external view returns (uint256);  // 18 decimals
+}
+```
+
+### Position Manager with Flash Loan Looping
+
+Recursive borrowing (looping) is a first-class feature via flash loans for atomic execution.
+
+```solidity
+interface IPositionManager {
+    struct LeveragedPosition {
+        uint256 positionId;
+        address owner;
+        uint256 initialCollateral;
+        uint256 totalCollateral;
+        uint256 totalDebt;
+        uint256 leverage;           // 18 decimals (2e18 = 2x)
+        uint256 openTimestamp;
+    }
+
+    /// @notice Open leveraged long position in single transaction
+    /// @param collateralAmount Initial wBTC to deposit
+    /// @param targetLeverage Desired leverage (1e18 = 1x, 2.5e18 = 2.5x)
+    /// @param maxSlippage Maximum acceptable slippage (1e16 = 1%)
+    /// @return positionId Unique identifier for the position
+    function openLeveragedLong(
+        uint256 collateralAmount,
+        uint256 targetLeverage,
+        uint256 maxSlippage
+    ) external returns (uint256 positionId);
+
+    /// @notice Close leveraged position atomically
+    /// @param positionId Position to close
+    /// @param minCollateralOut Minimum collateral to receive after repaying debt
+    /// @return collateralReturned Amount of collateral returned to user
+    function closeLeveragedPosition(
+        uint256 positionId,
+        uint256 minCollateralOut
+    ) external returns (uint256 collateralReturned);
+
+    /// @notice Add collateral to reduce leverage
+    function addCollateral(uint256 positionId, uint256 amount) external;
+
+    /// @notice Remove excess collateral (maintains health factor > 1.2)
+    function removeCollateral(uint256 positionId, uint256 amount) external;
+
+    /// @notice Get position details
+    function getPosition(uint256 positionId) external view returns (LeveragedPosition memory);
+}
+```
+
+### Flash Loan Flow: Leveraged Long
+
+```
+User calls: openLeveragedLong(1 wBTC, 2.5e18, 1e16)
+
+┌─────────────────────────────────────────────────────────────┐
+│ Step 1: Flash loan 1.5 wBTC from Balancer (zero fee)        │
+│         Total: 1 wBTC (user) + 1.5 wBTC (flash) = 2.5 wBTC  │
+├─────────────────────────────────────────────────────────────┤
+│ Step 2: Deposit 2.5 wBTC as collateral                      │
+│         → Lending Pool collateral = 2.5 wBTC                │
+├─────────────────────────────────────────────────────────────┤
+│ Step 3: Borrow USDC at dynamic LTV                          │
+│         At 10% discount: LTV = 65%                          │
+│         Borrow: 2.5 × 0.65 × $60,000 = $97,500 USDC         │
+├─────────────────────────────────────────────────────────────┤
+│ Step 4: Swap USDC → wBTC on Curve/Uniswap                   │
+│         $97,500 / $60,000 = 1.625 wBTC                      │
+├─────────────────────────────────────────────────────────────┤
+│ Step 5: Repay flash loan                                    │
+│         Return: 1.5 wBTC + fee                              │
+│         Remaining: 1.625 - 1.5 = 0.125 wBTC profit          │
+├─────────────────────────────────────────────────────────────┤
+│ Step 6: Deposit remaining wBTC as additional collateral     │
+│         Final collateral: 2.5 + 0.125 = 2.625 wBTC          │
+└─────────────────────────────────────────────────────────────┘
+
+Result:
+- Initial deposit: 1 wBTC
+- Final collateral: 2.625 wBTC
+- Debt: $97,500 USDC
+- Effective leverage: ~2.625x
+- Single transaction, no MEV exposure
+```
+
+### Flash Loan Provider Integration
+
+```solidity
+// Balancer V2 Flash Loan (zero-fee)
+interface IBalancerVault {
+    function flashLoan(
+        IFlashLoanRecipient recipient,
+        IERC20[] memory tokens,
+        uint256[] memory amounts,
+        bytes memory userData
+    ) external;
+}
+
+contract PositionManager is IFlashLoanRecipient {
+    IBalancerVault public immutable balancerVault;
+
+    function receiveFlashLoan(
+        IERC20[] memory tokens,
+        uint256[] memory amounts,
+        uint256[] memory feeAmounts,
+        bytes memory userData
+    ) external override {
+        if (msg.sender != address(balancerVault)) revert UnauthorizedCaller();
+
+        (OperationType opType, bytes memory params) = abi.decode(
+            userData,
+            (OperationType, bytes)
+        );
+
+        if (opType == OperationType.OPEN_LONG) {
+            _executeLeveragedLong(tokens, amounts, feeAmounts, params);
+        } else if (opType == OperationType.CLOSE_POSITION) {
+            _executeClosePosition(tokens, amounts, feeAmounts, params);
+        }
+
+        // Repay flash loan
+        for (uint256 i = 0; i < tokens.length; i++) {
+            tokens[i].safeTransfer(address(balancerVault), amounts[i] + feeAmounts[i]);
+        }
+    }
 }
 ```
 
@@ -181,13 +307,33 @@ contract VBTCOracleUniswapV3 is IVBTCOracle {
 
 ## 5. Interest Rate Model
 
-### Kink-Based Model
+### Economic Rationale: 12% Floor Requirement
+
+vBTC has a **structural negative carry** due to the 1% monthly (12% annual) withdrawal rate:
+
+```
+vBTC Backing Shrinkage: -1.0%/month = -12%/year
+
+If borrow rate < 12%:
+├─ Arbitrage: Borrow vBTC at 5% → hold → backing shrinks 12%
+├─ Borrower profits from dilution
+└─ Protocol bleeds value to borrowers
+```
+
+**The base rate must exceed the withdrawal rate** to prevent this arbitrage:
+
+```
+minimum_base_rate > annual_withdrawal_rate + risk_premium
+minimum_base_rate > 12% + 2% = 14%
+```
+
+### Kink-Based Model (vBTC-Adjusted)
 
 ```solidity
 contract KinkInterestRateModel {
-    uint256 public immutable baseRate = 2e16;      // 2% APR
-    uint256 public immutable slope1 = 4e16;        // 4% per 100% util
-    uint256 public immutable slope2 = 100e16;      // 100% per 100% util above kink
+    uint256 public immutable baseRate = 14e16;     // 14% APR (12% carry + 2% margin)
+    uint256 public immutable slope1 = 6e16;        // 6% per 100% util
+    uint256 public immutable slope2 = 200e16;      // 200% per 100% util above kink
     uint256 public immutable kink = 80e16;         // 80% utilization
 
     function getBorrowRate(uint256 totalSupply, uint256 totalBorrow)
@@ -210,30 +356,75 @@ contract KinkInterestRateModel {
 
 ### Rate Curve
 
-| Utilization | Borrow APR |
-|-------------|------------|
-| 0% | 2.0% |
-| 50% | 4.0% |
-| 80% (kink) | 5.2% |
-| 90% | 15.2% |
-| 100% | 25.2% |
+| Utilization | Borrow APR | Rationale |
+|-------------|------------|-----------|
+| 0% | 14.0% | Floor exceeds 12% withdrawal rate |
+| 50% | 17.0% | Moderate demand |
+| 80% (kink) | 18.8% | Optimal utilization |
+| 90% | 38.8% | Scarcity premium |
+| 100% | 58.8% | Emergency rate |
+
+### Comparison: Standard vs vBTC-Adjusted
+
+| Utilization | Standard Model | vBTC-Adjusted | Delta |
+|-------------|----------------|---------------|-------|
+| 0% | 2.0% | 14.0% | +12% |
+| 80% | 5.2% | 18.8% | +13.6% |
+| 100% | 25.2% | 58.8% | +33.6% |
+
+The elevated rates compensate lenders for the structural dilution of vBTC backing.
 
 ---
 
 ## 6. Collateral Factors & LTV
 
-### Risk Parameters
+### Dynamic LTV Based on Discount
 
-| Market | Max LTV | Liq LTV | Liq Bonus |
-|--------|---------|---------|-----------|
-| wBTC → vBTC borrow | 85% | 90% | 5% |
-| vBTC → USDC borrow | 70% | 80% | 8% |
-| vBTC → wBTC borrow | 80% | 85% | 6% |
+Static LTV is dangerous because vBTC discount volatility compounds with BTC price volatility. When discounts widen during stress, static LTV provides insufficient buffer.
 
-### Rationale
+**Solution**: LTV adjusts dynamically based on current vBTC/wBTC discount.
 
-- **wBTC as collateral (shorting vBTC)**: High LTV because wBTC is stable reference; vBTC discount provides additional buffer
-- **vBTC as collateral (longing vBTC)**: Lower LTV due to dual volatility (BTC price + discount volatility)
+```solidity
+contract DynamicLTVCalculator {
+    uint256 public immutable baseLTV = 85e16;        // 85% at 0% discount
+    uint256 public immutable sensitivity = 2e18;     // 2x sensitivity factor
+    uint256 public immutable minLTV = 30e16;         // 30% floor
+
+    function getMaxLTV(uint256 currentDiscount) public pure returns (uint256) {
+        // currentDiscount in 18 decimals (e.g., 15e16 = 15%)
+        uint256 adjustment = (currentDiscount * sensitivity) / 1e18;
+
+        if (adjustment >= baseLTV - minLTV) {
+            return minLTV;
+        }
+        return baseLTV - adjustment;
+    }
+
+    function getLiquidationLTV(uint256 currentDiscount) public pure returns (uint256) {
+        // Liquidation LTV = Max LTV + 7% buffer
+        return getMaxLTV(currentDiscount) + 7e16;
+    }
+}
+```
+
+### Dynamic LTV Table
+
+| Current Discount | vBTC/wBTC Price | Max LTV | Liq LTV | Liq Bonus |
+|------------------|-----------------|---------|---------|-----------|
+| 5% | 0.95 | 75% | 82% | 5% |
+| 10% | 0.90 | 65% | 72% | 6% |
+| 15% | 0.85 | 55% | 62% | 7% |
+| 20% | 0.80 | 45% | 52% | 8% |
+| 25% | 0.75 | 35% | 42% | 10% |
+| 30%+ | ≤0.70 | 30% | 37% | 12% |
+
+### Market-Specific Base Parameters
+
+| Market | Base LTV | Sensitivity | Rationale |
+|--------|----------|-------------|-----------|
+| wBTC → vBTC borrow | 85% | 2.0x | wBTC stable reference |
+| vBTC → USDC borrow | 70% | 2.5x | Dual volatility exposure |
+| vBTC → wBTC borrow | 75% | 2.0x | Correlated assets |
 
 ### Health Factor
 
@@ -245,63 +436,146 @@ function getHealthFactor(address user) public view returns (uint256) {
     uint256 collateralValue = getCollateralValue(pos.collateralAmount);
     uint256 borrowValue = getBorrowValue(pos.borrowedAmount);
 
-    // HF = (Collateral × LLTV) / Borrow
+    // Dynamic LLTV based on current discount
+    uint256 currentDiscount = oracle.getCurrentDiscount();
+    uint256 dynamicLLTV = getLiquidationLTV(currentDiscount);
+
+    // HF = (Collateral × Dynamic LLTV) / Borrow
     // HF > 1 = healthy, HF < 1 = liquidatable
-    return (collateralValue * lltv) / borrowValue;
+    return (collateralValue * dynamicLLTV) / borrowValue;
 }
 ```
+
+### Rationale
+
+- **Wider discount = Lower LTV**: More buffer when volatility is high
+- **Tighter discount = Higher LTV**: Capital efficiency when stable
+- **Continuous adjustment**: No discrete jumps that could cause cascade liquidations
 
 ---
 
 ## 7. Liquidation Mechanism
 
-### Hybrid: DEX-First with Dutch Auction Fallback
+### Dutch Auction Liquidation
+
+Circuit breakers (hourly caps) are replaced with gradual Dutch auctions to prevent bad debt accumulation during liquidation queues.
+
+**Why Dutch Auction over Circuit Breaker**:
+
+| Approach | Problem |
+|----------|---------|
+| Circuit breaker (10%/hr cap) | Liquidations queue up → price continues falling → bad debt |
+| Dutch auction (no cap) | Market-driven clearing → patient liquidators → less slippage |
+
+### Auction Flow
 
 ```
 Health Factor < 1.0
         │
         ▼
-┌─────────────────┐
-│ Check DEX       │
-│ Liquidity       │
-└────────┬────────┘
-         │
-   ┌─────┴─────┐
-   │           │
-   ▼           ▼
-Sufficient   Insufficient
-(>95%)       (<95%)
-   │           │
-   ▼           ▼
-┌──────────┐ ┌──────────────┐
-│ Instant  │ │ Dutch        │
-│ DEX Swap │ │ Auction      │
-│ 5% bonus │ │ 0% → 15%     │
-└──────────┘ │ over 30 min  │
-             └──────────────┘
+┌─────────────────────────────────────────┐
+│           DUTCH AUCTION STARTS          │
+│                                         │
+│  Time 0:    Bonus = 0%                  │
+│  Time 15m:  Bonus = 3.75%               │
+│  Time 30m:  Bonus = 7.5%                │
+│  Time 45m:  Bonus = 11.25%              │
+│  Time 60m:  Bonus = 15% (max)           │
+│                                         │
+│  Liquidator claims when bonus > gas     │
+└─────────────────────────────────────────┘
 ```
 
 ### Implementation
 
 ```solidity
-function liquidate(address borrower, uint256 repayAmount) external {
+struct DutchAuction {
+    uint256 startTime;
+    uint256 startBonus;         // 0%
+    uint256 endBonus;           // 15%
+    uint256 duration;           // 60 minutes
+    uint256 debtToRepay;
+    uint256 collateralAvailable;
+    bool active;
+}
+
+mapping(address => DutchAuction) public auctions;
+
+function getCurrentBonus(address borrower) public view returns (uint256) {
+    DutchAuction memory auction = auctions[borrower];
+    if (!auction.active) return 0;
+
+    uint256 elapsed = block.timestamp - auction.startTime;
+    if (elapsed >= auction.duration) {
+        return auction.endBonus;
+    }
+
+    // Linear interpolation: 0% → 15% over 60 minutes
+    return (auction.endBonus * elapsed) / auction.duration;
+}
+
+function startAuction(address borrower) external {
     uint256 healthFactor = getHealthFactor(borrower);
     if (healthFactor >= 1e18) revert PositionHealthy();
+    if (auctions[borrower].active) revert AuctionAlreadyActive();
 
-    uint256 dexLiquidity = checkDEXLiquidity(repayAmount);
+    Position memory pos = positions[borrower];
 
-    if (dexLiquidity >= repayAmount * 95 / 100) {
-        // Instant liquidation via DEX
-        uint256 bonus = liquidationBonus;  // 5%
-        uint256 collateralSeized = (repayAmount * (100 + bonus)) / 100;
+    auctions[borrower] = DutchAuction({
+        startTime: block.timestamp,
+        startBonus: 0,
+        endBonus: 15e16,        // 15%
+        duration: 60 minutes,
+        debtToRepay: pos.borrowedAmount,
+        collateralAvailable: pos.collateralAmount,
+        active: true
+    });
 
-        executeSwap(borrower, repayAmount, collateralSeized);
-    } else {
-        // Start Dutch auction
-        startAuction(borrower, repayAmount);
+    emit AuctionStarted(borrower, pos.borrowedAmount, pos.collateralAmount);
+}
+
+function liquidateAuction(address borrower, uint256 repayAmount) external {
+    DutchAuction storage auction = auctions[borrower];
+    if (!auction.active) revert NoActiveAuction();
+
+    uint256 bonus = getCurrentBonus(borrower);
+    uint256 collateralSeized = (repayAmount * (1e18 + bonus)) / 1e18;
+
+    if (collateralSeized > auction.collateralAvailable) {
+        revert InsufficientCollateral();
     }
+
+    // Transfer debt token from liquidator
+    debtToken.safeTransferFrom(msg.sender, address(this), repayAmount);
+
+    // Transfer collateral to liquidator
+    collateralToken.safeTransfer(msg.sender, collateralSeized);
+
+    // Update auction state
+    auction.debtToRepay -= repayAmount;
+    auction.collateralAvailable -= collateralSeized;
+
+    // Update position
+    positions[borrower].borrowedAmount -= repayAmount;
+    positions[borrower].collateralAmount -= collateralSeized;
+
+    // Close auction if fully liquidated
+    if (auction.debtToRepay == 0) {
+        auction.active = false;
+    }
+
+    emit AuctionLiquidation(borrower, msg.sender, repayAmount, collateralSeized, bonus);
 }
 ```
+
+### Auction Parameters
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| Start Bonus | 0% | No premium at start |
+| End Bonus | 15% | Max incentive after 60 min |
+| Duration | 60 min | Allows price discovery |
+| Partial Liquidation | Yes | Multiple liquidators can participate |
 
 ---
 
@@ -351,32 +625,37 @@ Result:
 
 | Risk | Description | Mitigation |
 |------|-------------|------------|
-| **Discount Volatility** | vBTC/BTC can swing 5-15% | Lower LTV than standard |
-| **Liquidity Spiral** | Forced selling widens discount | Circuit breaker: max 10% liquidation/hour |
-| **Oracle Manipulation** | DEX liquidity may be thin | 30-min TWAP, staleness check |
-| **Underlying BTC Risk** | Wrapped BTC custody failure | Isolated markets per collateral |
+| **Discount Volatility** | vBTC/BTC can swing 5-15% | Dynamic LTV based on current discount |
+| **Liquidity Spiral** | Forced selling widens discount | Dutch auction: gradual bonus incentivizes patient liquidators |
+| **Oracle Manipulation** | DEX liquidity may be thin | 30-min TWAP, staleness check, fail-fast bounds |
+| **Underlying BTC Risk** | Wrapped BTC custody failure | Isolated markets per collateral type |
 | **Bad Debt** | Position insolvent before liquidation | Reserve fund from 10% of interest |
+| **Negative Carry** | vBTC shrinks 12%/year | 14%+ base interest rate floor |
 
-### Circuit Breakers
+### Reserve Fund Mechanism
 
 ```solidity
-uint256 public constant MAX_HOURLY_LIQUIDATION = 10;  // 10% of pool
-uint256 public hourlyLiquidated;
-uint256 public lastHourReset;
+uint256 public constant RESERVE_FACTOR = 10e16;  // 10% of interest
 
-modifier liquidationThrottle(uint256 amount) {
-    if (block.timestamp > lastHourReset + 1 hours) {
-        hourlyLiquidated = 0;
-        lastHourReset = block.timestamp;
-    }
+function accrueInterest() internal {
+    uint256 interestAccrued = calculateInterest();
+    uint256 reserveAmount = (interestAccrued * RESERVE_FACTOR) / 1e18;
 
-    uint256 poolSize = totalCollateral;
-    if (hourlyLiquidated + amount > poolSize * MAX_HOURLY_LIQUIDATION / 100) {
-        revert LiquidationThrottled();
-    }
+    reserveFund += reserveAmount;
+    totalSupply += interestAccrued - reserveAmount;
+}
 
-    hourlyLiquidated += amount;
-    _;
+function coverBadDebt(address borrower) external {
+    Position memory pos = positions[borrower];
+    if (pos.collateralAmount > 0) revert HasCollateral();
+
+    uint256 badDebt = pos.borrowedAmount;
+    if (badDebt > reserveFund) revert InsufficientReserves();
+
+    reserveFund -= badDebt;
+    positions[borrower].borrowedAmount = 0;
+
+    emit BadDebtCovered(borrower, badDebt);
 }
 ```
 
@@ -405,7 +684,79 @@ All parameters are `immutable` constants set at deployment time.
 | `contracts/protocol/src/BtcToken.sol` | vBTC token interface for borrowing |
 | `contracts/protocol/src/VaultNFT.sol` | vBTC minting mechanics |
 | `contracts/protocol/src/libraries/VaultMath.sol` | Withdrawal rate constants |
+| `contracts/protocol/src/interfaces/IVaultNFT.sol` | Withdrawal event definitions |
 | `docs/protocol/Technical_Specification.md` | Layer 3 DeFi vision |
+
+---
+
+## 12. Protocol Event Integration
+
+### Withdrawal Event Subscription
+
+The lending protocol monitors VaultNFT withdrawal events to track collateral changes for vBTC-backed positions. This is critical because vBTC backing shrinks with each withdrawal.
+
+**Events Subscribed (from IVaultNFT)**:
+
+```solidity
+// Emitted when Vault owner withdraws collateral
+event Withdrawn(
+    uint256 indexed tokenId,
+    address indexed to,
+    uint256 amount
+);
+
+// Emitted when delegate withdraws on behalf of owner
+event DelegatedWithdrawal(
+    uint256 indexed tokenId,
+    address indexed delegate,
+    address indexed owner,
+    uint256 amount
+);
+```
+
+### Indexer Integration Flow
+
+```
+VaultNFT.withdraw() or withdrawAsDelegate()
+        │
+        ├─ Emits Withdrawn/DelegatedWithdrawal event
+        │
+        ▼
+Lending Protocol Indexer (off-chain)
+        │
+        ├─ Maps vaultTokenId → vBTC amount
+        ├─ Calculates new collateral ratio
+        │
+        ▼
+┌───────────────────────────────────────┐
+│ If significant withdrawal detected:   │
+│                                       │
+│ 1. Update collateral valuations       │
+│ 2. Recalculate health factors         │
+│ 3. Trigger liquidation if HF < 1.0    │
+│ 4. Adjust interest rate model inputs  │
+└───────────────────────────────────────┘
+```
+
+### On-Chain Oracle Update
+
+```solidity
+interface IVBTCCollateralOracle {
+    /// @notice Update collateral amount for a specific Vault
+    /// @dev Called by authorized indexer after detecting withdrawal event
+    function updateCollateralValue(
+        uint256 vaultTokenId,
+        uint256 newCollateralAmount
+    ) external;
+
+    /// @notice Get current backing ratio for vBTC from a specific Vault
+    function getBackingRatio(uint256 vaultTokenId) external view returns (uint256);
+}
+```
+
+### Cross-Reference
+
+See [Technical Specification - Post-Vesting Withdrawals](../protocol/Technical_Specification.md) for Vault withdrawal mechanics and event definitions.
 
 ---
 
@@ -418,5 +769,9 @@ This architecture enables leveraged vBTC positions via isolated CDP lending mark
 3. **Uses fail-fast DEX TWAP oracles** with no fallbacks
 4. **Aligns with immutability principles** of the core BTCNFT Protocol
 5. **Enables synthetic longs** (profit if discount narrows) and **shorts** (profit if discount widens)
+6. **Accounts for negative carry** via 14%+ base interest rate floor
+7. **Adapts to market conditions** via dynamic LTV based on discount
+8. **Provides atomic leverage** via flash loan-powered PositionManager
+9. **Uses market-driven liquidations** via Dutch auctions instead of circuit breakers
 
-Interest rates act as funding rate equivalents, liquidation LTV maps to maintenance margin, and the 30-minute TWAP provides manipulation resistance comparable to perp mark prices.
+Interest rates exceed the 12% annual withdrawal rate to prevent arbitrage. Dynamic LTV adjusts with discount levels. Dutch auctions replace circuit breakers for smoother liquidations. The 30-minute TWAP provides manipulation resistance comparable to perp mark prices.

@@ -1,8 +1,8 @@
 # BTCNFT Protocol Glossary
 
-> **Version:** 1.1
+> **Version:** 1.2
 > **Status:** Final
-> **Last Updated:** 2025-12-28
+> **Last Updated:** 2025-12-30
 
 Standardized terminology for BTCNFT Protocol documentation.
 
@@ -197,3 +197,63 @@ Authorized address that periodically updates on-chain tier thresholds based on c
 Metadata update extension (EIP-4906). Defines `MetadataUpdate` and `BatchMetadataUpdate` events for signaling NFT metadata changes to marketplaces and indexers.
 
 **Usage:** Emitted when tier thresholds change, triggering marketplace cache invalidation.
+
+---
+
+## DeFi Integration Terms
+
+### Negative Carry
+
+The structural yield drag on vestedBTC due to the 1% monthly withdrawal rate.
+
+| Metric | Value |
+|--------|-------|
+| Monthly | -1.0% |
+| Annual | -12.0% |
+
+**Implication:** Lending protocols must set base interest rates above 12% APR to prevent arbitrage.
+
+### Dynamic LTV
+
+Loan-to-value ratio that adjusts based on current vestedBTC discount level.
+
+| Discount | vBTC/wBTC | Max LTV |
+|----------|-----------|---------|
+| 5% | 0.95 | 75% |
+| 15% | 0.85 | 55% |
+| 25% | 0.75 | 35% |
+
+**Rationale:** Wider discounts indicate higher volatility, requiring more collateral buffer.
+
+### Dutch Auction Liquidation
+
+Time-based liquidation mechanism where bonus increases linearly until a liquidator claims.
+
+| Parameter | Value |
+|-----------|-------|
+| Start Bonus | 0% |
+| End Bonus | 15% |
+| Duration | 60 minutes |
+
+**Advantage over circuit breakers:** No queuing, market-driven price discovery, reduced bad debt risk.
+
+### Flash Loan Looping
+
+Atomic recursive borrowing using flash loans to achieve leverage in a single transaction.
+
+**Flow:** Flash loan → Deposit collateral → Borrow → Repay flash loan → Final leveraged position
+
+**Provider:** Balancer V2 (zero-fee flash loans)
+
+**Benefit:** No MEV exposure, gas efficient, single-transaction UX.
+
+### CDP (Collateralized Debt Position)
+
+Over-collateralized borrowing where users deposit collateral and borrow against it.
+
+| Market | Collateral | Borrow |
+|--------|------------|--------|
+| Short vBTC | wBTC | vBTC |
+| Long vBTC | vBTC | USDC |
+
+**See:** [Leveraged Lending Protocol](defi/Leveraged_Lending_Protocol.md)
