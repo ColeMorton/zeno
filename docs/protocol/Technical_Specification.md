@@ -369,6 +369,7 @@ vestedBTC enables full DeFi composability through a layered integration architec
 │  └─ Balancer: vBTC/WBTC/USDC weighted pool                  │
 │                                                              │
 │  Layer 3: Lending                                            │
+│  ├─ Native: Leveraged vBTC CDP (long/short positions)       │
 │  ├─ Aave: vBTC as collateral (borrow WBTC/ETH)              │
 │  ├─ Compound: vBTC lending market                           │
 │  └─ Morpho: Optimized vBTC lending                          │
@@ -398,6 +399,37 @@ vestedBTC enables full DeFi composability through a layered integration architec
 | Lending protocols | Direct (Aave, Compound) | Limited support |
 | Price discovery | Continuous, transparent | Floor price mechanics |
 | Gas efficiency | Lower | Higher |
+
+**Primary DEX Integration: Curve StableSwap**
+
+The recommended liquidity mechanism is a Curve StableSwap pool per collateral type:
+
+| Pool | A Parameter | Swap Fee | Expected Range |
+|------|-------------|----------|----------------|
+| vWBTC/WBTC | 100-200 | 0.04% | 0.70-0.95 |
+| vCBBTC/cbBTC | 100-200 | 0.04% | 0.70-0.95 |
+| vTBTC/tBTC | 100-200 | 0.04% | 0.70-0.95 |
+
+Price discovery is bounded by the early redemption formula: arbitrageurs buy underpriced vBTC on DEX to recombine and redeem, or mint new vaults to sell overpriced vBTC.
+
+See [Curve Liquidity Pool](../defi/Curve_Liquidity_Pool.md) for deployment specifications.
+
+**Native Lending Protocol:**
+
+The protocol includes a native CDP lending market enabling leveraged vBTC positions:
+
+| Position | Thesis | Mechanism |
+|----------|--------|-----------|
+| Long vBTC | Discount will narrow | Deposit wBTC → Borrow stables → Buy vBTC |
+| Short vBTC | Discount will widen | Deposit wBTC → Borrow vBTC → Sell vBTC |
+
+Key features:
+- 14%+ base interest rate (exceeds 12% withdrawal rate to prevent arbitrage)
+- Dynamic LTV based on current discount level
+- Dutch auction liquidations (no circuit breakers)
+- Flash loan looping for atomic leverage
+
+See [Leveraged Lending Protocol](../defi/Leveraged_Lending_Protocol.md) for architecture details.
 
 ### 2.8 Use Cases
 

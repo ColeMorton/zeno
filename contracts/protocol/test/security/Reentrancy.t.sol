@@ -54,9 +54,9 @@ contract ReentrancyTest is Test {
         vm.prank(alice);
         uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
-        // Alice grants 50% delegation to malicious delegate
+        // Alice grants 50% delegation to malicious delegate (wallet-level)
         vm.prank(alice);
-        vault.grantWithdrawalDelegate(tokenId, address(maliciousDelegate), 5000);
+        vault.grantWithdrawalDelegate(address(maliciousDelegate), 5000);
 
         // Skip to vested state
         vm.warp(block.timestamp + VESTING_PERIOD);
@@ -88,7 +88,7 @@ contract ReentrancyTest is Test {
         uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
         vm.prank(alice);
-        vault.grantWithdrawalDelegate(tokenId, bob, 5000);
+        vault.grantWithdrawalDelegate(bob, 5000);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 

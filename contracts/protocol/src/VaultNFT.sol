@@ -27,11 +27,14 @@ contract VaultNFT is ERC721, IVaultNFT {
     mapping(uint256 => uint256) private _originalMintedAmount;
     mapping(uint256 => uint256) private _pokeTimestamp;
 
-    // Withdrawal delegation
-    mapping(uint256 => mapping(address => DelegatePermission)) public withdrawalDelegates;
-    mapping(uint256 => uint256) public totalDelegatedBPS;
-    mapping(uint256 => uint256) public currentPeriodWithdrawn; // Track withdrawals in current period
-    mapping(uint256 => uint256) public lastPeriodStart; // When current period started
+    // Wallet-level withdrawal delegation
+    mapping(address => mapping(address => WalletDelegatePermission)) public walletDelegates;
+    mapping(address => uint256) public walletTotalDelegatedBPS;
+    mapping(address => mapping(uint256 => uint256)) public delegateVaultCooldown;
+
+    // Vault-level withdrawal delegation
+    mapping(uint256 => mapping(address => VaultDelegatePermission)) public vaultDelegates;
+    mapping(uint256 => uint256) public vaultTotalDelegatedBPS;
 
     uint256 public matchPool;
     uint256 public totalActiveCollateral;
@@ -433,113 +436,146 @@ contract VaultNFT is ERC721, IVaultNFT {
         delete matchClaimed[tokenId];
     }
 
-    // ========== Withdrawal Delegation Functions ==========
+    // ========== Wallet-Level Withdrawal Delegation Functions ==========
 
-    function grantWithdrawalDelegate(
-        uint256 tokenId,
-        address delegate,
-        uint256 percentageBPS
-    ) external {
-        _requireOwned(tokenId);
-        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId);
+    function grantWithdrawalDelegate(address delegate, uint256 percentageBPS) external {
         if (delegate == address(0)) revert ZeroAddress();
         if (delegate == msg.sender) revert CannotDelegateSelf();
         if (percentageBPS == 0 || percentageBPS > 10000) revert InvalidPercentage(percentageBPS);
 
-        // Check total delegation doesn't exceed 100%
-        uint256 currentDelegated = totalDelegatedBPS[tokenId];
-        if (withdrawalDelegates[tokenId][delegate].active) {
-            currentDelegated -= withdrawalDelegates[tokenId][delegate].percentageBPS;
+        uint256 currentDelegated = walletTotalDelegatedBPS[msg.sender];
+        WalletDelegatePermission storage existingPermission = walletDelegates[msg.sender][delegate];
+        bool isUpdate = existingPermission.active;
+        uint256 oldPercentageBPS = existingPermission.percentageBPS;
+
+        if (isUpdate) {
+            currentDelegated -= oldPercentageBPS;
         }
         if (currentDelegated + percentageBPS > 10000) revert ExceedsDelegationLimit();
 
-        // Update state
-        withdrawalDelegates[tokenId][delegate] = DelegatePermission({
+        walletDelegates[msg.sender][delegate] = WalletDelegatePermission({
             percentageBPS: percentageBPS,
-            lastWithdrawal: 0,
             grantedAt: block.timestamp,
             active: true
         });
 
-        totalDelegatedBPS[tokenId] = currentDelegated + percentageBPS;
+        walletTotalDelegatedBPS[msg.sender] = currentDelegated + percentageBPS;
 
-        // Update activity
-        _updateActivity(tokenId);
-
-        emit WithdrawalDelegateGranted(tokenId, delegate, percentageBPS);
+        if (isUpdate) {
+            emit WalletDelegateUpdated(msg.sender, delegate, oldPercentageBPS, percentageBPS);
+        } else {
+            emit WalletDelegateGranted(msg.sender, delegate, percentageBPS);
+        }
     }
 
-    function revokeWithdrawalDelegate(uint256 tokenId, address delegate) external {
-        _requireOwned(tokenId);
-        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId);
+    function revokeWithdrawalDelegate(address delegate) external {
+        WalletDelegatePermission storage permission = walletDelegates[msg.sender][delegate];
+        if (!permission.active) revert DelegateNotActive(msg.sender, delegate);
 
-        DelegatePermission storage permission = withdrawalDelegates[tokenId][delegate];
-        if (!permission.active) revert DelegateNotActive(tokenId, delegate);
-
-        // Update state
-        totalDelegatedBPS[tokenId] -= permission.percentageBPS;
+        walletTotalDelegatedBPS[msg.sender] -= permission.percentageBPS;
         permission.active = false;
 
-        // Update activity
-        _updateActivity(tokenId);
-
-        emit WithdrawalDelegateRevoked(tokenId, delegate);
+        emit WalletDelegateRevoked(msg.sender, delegate);
     }
 
-    function revokeAllWithdrawalDelegates(uint256 tokenId) external {
-        _requireOwned(tokenId);
-        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId);
+    function revokeAllWithdrawalDelegates() external {
+        walletTotalDelegatedBPS[msg.sender] = 0;
+        emit AllWalletDelegatesRevoked(msg.sender);
+    }
 
-        // Reset total delegation
-        totalDelegatedBPS[tokenId] = 0;
+    // ========== Vault-Level Delegation Functions ==========
 
-        // Note: Individual delegate mappings are not cleared to save gas
-        // The totalDelegatedBPS reset effectively disables all delegations
-        // Future grant calls will overwrite old inactive entries
+    function grantVaultDelegate(
+        uint256 tokenId,
+        address delegate,
+        uint256 percentageBPS,
+        uint256 durationSeconds
+    ) external {
+        if (ownerOf(tokenId) != msg.sender) revert NotVaultOwner(tokenId);
+        if (delegate == address(0)) revert ZeroAddress();
+        if (delegate == msg.sender) revert CannotDelegateSelf();
+        if (percentageBPS == 0 || percentageBPS > 10000) revert InvalidPercentage(percentageBPS);
 
-        // Update activity
-        _updateActivity(tokenId);
+        uint256 currentVaultDelegated = vaultTotalDelegatedBPS[tokenId];
+        VaultDelegatePermission storage existing = vaultDelegates[tokenId][delegate];
+        bool isUpdate = existing.active;
+        uint256 oldPercentageBPS = existing.percentageBPS;
 
-        emit AllWithdrawalDelegatesRevoked(tokenId);
+        if (isUpdate) {
+            currentVaultDelegated -= oldPercentageBPS;
+        }
+        if (currentVaultDelegated + percentageBPS > 10000) revert ExceedsVaultDelegationLimit(tokenId);
+
+        uint256 expiresAt = durationSeconds > 0 ? block.timestamp + durationSeconds : 0;
+        vaultDelegates[tokenId][delegate] = VaultDelegatePermission({
+            percentageBPS: percentageBPS,
+            grantedAt: block.timestamp,
+            expiresAt: expiresAt,
+            active: true
+        });
+        vaultTotalDelegatedBPS[tokenId] = currentVaultDelegated + percentageBPS;
+
+        if (isUpdate) {
+            emit VaultDelegateUpdated(tokenId, delegate, oldPercentageBPS, percentageBPS, expiresAt);
+        } else {
+            emit VaultDelegateGranted(tokenId, delegate, percentageBPS, expiresAt);
+        }
+    }
+
+    function revokeVaultDelegate(uint256 tokenId, address delegate) external {
+        if (ownerOf(tokenId) != msg.sender) revert NotVaultOwner(tokenId);
+
+        VaultDelegatePermission storage permission = vaultDelegates[tokenId][delegate];
+        if (!permission.active) revert VaultDelegateNotActive(tokenId, delegate);
+
+        vaultTotalDelegatedBPS[tokenId] -= permission.percentageBPS;
+        permission.active = false;
+
+        emit VaultDelegateRevoked(tokenId, delegate);
     }
 
     function withdrawAsDelegate(uint256 tokenId) external returns (uint256 withdrawnAmount) {
         _requireOwned(tokenId);
-        
-        // Check vesting complete
+        address vaultOwner = ownerOf(tokenId);
+
         if (!VaultMath.isVested(_mintTimestamp[tokenId], block.timestamp)) {
             revert StillVesting(tokenId);
         }
 
-        // Check delegation
-        DelegatePermission storage permission = withdrawalDelegates[tokenId][msg.sender];
-        if (!permission.active || totalDelegatedBPS[tokenId] == 0) revert NotActiveDelegate(tokenId, msg.sender);
+        // Resolution: Vault-specific takes precedence over wallet-level
+        uint256 effectivePercentageBPS;
 
-        // Check withdrawal period (30 days for delegate)
-        if (permission.lastWithdrawal > 0 && 
-            !VaultMath.canWithdraw(permission.lastWithdrawal, block.timestamp)) {
+        VaultDelegatePermission storage vaultPerm = vaultDelegates[tokenId][msg.sender];
+        if (vaultPerm.active && (vaultPerm.expiresAt == 0 || vaultPerm.expiresAt > block.timestamp)) {
+            // Vault-specific permission active and not expired
+            effectivePercentageBPS = vaultPerm.percentageBPS;
+        } else {
+            // Fall back to wallet-level
+            WalletDelegatePermission storage walletPerm = walletDelegates[vaultOwner][msg.sender];
+            if (!walletPerm.active || walletTotalDelegatedBPS[vaultOwner] == 0) {
+                revert NotActiveDelegate(tokenId, msg.sender);
+            }
+            effectivePercentageBPS = walletPerm.percentageBPS;
+        }
+
+        uint256 delegateLastWithdrawal = delegateVaultCooldown[msg.sender][tokenId];
+        if (delegateLastWithdrawal > 0 && !VaultMath.canWithdraw(delegateLastWithdrawal, block.timestamp)) {
             revert WithdrawalPeriodNotMet(tokenId, msg.sender);
         }
 
-        // Calculate delegate's withdrawal amount from the total pool
-        // The pool should be calculated from the collateral at the beginning of the period
         uint256 currentCollateral = _collateralAmount[tokenId];
         uint256 totalPool = VaultMath.calculateWithdrawal(currentCollateral);
-        withdrawnAmount = (totalPool * permission.percentageBPS) / 10000;
+        withdrawnAmount = (totalPool * effectivePercentageBPS) / 10000;
 
         if (withdrawnAmount == 0) return 0;
 
-        // Update state BEFORE transfer
         _collateralAmount[tokenId] = currentCollateral - withdrawnAmount;
-        permission.lastWithdrawal = block.timestamp;
-
-        // Update activity
+        delegateVaultCooldown[msg.sender][tokenId] = block.timestamp;
         _updateActivity(tokenId);
 
-        // Transfer to delegate
         IERC20(collateralToken).safeTransfer(msg.sender, withdrawnAmount);
 
-        emit DelegatedWithdrawal(tokenId, msg.sender, withdrawnAmount);
+        emit DelegatedWithdrawal(tokenId, msg.sender, vaultOwner, withdrawnAmount);
 
         return withdrawnAmount;
     }
@@ -547,45 +583,100 @@ contract VaultNFT is ERC721, IVaultNFT {
     function canDelegateWithdraw(uint256 tokenId, address delegate)
         external
         view
-        returns (bool canWithdraw, uint256 amount)
+        returns (bool canWithdraw, uint256 amount, DelegationType delegationType)
     {
-        try this.ownerOf(tokenId) {
-            // Token exists
+        address vaultOwner;
+        try this.ownerOf(tokenId) returns (address owner_) {
+            vaultOwner = owner_;
         } catch {
-            return (false, 0);
+            return (false, 0, DelegationType.None);
         }
-        
-        // Check vesting
+
         if (!VaultMath.isVested(_mintTimestamp[tokenId], block.timestamp)) {
-            return (false, 0);
+            return (false, 0, DelegationType.None);
         }
 
-        DelegatePermission storage permission = withdrawalDelegates[tokenId][delegate];
-        if (!permission.active || totalDelegatedBPS[tokenId] == 0) {
-            return (false, 0);
+        // Resolution with type reporting
+        uint256 effectivePercentageBPS;
+        DelegationType dtype;
+
+        VaultDelegatePermission storage vaultPerm = vaultDelegates[tokenId][delegate];
+        if (vaultPerm.active && (vaultPerm.expiresAt == 0 || vaultPerm.expiresAt > block.timestamp)) {
+            effectivePercentageBPS = vaultPerm.percentageBPS;
+            dtype = DelegationType.VaultSpecific;
+        } else {
+            WalletDelegatePermission storage walletPerm = walletDelegates[vaultOwner][delegate];
+            if (!walletPerm.active || walletTotalDelegatedBPS[vaultOwner] == 0) {
+                return (false, 0, DelegationType.None);
+            }
+            effectivePercentageBPS = walletPerm.percentageBPS;
+            dtype = DelegationType.WalletLevel;
         }
 
-        // Check withdrawal period
-        if (permission.lastWithdrawal > 0 && 
-            !VaultMath.canWithdraw(permission.lastWithdrawal, block.timestamp)) {
-            return (false, 0);
+        uint256 delegateLastWithdrawal = delegateVaultCooldown[delegate][tokenId];
+        if (delegateLastWithdrawal > 0 && !VaultMath.canWithdraw(delegateLastWithdrawal, block.timestamp)) {
+            return (false, 0, dtype);
         }
 
-        // Calculate available amount
         uint256 currentCollateral = _collateralAmount[tokenId];
         uint256 totalPool = VaultMath.calculateWithdrawal(currentCollateral);
-        amount = (totalPool * permission.percentageBPS) / 10000;
+        amount = (totalPool * effectivePercentageBPS) / 10000;
 
-        return (amount > 0, amount);
+        return (amount > 0, amount, dtype);
     }
 
-    function getDelegatePermission(uint256 tokenId, address delegate)
+    function getWalletDelegatePermission(address owner, address delegate)
         external
         view
-        returns (DelegatePermission memory)
+        returns (WalletDelegatePermission memory)
     {
-        _requireOwned(tokenId);
-        return withdrawalDelegates[tokenId][delegate];
+        return walletDelegates[owner][delegate];
+    }
+
+    function getDelegateCooldown(address delegate, uint256 tokenId)
+        external
+        view
+        returns (uint256)
+    {
+        return delegateVaultCooldown[delegate][tokenId];
+    }
+
+    function getVaultDelegatePermission(uint256 tokenId, address delegate)
+        external
+        view
+        returns (VaultDelegatePermission memory)
+    {
+        return vaultDelegates[tokenId][delegate];
+    }
+
+    function getEffectiveDelegation(uint256 tokenId, address delegate)
+        external
+        view
+        returns (uint256 percentageBPS, DelegationType dtype, bool isExpired)
+    {
+        VaultDelegatePermission storage vaultPerm = vaultDelegates[tokenId][delegate];
+
+        // Check vault-specific first
+        if (vaultPerm.active) {
+            bool expired = vaultPerm.expiresAt > 0 && block.timestamp > vaultPerm.expiresAt;
+            // Return vault-specific info even if expired (for visibility)
+            return (vaultPerm.percentageBPS, DelegationType.VaultSpecific, expired);
+        }
+
+        // Fall back to wallet-level
+        address vaultOwner;
+        try this.ownerOf(tokenId) returns (address owner_) {
+            vaultOwner = owner_;
+        } catch {
+            return (0, DelegationType.None, false);
+        }
+
+        WalletDelegatePermission storage walletPerm = walletDelegates[vaultOwner][delegate];
+        if (walletPerm.active && walletTotalDelegatedBPS[vaultOwner] > 0) {
+            return (walletPerm.percentageBPS, DelegationType.WalletLevel, false);
+        }
+
+        return (0, DelegationType.None, false);
     }
 
     function _update(

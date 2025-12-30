@@ -326,6 +326,19 @@ The mechanism ensures fair treatment for all parties:
 
 vestedBTC represents a claim on BTC collateral. Pairing exclusively with WBTC/cbBTC creates correlated-asset pools (similar to stETH/ETH) that minimize impermanent loss, enable direct NAV arbitrage without oracle dependency, and keep users within the BTC ecosystem. Users acquire WBTC/cbBTC through existing market infrastructure before interacting with vestedBTC.
 
+**Primary Liquidity Pool: Curve StableSwap**
+
+The recommended entry/exit mechanism is a Curve StableSwap pool (vWBTC/WBTC):
+
+| Parameter | Value |
+|-----------|-------|
+| Pool Type | StableSwap (A=100-200) |
+| Swap Fee | 0.04% |
+| Expected Price Range | 0.70-0.95 relative to WBTC |
+| Arbitrage Mechanism | DEX price bounded by early redemption formula |
+
+See [Curve Liquidity Pool](../defi/Curve_Liquidity_Pool.md) for deployment specifications.
+
 ### 4.2 Withdrawal Stacking Example
 
 ```

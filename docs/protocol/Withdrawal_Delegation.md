@@ -1,8 +1,8 @@
-# BTCNFT Protocol - Withdrawal Delegation Specification
+# BTCNFT Protocol - Wallet-Level Withdrawal Delegation
 
-> **Version:** 1.0
+> **Version:** 2.0
 > **Status:** Draft
-> **Last Updated:** 2025-12-19
+> **Last Updated:** 2025-12-30
 > **Related Documents:**
 > - [Technical Specification](./Technical_Specification.md)
 > - [Product Specification](./Product_Specification.md)
@@ -22,59 +22,59 @@
 5. [Security Considerations](#5-security-considerations)
 6. [Example Scenarios](#6-example-scenarios)
 7. [Events and Monitoring](#7-events-and-monitoring)
+8. [ERC-4337 Withdrawal Automation](#8-erc-4337-withdrawal-automation)
 
 ---
 
 ## 1. Overview
 
-The Withdrawal Delegation feature allows Vault NFT holders to grant withdrawal permissions to other wallets. This enables flexible treasury management while maintaining security through owner-controlled, revocable permissions.
-
-**Important: The 1.0% monthly withdrawal limit is cumulative - it represents the TOTAL amount that can be withdrawn by the owner and all delegates combined, not a per-wallet amount.**
+The Withdrawal Delegation feature allows wallet owners to grant withdrawal permissions to delegate addresses. **Wallet-level delegation** means a single grant applies to ALL vaults owned by that wallet, eliminating the need for per-vault configuration.
 
 ### Key Features
 
-- **Percentage-based delegation**: Grant a fixed percentage (0-100%) of monthly withdrawal allowance
-- **Revocable permissions**: Vault owner can revoke at any time
-- **Independent withdrawal periods**: Delegates have separate 30-day cooldowns
-- **Multiple delegates**: Support multiple delegates per vault with different percentages
+- **Wallet-level delegation**: One grant covers ALL vaults owned by the granting wallet
+- **Per-vault cooldowns**: Each vault tracks its own 30-day cooldown per delegate
+- **Revocable permissions**: Wallet owner can revoke at any time
+- **Multiple delegates**: Support multiple delegates with different percentages (up to 100% total)
 
 ### Design Principles
 
 1. **Non-custodial**: Vault ownership never transfers
-2. **Owner sovereignty**: Only vault owner can grant/revoke permissions
+2. **Owner sovereignty**: Only wallet owner can grant/revoke permissions
 3. **Proportional access**: Delegates can only access their granted percentage
 4. **Activity preservation**: Delegate actions prevent vault dormancy
+5. **Simplicity**: One delegation covers all current and future vaults
 
 ---
 
 ## 2. Use Cases
 
-### 2.1 DAO Treasury Management
+### 2.1 Multi-Vault Holder
+
+A user holds 5 Vault NFTs and wants to automate withdrawals:
+- **Old approach**: 5 separate delegation grants, 5 session keys
+- **New approach**: 1 wallet-level grant, 1 session key
+
+### 2.2 DAO Treasury Management
 
 A DAO holds multiple Vault NFTs and wants to delegate withdrawal permissions:
-- Treasury committee: 60% withdrawal rights
-- Operations wallet: 30% withdrawal rights
-- Emergency fund: 10% withdrawal rights
+- Treasury committee: 60% withdrawal rights (all vaults)
+- Operations wallet: 30% withdrawal rights (all vaults)
+- Emergency fund: 10% withdrawal rights (all vaults)
 
-### 2.2 Family Wealth Distribution
+### 2.3 Family Wealth Distribution
 
-Parents vault assets and delegate withdrawal rights to children:
-- Child 1: 33% monthly allowance
-- Child 2: 33% monthly allowance
-- Child 3: 34% monthly allowance
+Parents vault assets across multiple NFTs and delegate withdrawal rights:
+- Child 1: 33% monthly allowance (all family vaults)
+- Child 2: 33% monthly allowance (all family vaults)
+- Child 3: 34% monthly allowance (all family vaults)
 
-### 2.3 Automated Services
+### 2.4 Automated Services
 
 Vault holder delegates to a smart contract for:
-- DCA (Dollar Cost Averaging) strategies: 25% monthly
-- Bill payments: 20% monthly
-- Investment allocation: 55% monthly
-
-### 2.4 Multi-signature Security
-
-Vault held by multi-sig, with delegated withdrawals to:
-- Hot wallet for operations: 40%
-- Cold storage rotation: 60%
+- DCA (Dollar Cost Averaging) strategies: 25% monthly (all vaults)
+- Bill payments: 20% monthly (all vaults)
+- Investment allocation: 55% monthly (all vaults)
 
 ---
 
@@ -83,19 +83,21 @@ Vault held by multi-sig, with delegated withdrawals to:
 ### 3.1 Data Structures
 
 ```solidity
-// Delegation permissions mapping
-// vaultTokenId => delegate => DelegatePermission
-mapping(uint256 => mapping(address => DelegatePermission)) public withdrawalDelegates;
-
-struct DelegatePermission {
+/// @notice Wallet-level delegation permission (applies to all vaults owned by wallet)
+struct WalletDelegatePermission {
     uint256 percentageBPS;      // Basis points (100 = 1%, 10000 = 100%)
-    uint256 lastWithdrawal;     // Timestamp of delegate's last withdrawal
     uint256 grantedAt;          // When permission was granted
     bool active;                // Permission status
 }
 
-// Track total delegated percentage per vault
-mapping(uint256 => uint256) public totalDelegatedBPS;
+// Wallet-level delegation: owner => delegate => permission
+mapping(address => mapping(address => WalletDelegatePermission)) public walletDelegates;
+
+// Total delegated percentage per wallet
+mapping(address => uint256) public walletTotalDelegatedBPS;
+
+// Per-delegate-per-vault cooldown tracking: delegate => tokenId => lastWithdrawal
+mapping(address => mapping(uint256 => uint256)) public delegateVaultCooldown;
 ```
 
 ### 3.2 Functions
@@ -103,164 +105,107 @@ mapping(uint256 => uint256) public totalDelegatedBPS;
 #### Grant Withdrawal Delegation
 
 ```solidity
-/// @notice Grant withdrawal permission to a delegate
-/// @param tokenId The Vault NFT token ID
+/// @notice Grant withdrawal permission to a delegate (applies to all your vaults)
 /// @param delegate Address to grant permission to
 /// @param percentageBPS Percentage in basis points (100 = 1%)
-function grantWithdrawalDelegate(
-    uint256 tokenId,
-    address delegate,
-    uint256 percentageBPS
-) external {
-    // Validation
-    if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId);
+function grantWithdrawalDelegate(address delegate, uint256 percentageBPS) external {
     if (delegate == address(0)) revert ZeroAddress();
     if (delegate == msg.sender) revert CannotDelegateSelf();
     if (percentageBPS == 0 || percentageBPS > 10000) revert InvalidPercentage(percentageBPS);
-    
-    // Check total delegation doesn't exceed 100%
-    uint256 currentDelegated = totalDelegatedBPS[tokenId];
-    if (withdrawalDelegates[tokenId][delegate].active) {
-        currentDelegated -= withdrawalDelegates[tokenId][delegate].percentageBPS;
+
+    uint256 currentDelegated = walletTotalDelegatedBPS[msg.sender];
+    WalletDelegatePermission storage existingPermission = walletDelegates[msg.sender][delegate];
+    bool isUpdate = existingPermission.active;
+    uint256 oldPercentageBPS = existingPermission.percentageBPS;
+
+    if (isUpdate) {
+        currentDelegated -= oldPercentageBPS;
     }
     if (currentDelegated + percentageBPS > 10000) revert ExceedsDelegationLimit();
-    
-    // Update state
-    withdrawalDelegates[tokenId][delegate] = DelegatePermission({
+
+    walletDelegates[msg.sender][delegate] = WalletDelegatePermission({
         percentageBPS: percentageBPS,
-        lastWithdrawal: 0,
         grantedAt: block.timestamp,
         active: true
     });
-    
-    totalDelegatedBPS[tokenId] = currentDelegated + percentageBPS;
-    
-    // Update activity
-    _updateActivity(tokenId);
-    
-    emit WithdrawalDelegateGranted(tokenId, delegate, percentageBPS);
+
+    walletTotalDelegatedBPS[msg.sender] = currentDelegated + percentageBPS;
+
+    if (isUpdate) {
+        emit WalletDelegateUpdated(msg.sender, delegate, oldPercentageBPS, percentageBPS);
+    } else {
+        emit WalletDelegateGranted(msg.sender, delegate, percentageBPS);
+    }
 }
 ```
 
-#### Revoke Withdrawal Delegation (Single)
+#### Revoke Withdrawal Delegation
 
 ```solidity
-/// @notice Revoke withdrawal permission from a specific delegate
-/// @param tokenId The Vault NFT token ID
+/// @notice Revoke withdrawal permission from a delegate
 /// @param delegate Address to revoke permission from
-function revokeWithdrawalDelegate(
-    uint256 tokenId,
-    address delegate
-) external {
-    // Validation
-    if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId);
-    
-    DelegatePermission storage permission = withdrawalDelegates[tokenId][delegate];
-    if (!permission.active) revert DelegateNotActive(tokenId, delegate);
-    
-    // Update state
-    totalDelegatedBPS[tokenId] -= permission.percentageBPS;
+function revokeWithdrawalDelegate(address delegate) external {
+    WalletDelegatePermission storage permission = walletDelegates[msg.sender][delegate];
+    if (!permission.active) revert DelegateNotActive(msg.sender, delegate);
+
+    walletTotalDelegatedBPS[msg.sender] -= permission.percentageBPS;
     permission.active = false;
-    
-    // Update activity
-    _updateActivity(tokenId);
-    
-    emit WithdrawalDelegateRevoked(tokenId, delegate);
+
+    emit WalletDelegateRevoked(msg.sender, delegate);
 }
 ```
 
 #### Revoke All Withdrawal Delegations
 
 ```solidity
-/// @notice Revoke ALL withdrawal permissions for a vault
-/// @param tokenId The Vault NFT token ID
-/// @dev This function is gas-intensive if many delegates exist
-function revokeAllWithdrawalDelegates(uint256 tokenId) external {
-    // Validation
-    if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId);
-    
-    // Reset total delegation
-    totalDelegatedBPS[tokenId] = 0;
-    
-    // Note: Individual delegate mappings are not cleared to save gas
-    // The totalDelegatedBPS reset effectively disables all delegations
-    // Future grant calls will overwrite old inactive entries
-    
-    // Update activity
-    _updateActivity(tokenId);
-    
-    emit AllWithdrawalDelegatesRevoked(tokenId);
-}
-
-/// @notice Alternative implementation with delegate tracking
-/// @dev More gas expensive but cleaner state
-function revokeAllWithdrawalDelegatesTracked(
-    uint256 tokenId,
-    address[] calldata delegates
-) external {
-    // Validation
-    if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId);
-    
-    // Revoke each delegate
-    for (uint256 i = 0; i < delegates.length; i++) {
-        DelegatePermission storage permission = withdrawalDelegates[tokenId][delegates[i]];
-        if (permission.active) {
-            permission.active = false;
-            emit WithdrawalDelegateRevoked(tokenId, delegates[i]);
-        }
-    }
-    
-    // Reset total
-    totalDelegatedBPS[tokenId] = 0;
-    
-    // Update activity
-    _updateActivity(tokenId);
-    
-    emit AllWithdrawalDelegatesRevoked(tokenId);
+/// @notice Revoke ALL withdrawal permissions for your wallet
+function revokeAllWithdrawalDelegates() external {
+    walletTotalDelegatedBPS[msg.sender] = 0;
+    emit AllWalletDelegatesRevoked(msg.sender);
 }
 ```
 
 #### Withdraw as Delegate
 
 ```solidity
-/// @notice Withdraw BTC as a delegate
+/// @notice Withdraw from a vault as an authorized delegate
 /// @param tokenId The Vault NFT token ID to withdraw from
-/// @return withdrawnAmount Amount of BTC withdrawn
+/// @return withdrawnAmount Amount withdrawn
 function withdrawAsDelegate(uint256 tokenId) external returns (uint256 withdrawnAmount) {
-    // Check vesting complete
-    if (block.timestamp < mintTimestamp[tokenId] + VESTING_PERIOD) 
+    _requireOwned(tokenId);
+    address vaultOwner = ownerOf(tokenId);
+
+    // Check vesting
+    if (!VaultMath.isVested(_mintTimestamp[tokenId], block.timestamp)) {
         revert StillVesting(tokenId);
-    
-    // Check delegation
-    DelegatePermission storage permission = withdrawalDelegates[tokenId][msg.sender];
-    if (!permission.active) revert NotActiveDelegate(tokenId, msg.sender);
-    
-    // Check withdrawal period (30 days for delegate)
-    if (permission.lastWithdrawal > 0 && 
-        block.timestamp < permission.lastWithdrawal + WITHDRAWAL_PERIOD) {
+    }
+
+    // Check WALLET-level delegation (from current vault owner)
+    WalletDelegatePermission storage permission = walletDelegates[vaultOwner][msg.sender];
+    if (!permission.active || walletTotalDelegatedBPS[vaultOwner] == 0) {
+        revert NotActiveDelegate(tokenId, msg.sender);
+    }
+
+    // Check per-delegate-per-vault cooldown
+    uint256 delegateLastWithdrawal = delegateVaultCooldown[msg.sender][tokenId];
+    if (delegateLastWithdrawal > 0 && !VaultMath.canWithdraw(delegateLastWithdrawal, block.timestamp)) {
         revert WithdrawalPeriodNotMet(tokenId, msg.sender);
     }
-    
-    // Calculate delegate's withdrawal amount
-    uint256 currentCollateral = collateralAmount[tokenId];
-    uint256 maxWithdrawal = (currentCollateral * WITHDRAWAL_RATE) / 100000;
-    withdrawnAmount = (maxWithdrawal * permission.percentageBPS) / 10000;
-    
-    if (withdrawnAmount == 0) revert ZeroWithdrawal();
-    
-    // Update state BEFORE transfer
-    collateralAmount[tokenId] = currentCollateral - withdrawnAmount;
-    permission.lastWithdrawal = block.timestamp;
-    
-    // Update activity
+
+    // Calculate and transfer
+    uint256 currentCollateral = _collateralAmount[tokenId];
+    uint256 totalPool = VaultMath.calculateWithdrawal(currentCollateral);
+    withdrawnAmount = (totalPool * permission.percentageBPS) / 10000;
+
+    if (withdrawnAmount == 0) return 0;
+
+    _collateralAmount[tokenId] = currentCollateral - withdrawnAmount;
+    delegateVaultCooldown[msg.sender][tokenId] = block.timestamp;
     _updateActivity(tokenId);
-    
-    // Transfer BTC to delegate
-    IERC20 token = IERC20(collateralToken[tokenId]);
-    token.transfer(msg.sender, withdrawnAmount);
-    
-    emit DelegatedWithdrawal(tokenId, msg.sender, withdrawnAmount);
-    
+
+    IERC20(collateralToken).safeTransfer(msg.sender, withdrawnAmount);
+    emit DelegatedWithdrawal(tokenId, msg.sender, vaultOwner, withdrawnAmount);
+
     return withdrawnAmount;
 }
 ```
@@ -268,47 +213,52 @@ function withdrawAsDelegate(uint256 tokenId) external returns (uint256 withdrawn
 #### View Functions
 
 ```solidity
-/// @notice Check if a delegate can withdraw and how much
-/// @param tokenId The Vault NFT token ID
-/// @param delegate The delegate address to check
-/// @return canWithdraw Whether the delegate can withdraw now
-/// @return amount Amount the delegate can withdraw
-function canDelegateWithdraw(
-    uint256 tokenId,
-    address delegate
-) external view returns (bool canWithdraw, uint256 amount) {
-    // Check vesting
-    if (block.timestamp < mintTimestamp[tokenId] + VESTING_PERIOD) {
+/// @notice Check if a delegate can withdraw from a vault
+function canDelegateWithdraw(uint256 tokenId, address delegate)
+    external view returns (bool canWithdraw, uint256 amount) {
+    address vaultOwner;
+    try this.ownerOf(tokenId) returns (address owner_) {
+        vaultOwner = owner_;
+    } catch {
         return (false, 0);
     }
-    
-    DelegatePermission storage permission = withdrawalDelegates[tokenId][delegate];
-    if (!permission.active) {
+
+    if (!VaultMath.isVested(_mintTimestamp[tokenId], block.timestamp)) {
         return (false, 0);
     }
-    
-    // Check withdrawal period
-    if (permission.lastWithdrawal > 0 && 
-        block.timestamp < permission.lastWithdrawal + WITHDRAWAL_PERIOD) {
+
+    WalletDelegatePermission storage permission = walletDelegates[vaultOwner][delegate];
+    if (!permission.active || walletTotalDelegatedBPS[vaultOwner] == 0) {
         return (false, 0);
     }
-    
-    // Calculate available amount
-    uint256 currentCollateral = collateralAmount[tokenId];
-    uint256 maxWithdrawal = (currentCollateral * WITHDRAWAL_RATE) / 100000;
-    amount = (maxWithdrawal * permission.percentageBPS) / 10000;
-    
+
+    uint256 delegateLastWithdrawal = delegateVaultCooldown[delegate][tokenId];
+    if (delegateLastWithdrawal > 0 && !VaultMath.canWithdraw(delegateLastWithdrawal, block.timestamp)) {
+        return (false, 0);
+    }
+
+    uint256 currentCollateral = _collateralAmount[tokenId];
+    uint256 totalPool = VaultMath.calculateWithdrawal(currentCollateral);
+    amount = (totalPool * permission.percentageBPS) / 10000;
+
     return (amount > 0, amount);
 }
 
-/// @notice Get all active delegates for a vault
-/// @param tokenId The Vault NFT token ID
-/// @return delegates Array of delegate addresses
-/// @return permissions Array of their permissions
-function getActiveDelegates(uint256 tokenId) 
-    external view 
-    returns (address[] memory delegates, DelegatePermission[] memory permissions) {
-    // Implementation would iterate through events or maintain a separate array
+/// @notice Get wallet-level delegate permission
+function getWalletDelegatePermission(address owner, address delegate)
+    external view returns (WalletDelegatePermission memory) {
+    return walletDelegates[owner][delegate];
+}
+
+/// @notice Get delegate's cooldown for a specific vault
+function getDelegateCooldown(address delegate, uint256 tokenId)
+    external view returns (uint256) {
+    return delegateVaultCooldown[delegate][tokenId];
+}
+
+/// @notice Get total delegated BPS for a wallet
+function walletTotalDelegatedBPS(address owner) external view returns (uint256) {
+    return walletTotalDelegatedBPS[owner];
 }
 ```
 
@@ -316,69 +266,60 @@ function getActiveDelegates(uint256 tokenId)
 
 | Function | Caller Requirement |
 |----------|-------------------|
-| `grantWithdrawalDelegate` | Vault NFT owner only |
-| `revokeWithdrawalDelegate` | Vault NFT owner only |
-| `withdrawAsDelegate` | Active delegate only |
+| `grantWithdrawalDelegate` | Any wallet (grants for their own vaults) |
+| `revokeWithdrawalDelegate` | Any wallet (revokes their own grants) |
+| `withdrawAsDelegate` | Active delegate of vault's current owner |
 | `withdraw` (original) | Vault NFT owner only (unchanged) |
 
 ### 3.4 Withdrawal Calculations
-
-**CRITICAL: The 1.0% monthly withdrawal is CUMULATIVE across all parties (owner + delegates combined).**
 
 For a vault with 1 BTC collateral after vesting:
 
 **Total Monthly Withdrawal Pool: 0.01 BTC (1.0% of 1 BTC)**
 
-| Actor | Delegation % | Share of Monthly Pool | Annual Impact |
-|-------|--------------|----------------------|---------------|
-| Owner | 0% (if 100% delegated) | 0 BTC | 0 BTC |
-| Delegate A | 60% | 0.006 BTC | 0.072 BTC |
-| Delegate B | 40% | 0.004 BTC | 0.048 BTC |
-| **TOTAL** | **100%** | **0.01 BTC** | **0.12 BTC** |
+| Actor | Delegation % | Share of Monthly Pool |
+|-------|--------------|----------------------|
+| Delegate A | 60% | 0.006 BTC |
+| Delegate B | 40% | 0.004 BTC |
+| **TOTAL** | **100%** | **0.01 BTC** |
 
 **Key Points:**
-- The 1.0% (0.01 BTC) is the TOTAL monthly withdrawal available
-- This amount is SHARED among owner and all delegates based on percentages
-- Each wallet (owner/delegate) has its OWN 30-day cooldown period
-- Percentages apply to the withdrawal pool, NOT the vault's total collateral
-- If owner delegates 100%, they cannot withdraw until revoking some delegation
-
-**Example Timeline:**
-- Day 1: Delegate A withdraws 0.006 BTC (their 60% share)
-- Day 15: Delegate B withdraws 0.004 BTC (their 40% share)
-- Day 31: Delegate A can withdraw again (30-day cooldown satisfied)
-- Day 45: Delegate B can withdraw again (30-day cooldown satisfied)
-
-Each party tracks their own 30-day period independently.
+- Each delegate has their OWN 30-day cooldown PER VAULT
+- Cooldowns are tracked independently: `delegateVaultCooldown[delegate][tokenId]`
+- A single delegation grant applies to ALL vaults owned by the granting wallet
 
 ---
 
 ## 4. Integration with Existing Features
 
-### 4.1 Activity Tracking
+### 4.1 Ownership Transfer Behavior
 
-Delegate withdrawals update `lastActivity[tokenId]` to prevent dormancy:
-```solidity
-// In withdrawAsDelegate()
-_updateActivity(tokenId);
-```
+| Scenario | Behavior |
+|----------|----------|
+| Vault transferred to new owner | Old owner's delegation no longer applies; new owner's delegation applies |
+| Delegate's cooldown persists | Cooldown is tied to `delegate + tokenId`, not owner |
+| Re-grant after transfer | Cooldown NOT reset (prevents gaming) |
 
-### 4.2 vestedBTC Compatibility
+**Example:**
+1. Alice owns Vault #1, delegates to Bob
+2. Bob withdraws (cooldown starts: 30 days)
+3. Alice transfers Vault #1 to Dave
+4. Dave delegates to Bob
+5. Bob still can't withdraw until cooldown expires (tied to Bob + Vault #1)
+
+### 4.2 Activity Tracking
+
+Delegate withdrawals update `lastActivity[tokenId]` to prevent dormancy.
+
+### 4.3 vestedBTC Compatibility
 
 - Delegation affects only withdrawal rights, not redemption
 - vestedBTC holders cannot delegate (no withdrawal rights)
-- Recombining vestedBTC preserves existing delegations
 
-### 4.3 Dormancy Protection
+### 4.4 Dormancy Protection
 
 - Any delegate withdrawal resets dormancy timer
 - Active delegations indicate vault is managed
-- Dormant claim process considers delegate activity
-
-### 4.4 Window Minting
-
-- Delegations can be pre-configured before window execution
-- Batch minting preserves individual delegation settings
 
 ---
 
@@ -390,67 +331,58 @@ _updateActivity(tokenId);
 |--------------|------------|
 | Self-delegation | Explicit check: `delegate != msg.sender` |
 | Over-delegation | Total percentage tracked and limited to 100% |
-| Withdrawal racing | Independent cooldowns per delegate |
-| Griefing via revocation | Owner control; delegates accept revocation risk |
-| Flash loan attacks | Standard ERC-20 transfer; no special risks |
+| Cooldown gaming | Cooldowns persist across ownership transfers |
+| Withdrawal racing | Independent cooldowns per delegate per vault |
 
 ### 5.2 Edge Cases
 
 | Scenario | Handling |
 |----------|----------|
-| Vault transferred | Delegations remain active with new owner |
-| Delegate = owner later | Delegate uses standard withdraw, not delegation |
+| Vault transferred | New owner's delegation applies; cooldowns persist |
+| Same delegate, multiple owners | Each vault operates independently |
+| Revoke then re-grant | Cooldowns NOT reset (prevents gaming) |
 | Zero collateral | Withdrawals return 0; no reverts |
-| Rounding errors | Use basis points; floor division for safety |
-
-### 5.3 Gas Optimization
-
-- Single storage slot per delegation (packed struct)
-- Separate cooldowns avoid owner state modification
-- View functions for off-chain calculations
 
 ---
 
 ## 6. Example Scenarios
 
-### 6.1 DAO Treasury Setup
+### 6.1 Multi-Vault Setup
 
 ```solidity
-// DAO owns vault #1234 with 10 BTC collateral
-// Grant 60% to treasury committee multisig
-grantWithdrawalDelegate(1234, treasuryMultisig, 6000);
+// Alice owns 5 Vault NFTs and wants to delegate to Bob
+// Single grant covers ALL 5 vaults!
+grantWithdrawalDelegate(bob, 6000); // 60% of each vault's monthly pool
 
-// Grant 30% to operations wallet
-grantWithdrawalDelegate(1234, operationsWallet, 3000);
-
-// Grant 10% to emergency fund
-grantWithdrawalDelegate(1234, emergencyWallet, 1000);
-
-// Monthly withdrawals available:
-// - Treasury: 0.06 BTC (60% of 0.1)
-// - Operations: 0.03 BTC (30% of 0.1)
-// - Emergency: 0.01 BTC (10% of 0.1)
+// Bob can now withdraw from any of Alice's vaults
+withdrawAsDelegate(vault1); // Works
+withdrawAsDelegate(vault2); // Works (independent cooldown)
+withdrawAsDelegate(vault3); // Works (independent cooldown)
 ```
 
-### 6.2 Revocation Flow
+### 6.2 Ownership Transfer
 
 ```solidity
-// Owner decides to revoke operations wallet access
-revokeWithdrawalDelegate(1234, operationsWallet);
+// Alice owns Vault #1, delegates to Bob
+grantWithdrawalDelegate(bob, 5000); // 50%
 
-// Operations wallet can no longer withdraw
-// 30% allocation becomes available for re-delegation
-```
+// Bob withdraws
+withdrawAsDelegate(1); // Success, cooldown starts
 
-### 6.3 Automated Service Integration
+// Alice transfers vault to Dave
+transferFrom(alice, dave, 1);
 
-```solidity
-// User delegates to DCA bot
-grantWithdrawalDelegate(5678, dcaBotAddress, 2500); // 25%
+// Bob can't withdraw anymore (Alice no longer owner)
+withdrawAsDelegate(1); // Reverts: NotActiveDelegate
 
-// Bot calls monthly (via automation service)
-withdrawAsDelegate(5678);
-// Receives 25% of monthly withdrawal to execute DCA strategy
+// Dave grants to Bob
+grantWithdrawalDelegate(bob, 3000); // 30%
+
+// Bob still on cooldown for this vault!
+withdrawAsDelegate(1); // Reverts: WithdrawalPeriodNotMet
+
+// After 30 days...
+withdrawAsDelegate(1); // Success
 ```
 
 ---
@@ -460,56 +392,117 @@ withdrawAsDelegate(5678);
 ### 7.1 Events
 
 ```solidity
-event WithdrawalDelegateGranted(
-    uint256 indexed tokenId,
+event WalletDelegateGranted(
+    address indexed owner,
     address indexed delegate,
     uint256 percentageBPS
 );
 
-event WithdrawalDelegateRevoked(
-    uint256 indexed tokenId,
+event WalletDelegateUpdated(
+    address indexed owner,
+    address indexed delegate,
+    uint256 oldPercentageBPS,
+    uint256 newPercentageBPS
+);
+
+event WalletDelegateRevoked(
+    address indexed owner,
     address indexed delegate
 );
 
-event AllWithdrawalDelegatesRevoked(
-    uint256 indexed tokenId
-);
+event AllWalletDelegatesRevoked(address indexed owner);
 
 event DelegatedWithdrawal(
     uint256 indexed tokenId,
     address indexed delegate,
+    address indexed owner,
     uint256 amount
 );
 ```
 
-### 7.2 Monitoring Queries
+---
 
-Off-chain services can monitor:
-- Active delegations per vault
-- Upcoming withdrawal opportunities
-- Historical delegation patterns
-- Total value accessible by delegates
+## 8. ERC-4337 Withdrawal Automation
 
-### 7.3 Indexing
+### 8.1 Overview
 
-Recommended indexes for efficient queries:
-- `tokenId` → all delegates
-- `delegate` → all vaults with access
-- `timestamp` → upcoming withdrawals
+With wallet-level delegation, ERC-4337 automation becomes simpler:
+- **One session key** covers ALL vaults owned by a smart account
+- **One Gelato task** can manage multiple vaults
+
+### 8.2 Architecture
+
+```
+Hardware Wallet (Owner)
+        │
+        ▼
+Alchemy Modular Account (ERC-4337) ←── holds multiple VaultNFTs
+        │
+        ├── SessionKeyPlugin (ERC-7579)
+        │       │
+        │       ▼
+        │   Session Key (scoped to withdrawAsDelegate)
+        │
+        ▼
+Gelato Web3 Function (Cron: monthly)
+        │
+        ├── 1. Batch query all owner's vaults
+        ├── 2. Check canDelegateWithdraw() for each
+        ├── 3. Build UserOperations for eligible vaults
+        └── 4. Submit via bundler
+```
+
+### 8.3 Helper Contract
+
+The `WithdrawalAutomationHelper` provides batch query utilities:
+
+```solidity
+function batchCanDelegateWithdraw(
+    uint256[] calldata tokenIds,
+    address[] calldata delegates
+) external view returns (bool[] memory, uint256[] memory);
+
+function getNextWithdrawalTime(
+    uint256 tokenId,
+    address delegate
+) external view returns (uint256);
+
+function getAutomationStatus(
+    uint256 tokenId,
+    address delegate
+) external view returns (
+    bool canWithdraw,
+    uint256 amount,
+    uint256 nextWithdrawal,
+    uint256 percentageBPS
+);
+```
 
 ---
 
 ## Errors
 
 ```solidity
-error NotTokenOwner(uint256 tokenId);
-error NotActiveDelegate(uint256 tokenId, address delegate);
+error ZeroAddress();
 error CannotDelegateSelf();
 error InvalidPercentage(uint256 percentage);
 error ExceedsDelegationLimit();
-error DelegateNotActive(uint256 tokenId, address delegate);
+error DelegateNotActive(address owner, address delegate);
+error NotActiveDelegate(uint256 tokenId, address delegate);
 error WithdrawalPeriodNotMet(uint256 tokenId, address delegate);
-error ZeroWithdrawal();
-error ZeroAddress();
 error StillVesting(uint256 tokenId);
 ```
+
+---
+
+## Migration Notes (v1 → v2)
+
+**Breaking Changes:**
+- Function signatures changed (tokenId removed from grant/revoke)
+- Existing vault-level delegations are abandoned
+- Users must re-grant delegations at wallet level after upgrade
+
+**Benefits:**
+- Reduced gas: One grant covers all vaults
+- Simplified automation: One session key per wallet
+- Future-proof: New vaults automatically covered

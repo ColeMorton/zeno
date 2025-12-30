@@ -53,11 +53,11 @@ contract ConcurrentOpsTest is Test {
 
         // Grant 30% to Bob, 30% to Charlie (60% total, leaving 40% for owner)
         vm.startPrank(alice);
-        vault.grantWithdrawalDelegate(tokenId, bob, 3000);
-        vault.grantWithdrawalDelegate(tokenId, charlie, 3000);
+        vault.grantWithdrawalDelegate(bob, 3000);
+        vault.grantWithdrawalDelegate(charlie, 3000);
         vm.stopPrank();
 
-        assertEq(vault.totalDelegatedBPS(tokenId), 6000);
+        assertEq(vault.walletTotalDelegatedBPS(alice), 6000);
 
         // Skip to vested
         vm.warp(block.timestamp + VESTING_PERIOD);
@@ -88,7 +88,7 @@ contract ConcurrentOpsTest is Test {
 
         // Grant 50% to Bob
         vm.prank(alice);
-        vault.grantWithdrawalDelegate(tokenId, bob, 5000);
+        vault.grantWithdrawalDelegate(bob, 5000);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
@@ -118,20 +118,20 @@ contract ConcurrentOpsTest is Test {
         uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
         vm.prank(alice);
-        vault.grantWithdrawalDelegate(tokenId, bob, 5000);
+        vault.grantWithdrawalDelegate(bob, 5000);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
         // Verify bob can withdraw
-        (bool canWithdraw,) = vault.canDelegateWithdraw(tokenId, bob);
+        (bool canWithdraw,,) = vault.canDelegateWithdraw(tokenId, bob);
         assertTrue(canWithdraw);
 
         // Alice revokes
         vm.prank(alice);
-        vault.revokeWithdrawalDelegate(tokenId, bob);
+        vault.revokeWithdrawalDelegate(bob);
 
         // Bob can no longer withdraw
-        (canWithdraw,) = vault.canDelegateWithdraw(tokenId, bob);
+        (canWithdraw,,) = vault.canDelegateWithdraw(tokenId, bob);
         assertFalse(canWithdraw);
 
         vm.prank(bob);
@@ -139,37 +139,49 @@ contract ConcurrentOpsTest is Test {
         vault.withdrawAsDelegate(tokenId);
     }
 
-    function test_DelegationPersistsAfterTransfer() public {
+    function test_WalletDelegationFollowsOwner() public {
         vm.prank(alice);
         uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
-        // Grant delegation to bob
+        // Grant delegation to bob - wallet-level
         vm.prank(alice);
-        vault.grantWithdrawalDelegate(tokenId, bob, 5000);
+        vault.grantWithdrawalDelegate(bob, 5000);
+
+        // Verify delegation exists for alice's wallet
+        assertEq(vault.walletTotalDelegatedBPS(alice), 5000);
 
         // Transfer NFT to dave
         vm.prank(alice);
         vault.transferFrom(alice, dave, tokenId);
 
-        // Check delegation state
-        IVaultNFT.DelegatePermission memory permission = vault.getDelegatePermission(tokenId, bob);
+        // Alice's wallet delegation is unchanged (it's wallet-level, not vault-level)
+        assertEq(vault.walletTotalDelegatedBPS(alice), 5000);
 
-        // Delegation still exists (by design for gas optimization)
-        assertTrue(permission.active);
-        assertEq(permission.percentageBPS, 5000);
-
-        // Skip to vested
+        // But bob can't withdraw from this vault anymore because dave is the new owner
+        // and dave hasn't delegated to bob
         vm.warp(block.timestamp + VESTING_PERIOD);
 
-        // Bob can still withdraw as delegate
-        vm.prank(bob);
-        uint256 withdrawn = vault.withdrawAsDelegate(tokenId);
-        assertGt(withdrawn, 0);
+        (bool canWithdraw,,) = vault.canDelegateWithdraw(tokenId, bob);
+        assertFalse(canWithdraw);
 
-        // Dave (new owner) can also withdraw
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotActiveDelegate.selector, tokenId, bob));
+        vault.withdrawAsDelegate(tokenId);
+
+        // Dave (new owner) can withdraw
         vm.prank(dave);
         uint256 daveWithdrawn = vault.withdraw(tokenId);
         assertGt(daveWithdrawn, 0);
+
+        // If dave grants delegation to charlie, charlie can withdraw
+        vm.prank(dave);
+        vault.grantWithdrawalDelegate(charlie, 3000);
+
+        vm.warp(block.timestamp + WITHDRAWAL_PERIOD);
+
+        vm.prank(charlie);
+        uint256 charlieWithdrawn = vault.withdrawAsDelegate(tokenId);
+        assertGt(charlieWithdrawn, 0);
     }
 
     function test_MatchClaimWhileOthersActive() public {
@@ -260,26 +272,26 @@ contract ConcurrentOpsTest is Test {
 
     function test_DelegationLimitEnforced() public {
         vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
+        vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
         vm.startPrank(alice);
 
         // Grant 60% to Bob
-        vault.grantWithdrawalDelegate(tokenId, bob, 6000);
+        vault.grantWithdrawalDelegate(bob, 6000);
 
         // Grant 30% to Charlie
-        vault.grantWithdrawalDelegate(tokenId, charlie, 3000);
+        vault.grantWithdrawalDelegate(charlie, 3000);
 
         // Try to grant 20% to Dave (would exceed 100%)
         vm.expectRevert(IVaultNFT.ExceedsDelegationLimit.selector);
-        vault.grantWithdrawalDelegate(tokenId, dave, 2000);
+        vault.grantWithdrawalDelegate(dave, 2000);
 
         // Can grant exactly 10% to Dave
-        vault.grantWithdrawalDelegate(tokenId, dave, 1000);
+        vault.grantWithdrawalDelegate(dave, 1000);
 
         vm.stopPrank();
 
-        assertEq(vault.totalDelegatedBPS(tokenId), 10000); // 100%
+        assertEq(vault.walletTotalDelegatedBPS(alice), 10000); // 100%
     }
 
     function testFuzz_ConcurrentDelegateWithdrawals(
@@ -295,8 +307,8 @@ contract ConcurrentOpsTest is Test {
         uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), collateral);
 
         vm.startPrank(alice);
-        vault.grantWithdrawalDelegate(tokenId, bob, bobPercent);
-        vault.grantWithdrawalDelegate(tokenId, charlie, charliePercent);
+        vault.grantWithdrawalDelegate(bob, bobPercent);
+        vault.grantWithdrawalDelegate(charlie, charliePercent);
         vm.stopPrank();
 
         vm.warp(block.timestamp + VESTING_PERIOD);
