@@ -1,9 +1,45 @@
-import type { Address } from 'viem';
+import {
+  type Address,
+  type PublicClient,
+  createPublicClient,
+  http,
+} from 'viem';
+import { anvil } from 'viem/chains';
 import type { Vault } from '../types/vault.js';
 import type { IndexedEvent, EventType } from '../events/schema.js';
 import type { VaultQueryOptions } from '../types/filter.js';
 import type { AnvilIndexer, EventFilter } from '../indexer/anvil.js';
 import type { SubgraphClient } from '../client/SubgraphClient.js';
+
+/**
+ * Minimal VaultNFT ABI for direct contract queries
+ */
+const VAULT_NFT_ABI = [
+  {
+    name: 'ownerOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ type: 'address' }],
+  },
+  {
+    name: 'getVaultInfo',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [
+      { name: 'treasureContract', type: 'address' },
+      { name: 'treasureTokenId', type: 'uint256' },
+      { name: 'collateralToken', type: 'address' },
+      { name: 'collateralAmount', type: 'uint256' },
+      { name: 'mintTimestamp', type: 'uint256' },
+      { name: 'lastWithdrawal', type: 'uint256' },
+      { name: 'lastActivity', type: 'uint256' },
+      { name: 'btcTokenAmount', type: 'uint256' },
+      { name: 'originalMintedAmount', type: 'uint256' },
+    ],
+  },
+] as const;
 
 /**
  * Supported data sources
@@ -44,6 +80,8 @@ export interface DataSourceAdapter {
  */
 export interface AnvilAdapterConfig {
   indexer: AnvilIndexer;
+  /** RPC URL for direct contract queries (default: http://127.0.0.1:8545) */
+  rpcUrl?: string;
 }
 
 /**
@@ -56,39 +94,68 @@ export interface SubgraphAdapterConfig {
 /**
  * Anvil data source adapter
  *
- * Uses local AnvilIndexer for real-time event capture during simulation.
+ * Queries VaultNFT contract directly for current on-chain state.
+ * Uses the indexer for contract addresses and event queries.
  */
 export class AnvilAdapter implements DataSourceAdapter {
   readonly source: DataSource = 'anvil';
   private indexer: AnvilIndexer;
+  private client: PublicClient;
 
   constructor(config: AnvilAdapterConfig) {
     this.indexer = config.indexer;
+    this.client = createPublicClient({
+      chain: anvil,
+      transport: http(config.rpcUrl ?? 'http://127.0.0.1:8545'),
+    });
   }
 
   async getVaults(_filter?: VaultQueryOptions): Promise<Vault[]> {
-    // Anvil indexer captures events, not vault states
-    // Build vault state from VaultMinted events
-    const events = this.indexer.getEvents({ types: ['VaultMinted'] });
+    const contracts = this.indexer.getContracts();
+    if (!contracts) {
+      throw new Error('Indexer not started - contract addresses unknown');
+    }
 
     const vaults: Vault[] = [];
-    for (const event of events) {
-      if (event.type === 'VaultMinted') {
+    let tokenId = 0n;
+
+    // Iterate through token IDs until we hit a non-existent token
+    while (true) {
+      try {
+        const owner = await this.client.readContract({
+          address: contracts.vaultNFT,
+          abi: VAULT_NFT_ABI,
+          functionName: 'ownerOf',
+          args: [tokenId],
+        });
+
+        const info = await this.client.readContract({
+          address: contracts.vaultNFT,
+          abi: VAULT_NFT_ABI,
+          functionName: 'getVaultInfo',
+          args: [tokenId],
+        });
+
         vaults.push({
-          tokenId: event.tokenId,
-          owner: event.owner,
-          treasureContract: event.treasureContract,
-          treasureTokenId: event.treasureTokenId,
-          collateralToken: '0x0000000000000000000000000000000000000000' as Address,
-          collateralAmount: event.collateral,
-          mintTimestamp: event.blockTimestamp,
-          lastWithdrawal: 0n,
-          vestedBTCAmount: 0n,
-          lastActivity: event.blockTimestamp,
+          tokenId,
+          owner: owner as Address,
+          treasureContract: info[0] as Address,
+          treasureTokenId: info[1] as bigint,
+          collateralToken: info[2] as Address,
+          collateralAmount: info[3] as bigint,
+          mintTimestamp: info[4] as bigint,
+          lastWithdrawal: info[5] as bigint,
+          vestedBTCAmount: info[7] as bigint,
+          lastActivity: info[6] as bigint,
           pokeTimestamp: 0n,
           windowId: 0n,
-          issuer: event.treasureContract,
+          issuer: info[0] as Address,
         });
+
+        tokenId++;
+      } catch {
+        // Token doesn't exist - we've enumerated all vaults
+        break;
       }
     }
 

@@ -2,8 +2,14 @@ import type { Chain } from 'viem';
 
 /**
  * Supported chain IDs
+ *
+ * - 1: Ethereum Mainnet
+ * - 8453: Base Mainnet
+ * - 11155111: Sepolia Testnet
+ * - 84532: Base Sepolia Testnet
+ * - 31337: Local Anvil (development)
  */
-export type SupportedChainId = 1 | 8453 | 11155111 | 84532;
+export type SupportedChainId = 1 | 8453 | 11155111 | 84532 | 31337;
 
 /**
  * Chain configuration

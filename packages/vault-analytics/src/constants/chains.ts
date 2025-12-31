@@ -56,6 +56,22 @@ export const CHAIN_CONFIGS: Record<SupportedChainId, ChainConfig> = {
     vestedBtcAddress: '0x0000000000000000000000000000000000000000',
     subgraphUrl: 'https://api.thegraph.com/subgraphs/name/btcnft/vault-analytics-base-sepolia',
   },
+  /**
+   * Local Anvil - Development chain
+   *
+   * Contract addresses should be set via environment variables or
+   * updated after local deployment. Use AnvilAdapter for local testing.
+   *
+   * @remarks
+   * For local development, use the AnvilIndexer and AnvilAdapter instead of
+   * the SubgraphClient. The addresses here are defaults from `forge script`.
+   */
+  31337: {
+    chainId: 31337,
+    vaultNftAddress: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+    vestedBtcAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+    subgraphUrl: '', // No subgraph for local development
+  },
 };
 
 /**
