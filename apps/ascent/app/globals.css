@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+/* Reverse scroll container - Berachain pattern */
+.scroll-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  will-change: transform;
+}
+
+.scroll-content {
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+/* Smooth scroll wrapper for GSAP */
+#smooth-wrapper {
+  overflow: hidden;
+  position: fixed;
+  height: 100%;
+  width: 100%;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+#smooth-content {
+  overflow: visible;
+  width: 100%;
+}
+
+/* Section styling for scroll sections */
+.scroll-section {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* Altitude zone gradients */
+.zone-trailhead {
+  background: linear-gradient(180deg, #1a2f1a 0%, #228B22 100%);
+}
+
+.zone-firstcamp {
+  background: linear-gradient(180deg, #228B22 0%, #8FBC8F 100%);
+}
+
+.zone-basecamp {
+  background: linear-gradient(180deg, #8FBC8F 0%, #708090 100%);
+}
+
+.zone-ridgeline {
+  background: linear-gradient(180deg, #708090 0%, #87CEEB 100%);
+}
+
+.zone-highcamp {
+  background: linear-gradient(180deg, #87CEEB 0%, #4a5568 100%);
+}
+
+.zone-deathzone {
+  background: linear-gradient(180deg, #4a5568 0%, #e2e8f0 100%);
+}
+
+.zone-summit {
+  background: linear-gradient(180deg, #e2e8f0 0%, #FFD700 100%);
+}
+
+/* RainbowKit modal overrides */
+[data-rk] {
+  --rk-colors-accentColor: #FFD700;
+}
+
+/* Loading skeleton animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Inverted scroll indicator - bounces upward */
+@keyframes bounce-up {
+  0%, 100% {
+    transform: translateY(0) translateX(-50%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(-25%) translateX(-50%);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+.animate-bounce-up {
+  animation: bounce-up 1s infinite;
+}

@@ -18,6 +18,10 @@ broadcast/
 node_modules/
 dist/
 
+# Next.js
+.next/
+out/
+
 # Python / Analysis workspace
 analysis/data/
 analysis/.venv/
