@@ -1,7 +1,7 @@
 #!/bin/bash
 # Network configuration for BTCNFT CLI
-# Supported: local (Anvil), sepolia, holesky
-# Mainnet is explicitly NOT supported
+# Supported: local (Anvil), sepolia, holesky, base
+# Ethereum mainnet is explicitly NOT supported
 
 # Default network
 readonly DEFAULT_NETWORK="local"
@@ -15,6 +15,7 @@ _get_rpc_url() {
         local)   echo "http://localhost:8545" ;;
         sepolia) echo "https://rpc.sepolia.org" ;;
         holesky) echo "https://rpc.holesky.ethpandaops.io" ;;
+        base)    echo "https://mainnet.base.org" ;;
         *)       echo "" ;;
     esac
 }
@@ -25,6 +26,7 @@ _get_chain_id() {
         local)   echo "31337" ;;
         sepolia) echo "11155111" ;;
         holesky) echo "17000" ;;
+        base)    echo "8453" ;;
         *)       echo "" ;;
     esac
 }
@@ -35,6 +37,7 @@ _get_network_display_name() {
         local)   echo "Local (Anvil)" ;;
         sepolia) echo "Sepolia Testnet" ;;
         holesky) echo "Holesky Testnet" ;;
+        base)    echo "Base Mainnet" ;;
         *)       echo "Unknown" ;;
     esac
 }
@@ -54,7 +57,7 @@ validate_network() {
     rpc_url=$(_get_rpc_url "$network")
     if [[ -z "$rpc_url" ]]; then
         echo "Error: Unknown network '$network'" >&2
-        echo "Supported networks: local, sepolia, holesky" >&2
+        echo "Supported networks: local, sepolia, holesky, base" >&2
         exit 1
     fi
 
@@ -92,6 +95,12 @@ is_local_network() {
 is_testnet() {
     local network="${1:-$CURRENT_NETWORK}"
     [[ "$network" == "sepolia" || "$network" == "holesky" ]]
+}
+
+# Check if network is a mainnet (production)
+is_mainnet() {
+    local network="${1:-$CURRENT_NETWORK}"
+    [[ "$network" == "base" ]]
 }
 
 # Get environment file path for network
@@ -139,11 +148,11 @@ parse_network_args() {
     echo "${args[@]}"
 }
 
-# Prompt for confirmation on testnets
-confirm_testnet_action() {
+# Prompt for confirmation on non-local networks
+confirm_non_local_action() {
     local action="$1"
 
-    if is_testnet; then
+    if ! is_local_network; then
         echo "WARNING: You are about to $action on $(get_network_name)" >&2
         read -p "Are you sure? (y/N) " -n 1 -r
         echo

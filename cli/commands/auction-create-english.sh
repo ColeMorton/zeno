@@ -54,7 +54,7 @@ echo "Withdrawal Rate:     $(get_withdrawal_rate)"
 echo ""
 
 # Confirm on testnet
-confirm_testnet_action "create English auction"
+confirm_non_local_action "create English auction"
 
 # Create auction
 # Function signature: createEnglishAuction(uint256 maxSupply, address collateralToken, (uint256 reservePrice, uint256 minBidIncrement, uint256 startTime, uint256 endTime, uint256 extensionWindow, uint256 extensionDuration) config)

@@ -58,7 +58,7 @@ if [[ $NEW_TOTAL -gt $MAX_DELEGATION_BPS ]]; then
 fi
 
 # Confirm on testnet
-confirm_testnet_action "grant withdrawal delegation"
+confirm_non_local_action "grant withdrawal delegation"
 
 # Grant delegation
 echo "Granting delegation..."

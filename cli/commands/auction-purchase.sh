@@ -57,7 +57,7 @@ echo "Price:       $(format_btc "$CURRENT_PRICE") BTC ($CURRENT_PRICE satoshis)"
 echo ""
 
 # Confirm on testnet
-confirm_testnet_action "purchase from auction at current price"
+confirm_non_local_action "purchase from auction at current price"
 
 # Approve collateral token
 echo "Approving collateral token..."

@@ -47,7 +47,7 @@ if [[ $BALANCE -lt $ORIGINAL_AMOUNT ]]; then
 fi
 
 # Confirm on testnet
-confirm_testnet_action "return vBTC to vault"
+confirm_non_local_action "return vBTC to vault"
 
 # Return vBTC
 echo "Returning vBTC..."

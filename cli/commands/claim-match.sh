@@ -42,7 +42,7 @@ echo "Your collateral:    $(format_btc "$COLLATERAL_BEFORE") BTC"
 echo ""
 
 # Confirm on testnet
-confirm_testnet_action "claim from match pool"
+confirm_non_local_action "claim from match pool"
 
 # Claim match
 echo "Claiming match pool share..."

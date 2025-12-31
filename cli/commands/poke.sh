@@ -29,7 +29,7 @@ echo "Dormancy status: $DORMANCY_INFO"
 echo ""
 
 # Confirm on testnet
-confirm_testnet_action "poke dormant vault"
+confirm_non_local_action "poke dormant vault"
 
 # Poke dormant
 echo "Initiating dormancy process..."

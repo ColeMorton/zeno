@@ -59,7 +59,7 @@ echo "Withdrawable:    $(format_btc "$WITHDRAWABLE") BTC"
 echo ""
 
 # Confirm on testnet
-confirm_testnet_action "withdraw as delegate"
+confirm_non_local_action "withdraw as delegate"
 
 # Execute delegated withdrawal
 echo "Executing delegated withdrawal..."

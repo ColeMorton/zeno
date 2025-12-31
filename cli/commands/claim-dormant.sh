@@ -47,7 +47,7 @@ echo ""
 require_balance "$BTC_TOKEN" "$BTC_AMOUNT"
 
 # Confirm on testnet
-confirm_testnet_action "claim dormant collateral"
+confirm_non_local_action "claim dormant collateral"
 
 # Claim dormant collateral
 echo "Claiming dormant collateral..."

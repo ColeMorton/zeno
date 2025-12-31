@@ -40,7 +40,7 @@ fi
 echo "Withdrawable: $(format_btc "$WITHDRAWABLE") BTC ($WITHDRAWABLE satoshis)"
 
 # Confirm on testnet
-confirm_testnet_action "withdraw from vault"
+confirm_non_local_action "withdraw from vault"
 
 # Execute withdrawal
 echo ""

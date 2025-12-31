@@ -66,7 +66,7 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 # Confirm on testnet (additional confirmation)
-confirm_testnet_action "early redeem vault"
+confirm_non_local_action "early redeem vault"
 
 # Execute early redemption
 echo ""

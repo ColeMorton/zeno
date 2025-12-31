@@ -77,7 +77,7 @@ if [[ "$CURRENT_BIDDER" != "0x0000000000000000000000000000000000000000" ]]; then
 fi
 
 # Confirm on testnet
-confirm_testnet_action "place bid on auction slot"
+confirm_non_local_action "place bid on auction slot"
 
 # Approve collateral token
 echo "Approving collateral token..."

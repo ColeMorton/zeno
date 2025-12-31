@@ -80,7 +80,7 @@ echo "Winning Bid: $(format_btc "$WINNING_BID") BTC"
 echo ""
 
 # Confirm on testnet
-confirm_testnet_action "settle auction slot"
+confirm_non_local_action "settle auction slot"
 
 # Settle slot
 echo "Settling..."

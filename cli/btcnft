@@ -18,7 +18,7 @@ BTCNFT Protocol CLI v${VERSION}
 Usage: ./btcnft [--network <network>] <command> [args...]
 
 Options:
-  --network <network>   Target network: local, sepolia, holesky (default: local)
+  --network <network>   Target network: local, sepolia, holesky, base (default: local)
   --help, -h           Show this help message
   --version, -v        Show version
 

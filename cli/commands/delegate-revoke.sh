@@ -38,7 +38,7 @@ if [[ "$DELEGATE" == "--all" ]]; then
     echo "Revoking ALL delegates..."
 
     # Confirm on testnet
-    confirm_testnet_action "revoke all delegates"
+    confirm_non_local_action "revoke all delegates"
 
     TX_HASH=$(cast_send "$VAULT" "revokeAllWithdrawalDelegates(uint256)" "$TOKEN_ID")
 
@@ -48,7 +48,7 @@ elif [[ -n "$DELEGATE" ]]; then
     echo "Delegate: $DELEGATE"
 
     # Confirm on testnet
-    confirm_testnet_action "revoke delegate"
+    confirm_non_local_action "revoke delegate"
 
     echo "Revoking delegation..."
     TX_HASH=$(cast_send "$VAULT" "revokeWithdrawalDelegate(uint256,address)" "$TOKEN_ID" "$DELEGATE")

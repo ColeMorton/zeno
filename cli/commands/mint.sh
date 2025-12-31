@@ -32,7 +32,7 @@ echo "Withdrawal Rate: $(get_withdrawal_rate)"
 echo ""
 
 # Confirm on testnet
-confirm_testnet_action "mint a vault"
+confirm_non_local_action "mint a vault"
 
 # Approve WBTC
 echo "Approving WBTC..."

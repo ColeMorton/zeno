@@ -24,7 +24,7 @@ echo ""
 require_vault_exists "$TOKEN_ID"
 
 # Confirm on testnet
-confirm_testnet_action "prove vault activity"
+confirm_non_local_action "prove vault activity"
 
 # Prove activity
 echo "Proving activity..."

@@ -154,6 +154,18 @@ forge script script/DeployIssuer.s.sol:DeployIssuer \
   --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
+**Base Mainnet:**
+
+```bash
+source .env.base
+forge script script/DeployIssuer.s.sol:DeployIssuer \
+  --rpc-url $RPC_URL \
+  --broadcast \
+  --verify \
+  --verifier blockscout \
+  --verifier-url https://base.blockscout.com/api/
+```
+
 **Local (Anvil):**
 
 ```bash

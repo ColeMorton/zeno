@@ -42,7 +42,7 @@ echo "vBTC to mint: $(format_btc "$COLLATERAL") vBTC"
 echo ""
 
 # Confirm on testnet
-confirm_testnet_action "mint vBTC tokens"
+confirm_non_local_action "mint vBTC tokens"
 
 # Mint vBTC
 echo "Minting vBTC..."

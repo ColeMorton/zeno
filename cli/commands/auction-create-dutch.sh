@@ -57,7 +57,7 @@ echo "Withdrawal Rate: $(get_withdrawal_rate)"
 echo ""
 
 # Confirm on testnet
-confirm_testnet_action "create Dutch auction"
+confirm_non_local_action "create Dutch auction"
 
 # Create auction
 # Function signature: createDutchAuction(uint256 maxSupply, address collateralToken, (uint256 startPrice, uint256 floorPrice, uint256 decayRate, uint256 startTime, uint256 endTime) config)
