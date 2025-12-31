@@ -1,81 +1,399 @@
 #!/bin/bash
-# Deploy BTCNFT Protocol contracts (local Anvil only)
+# BTCNFT Protocol - Comprehensive Local Development Setup
+# Idempotent script for deploying contracts and configuring environments
 set -e
 
+# ============================================================
+# Configuration
+# ============================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLI_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_DIR="$(dirname "$CLI_DIR")"
-ENV_FILE="$CLI_DIR/.env"
+PROTOCOL_DIR="$PROJECT_DIR/contracts/protocol"
+CLI_ENV_FILE="$CLI_DIR/.env"
+FRONTEND_DIR="$PROJECT_DIR/apps/ascent"
+FRONTEND_ENV_FILE="$FRONTEND_DIR/.env.local"
 
-cd "$PROJECT_DIR"
+RPC_URL="http://localhost:8545"
+DEPLOYER_ADDRESS="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+DEPLOYER_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
-echo "=== BTCNFT Protocol Setup ==="
+# ============================================================
+# Helper Functions
+# ============================================================
+log_info() { echo "info: $1"; }
+log_success() { echo "ok: $1"; }
+log_error() { echo "error: $1" >&2; }
+log_section() { echo ""; echo "=== $1 ==="; }
 
-# Kill existing Anvil if running
-if pgrep -f "anvil" > /dev/null; then
-    echo "Stopping existing Anvil instance..."
-    pkill -f "anvil" || true
-    sleep 2
+check_dependency() {
+    if ! command -v "$1" &> /dev/null; then
+        log_error "$1 is not installed. Please install Foundry: https://getfoundry.sh"
+        exit 1
+    fi
+}
+
+# ============================================================
+# Step 1: Check Dependencies
+# ============================================================
+log_section "Checking Dependencies"
+
+check_dependency "anvil"
+check_dependency "forge"
+check_dependency "cast"
+log_success "All dependencies installed"
+
+# ============================================================
+# Step 2: Manage Anvil (Idempotent)
+# ============================================================
+log_section "Managing Anvil"
+
+anvil_running() {
+    curl -s -X POST "$RPC_URL" \
+        -H "Content-Type: application/json" \
+        -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+        2>/dev/null | grep -q "0x7a69"
+}
+
+if anvil_running; then
+    log_info "Anvil already running on $RPC_URL"
+    ANVIL_PID=$(pgrep -f "anvil" | head -1 || echo "unknown")
+    REUSED_ANVIL=true
+else
+    log_info "Starting Anvil..."
+
+    # Kill any zombie processes
+    pkill -f "anvil" 2>/dev/null || true
+    sleep 1
+
+    anvil --block-time 1 > /dev/null 2>&1 &
+    ANVIL_PID=$!
+    sleep 3
+
+    if ! anvil_running; then
+        log_error "Failed to start Anvil"
+        exit 1
+    fi
+
+    REUSED_ANVIL=false
+    log_success "Anvil started (PID: $ANVIL_PID)"
 fi
 
-echo "Starting Anvil..."
-anvil --block-time 1 > /dev/null 2>&1 &
-ANVIL_PID=$!
-sleep 3
+# ============================================================
+# Step 3: Deploy Contracts
+# ============================================================
+log_section "Deploying Contracts"
 
-if ! kill -0 $ANVIL_PID 2>/dev/null; then
-    echo "Error: Failed to start Anvil" >&2
-    exit 1
-fi
-echo "Anvil started (PID: $ANVIL_PID)"
+cd "$PROTOCOL_DIR"
+export PRIVATE_KEY="$DEPLOYER_PRIVATE_KEY"
 
-# Default Anvil private key
-export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+log_info "Running forge script..."
+OUTPUT=$(forge script script/Deploy.s.sol:Deploy --rpc-url "$RPC_URL" --broadcast 2>&1)
 
-echo "Deploying contracts..."
-OUTPUT=$(forge script script/Deploy.s.sol:Deploy --rpc-url http://localhost:8545 --broadcast 2>&1)
+# Parse deployment addresses (use precise patterns to avoid matching log messages)
+TREASURE=$(echo "$OUTPUT" | grep -E "^\s+TREASURE:" | awk '{print $2}')
+WBTC=$(echo "$OUTPUT" | grep -E "^\s+WBTC:" | awk '{print $2}')
+BTC_TOKEN_WBTC=$(echo "$OUTPUT" | grep -E "^\s+BTC_TOKEN_WBTC:" | awk '{print $2}')
+VAULT_WBTC=$(echo "$OUTPUT" | grep -E "^\s+VAULT_WBTC:" | awk '{print $2}')
+CBBTC=$(echo "$OUTPUT" | grep -E "^\s+CBBTC:" | awk '{print $2}')
+BTC_TOKEN_CBBTC=$(echo "$OUTPUT" | grep -E "^\s+BTC_TOKEN_CBBTC:" | awk '{print $2}')
+VAULT_CBBTC=$(echo "$OUTPUT" | grep -E "^\s+VAULT_CBBTC:" | awk '{print $2}')
 
-# Parse deployment addresses
-WBTC=$(echo "$OUTPUT" | grep "WBTC:" | awk '{print $2}')
-TREASURE=$(echo "$OUTPUT" | grep "TREASURE:" | awk '{print $2}')
-BTC_TOKEN=$(echo "$OUTPUT" | grep "BTC_TOKEN:" | awk '{print $2}')
-VAULT=$(echo "$OUTPUT" | grep "VAULT:" | awk '{print $2}')
-
-if [[ -z "$VAULT" ]]; then
-    echo "Error: Failed to parse deployment addresses" >&2
+# Validate all addresses parsed
+if [[ -z "$VAULT_WBTC" ]] || [[ -z "$VAULT_CBBTC" ]] || [[ -z "$TREASURE" ]]; then
+    log_error "Failed to parse deployment addresses"
     echo "$OUTPUT" >&2
     exit 1
 fi
 
-# Write environment file
-cat > "$ENV_FILE" << EOF
+log_success "Contracts deployed"
+
+# ============================================================
+# Step 4: Write CLI Environment
+# ============================================================
+log_section "Configuring CLI Environment"
+
+cat > "$CLI_ENV_FILE" << EOF
 # BTCNFT Protocol - Local Environment
 # Generated by: ./btcnft setup
+# Generated at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-RPC_URL=http://localhost:8545
-PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+RPC_URL=$RPC_URL
+PRIVATE_KEY=$DEPLOYER_PRIVATE_KEY
 
-# Contract Addresses
-WBTC=$WBTC
+# Shared Contract
 TREASURE=$TREASURE
-BTC_TOKEN=$BTC_TOKEN
-VAULT=$VAULT
+
+# WBTC Collateral Stack
+WBTC=$WBTC
+BTC_TOKEN_WBTC=$BTC_TOKEN_WBTC
+VAULT_WBTC=$VAULT_WBTC
+
+# cbBTC Collateral Stack
+CBBTC=$CBBTC
+BTC_TOKEN_CBBTC=$BTC_TOKEN_CBBTC
+VAULT_CBBTC=$VAULT_CBBTC
+
+# Legacy aliases (for existing CLI commands)
+BTC_TOKEN=$BTC_TOKEN_WBTC
+VAULT=$VAULT_WBTC
 
 # Anvil Process
 ANVIL_PID=$ANVIL_PID
 EOF
 
+log_success "CLI environment saved to: $CLI_ENV_FILE"
+
+# ============================================================
+# Step 5: Configure Frontend Environment (Preserving User Settings)
+# ============================================================
+log_section "Configuring Frontend Environment"
+
+if [[ -d "$FRONTEND_DIR" ]]; then
+    # Preserve existing WALLET_CONNECT_ID if set
+    WALLET_CONNECT_ID="your_project_id_here"
+    if [[ -f "$FRONTEND_ENV_FILE" ]]; then
+        EXISTING_ID=$(grep "NEXT_PUBLIC_WALLET_CONNECT_ID=" "$FRONTEND_ENV_FILE" 2>/dev/null | cut -d'=' -f2 || true)
+        if [[ -n "$EXISTING_ID" ]] && [[ "$EXISTING_ID" != "your_project_id_here" ]]; then
+            WALLET_CONNECT_ID="$EXISTING_ID"
+            log_info "Preserving existing WALLET_CONNECT_ID"
+        fi
+    fi
+
+    # Preserve existing TEST_WALLET if set
+    TEST_WALLET=""
+    if [[ -f "$FRONTEND_ENV_FILE" ]]; then
+        EXISTING_WALLET=$(grep "NEXT_PUBLIC_TEST_WALLET=" "$FRONTEND_ENV_FILE" 2>/dev/null | cut -d'=' -f2 || true)
+        if [[ -n "$EXISTING_WALLET" ]]; then
+            TEST_WALLET="$EXISTING_WALLET"
+        fi
+    fi
+
+    cat > "$FRONTEND_ENV_FILE" << EOF
+# BTCNFT Protocol - Frontend Local Environment
+# Generated by: ./btcnft setup
+# Generated at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# WalletConnect Project ID - Get one at https://cloud.walletconnect.com
+NEXT_PUBLIC_WALLET_CONNECT_ID=$WALLET_CONNECT_ID
+
+# Anvil RPC endpoint
+NEXT_PUBLIC_ANVIL_RPC=$RPC_URL
+
+# Protocol contracts (cbBTC stack for frontend)
+NEXT_PUBLIC_VAULT_NFT_ANVIL=$VAULT_CBBTC
+NEXT_PUBLIC_BTC_TOKEN_ANVIL=$BTC_TOKEN_CBBTC
+NEXT_PUBLIC_CBBTC_ANVIL=$CBBTC
+
+# Shared contracts
+NEXT_PUBLIC_TREASURE_NFT_ANVIL=$TREASURE
+EOF
+
+    # Add TEST_WALLET if it existed
+    if [[ -n "$TEST_WALLET" ]]; then
+        echo "" >> "$FRONTEND_ENV_FILE"
+        echo "# Test wallet for development" >> "$FRONTEND_ENV_FILE"
+        echo "NEXT_PUBLIC_TEST_WALLET=$TEST_WALLET" >> "$FRONTEND_ENV_FILE"
+    fi
+
+    log_success "Frontend environment saved to: $FRONTEND_ENV_FILE"
+else
+    log_info "Frontend directory not found, skipping frontend configuration"
+fi
+
+# ============================================================
+# Step 6: Verification
+# ============================================================
+log_section "Verifying Deployment"
+
+# Check WBTC balance (use cast to convert hex to decimal)
+WBTC_BALANCE_RAW=$(cast call "$WBTC" "balanceOf(address)" "$DEPLOYER_ADDRESS" --rpc-url "$RPC_URL" 2>/dev/null || echo "0x0")
+WBTC_BALANCE_DEC=$(cast to-dec "$WBTC_BALANCE_RAW" 2>/dev/null || echo "0")
+WBTC_BALANCE_DEC=$((WBTC_BALANCE_DEC / 100000000))
+
+# Check cbBTC balance
+CBBTC_BALANCE_RAW=$(cast call "$CBBTC" "balanceOf(address)" "$DEPLOYER_ADDRESS" --rpc-url "$RPC_URL" 2>/dev/null || echo "0x0")
+CBBTC_BALANCE_DEC=$(cast to-dec "$CBBTC_BALANCE_RAW" 2>/dev/null || echo "0")
+CBBTC_BALANCE_DEC=$((CBBTC_BALANCE_DEC / 100000000))
+
+# Check Treasure NFT balance
+TREASURE_BALANCE_RAW=$(cast call "$TREASURE" "balanceOf(address)" "$DEPLOYER_ADDRESS" --rpc-url "$RPC_URL" 2>/dev/null || echo "0x0")
+TREASURE_BALANCE_DEC=$(cast to-dec "$TREASURE_BALANCE_RAW" 2>/dev/null || echo "0")
+
+if [[ "$WBTC_BALANCE_DEC" -ge 100 ]] && [[ "$CBBTC_BALANCE_DEC" -ge 100 ]] && [[ "$TREASURE_BALANCE_DEC" -ge 10 ]]; then
+    log_success "Verification passed"
+else
+    log_error "Verification failed - WBTC: $WBTC_BALANCE_DEC, cbBTC: $CBBTC_BALANCE_DEC, Treasure: $TREASURE_BALANCE_DEC"
+    exit 1
+fi
+
+# ============================================================
+# Step 7: Seed Test Vaults (Idempotent)
+# ============================================================
+log_section "Seeding Test Vaults"
+
+# Epoch baseline: Jan 1 2024 00:00:00 UTC
+EPOCH_START=1704067200
+VAULT_AGE_DAYS=1100
+VAULT_MINT_TIME=$((EPOCH_START - (VAULT_AGE_DAYS * 86400)))
+
+# Anvil test accounts (address:privateKey) - first 5 accounts
+TEST_ACCOUNTS=(
+    "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266:0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    "0x70997970C51812dc3A010C7d01b50e0d17dc79C8:0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+    "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC:0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a"
+    "0x90F79bf6EB2c4f870365E785982E1f101E93b906:0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6"
+    "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65:0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"
+)
+
+# Check total vault supply to determine if seeding already done
+TOTAL_SUPPLY_RAW=$(cast call "$VAULT_CBBTC" "totalSupply()" --rpc-url "$RPC_URL" 2>/dev/null || echo "0x0")
+TOTAL_SUPPLY_DEC=$(cast to-dec "$TOTAL_SUPPLY_RAW" 2>/dev/null || echo "0")
+
+if [[ "$TOTAL_SUPPLY_DEC" -gt 0 ]]; then
+    log_info "Vaults already exist (totalSupply: $TOTAL_SUPPLY_DEC), skipping seed"
+    SEEDED_VAULTS=0
+else
+    log_info "Creating test vaults for leaderboard (5 different wallets)..."
+
+    # Set blockchain time to past (vaults will be minted with old timestamps)
+    log_info "Setting block time to $VAULT_AGE_DAYS days before epoch..."
+    curl -s -X POST "$RPC_URL" \
+        -H "Content-Type: application/json" \
+        -d "{\"jsonrpc\":\"2.0\",\"method\":\"evm_setNextBlockTimestamp\",\"params\":[$VAULT_MINT_TIME],\"id\":1}" \
+        > /dev/null
+
+    curl -s -X POST "$RPC_URL" \
+        -H "Content-Type: application/json" \
+        -d '{"jsonrpc":"2.0","method":"evm_mine","params":[],"id":1}' \
+        > /dev/null
+
+    # Vault configurations: collateral amounts in satoshis
+    COLLATERAL_AMOUNTS=("25000000" "18000000" "12000000" "9000000" "7500000")
+
+    SEEDED_VAULTS=0
+    for i in "${!COLLATERAL_AMOUNTS[@]}"; do
+        COLLATERAL=${COLLATERAL_AMOUNTS[$i]}
+
+        # Parse account address and private key
+        IFS=':' read -r ACCOUNT_ADDRESS ACCOUNT_PRIVATE_KEY <<< "${TEST_ACCOUNTS[$i]}"
+
+        # Get treasure token ID from deployer
+        TREASURE_TOKEN_RAW=$(cast call "$TREASURE" "tokenOfOwnerByIndex(address,uint256)" "$DEPLOYER_ADDRESS" "0" --rpc-url "$RPC_URL" 2>/dev/null || echo "0x0")
+        TREASURE_TOKEN_DEC=$(cast to-dec "$TREASURE_TOKEN_RAW" 2>/dev/null || echo "$i")
+
+        # Transfer Treasure NFT from deployer to target account
+        cast send "$TREASURE" "transferFrom(address,address,uint256)" \
+            "$DEPLOYER_ADDRESS" \
+            "$ACCOUNT_ADDRESS" \
+            "$TREASURE_TOKEN_DEC" \
+            --private-key "$DEPLOYER_PRIVATE_KEY" \
+            --rpc-url "$RPC_URL" \
+            > /dev/null 2>&1
+
+        # Transfer cbBTC from deployer to target account
+        cast send "$CBBTC" "transfer(address,uint256)" \
+            "$ACCOUNT_ADDRESS" \
+            "$COLLATERAL" \
+            --private-key "$DEPLOYER_PRIVATE_KEY" \
+            --rpc-url "$RPC_URL" \
+            > /dev/null 2>&1
+
+        # Target account approves Treasure NFT to vault contract
+        cast send "$TREASURE" "approve(address,uint256)" "$VAULT_CBBTC" "$TREASURE_TOKEN_DEC" \
+            --private-key "$ACCOUNT_PRIVATE_KEY" \
+            --rpc-url "$RPC_URL" \
+            > /dev/null 2>&1
+
+        # Target account approves collateral to vault contract
+        cast send "$CBBTC" "approve(address,uint256)" "$VAULT_CBBTC" "$COLLATERAL" \
+            --private-key "$ACCOUNT_PRIVATE_KEY" \
+            --rpc-url "$RPC_URL" \
+            > /dev/null 2>&1
+
+        # Target account mints vault
+        cast send "$VAULT_CBBTC" \
+            "mint(address,uint256,address,uint256)" \
+            "$TREASURE" \
+            "$TREASURE_TOKEN_DEC" \
+            "$CBBTC" \
+            "$COLLATERAL" \
+            --private-key "$ACCOUNT_PRIVATE_KEY" \
+            --rpc-url "$RPC_URL" \
+            > /dev/null 2>&1
+
+        SEEDED_VAULTS=$((SEEDED_VAULTS + 1))
+    done
+
+    log_success "Created $SEEDED_VAULTS test vaults across $SEEDED_VAULTS wallets"
+fi
+
+# ============================================================
+# Step 8: Reset to Epoch Start (Day 0)
+# ============================================================
+log_section "Setting Epoch Baseline"
+
+log_info "Resetting blockchain time to epoch start (Jan 1 2024)..."
+
+curl -s -X POST "$RPC_URL" \
+    -H "Content-Type: application/json" \
+    -d "{\"jsonrpc\":\"2.0\",\"method\":\"evm_setNextBlockTimestamp\",\"params\":[$EPOCH_START],\"id\":1}" \
+    > /dev/null
+
+curl -s -X POST "$RPC_URL" \
+    -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","method":"evm_mine","params":[],"id":1}' \
+    > /dev/null
+
+log_success "Blockchain time set to epoch start (Day 0)"
+
+# ============================================================
+# Summary
+# ============================================================
+log_section "Deployment Complete"
+
 echo ""
-echo "=== Deployment Complete ==="
-echo "WBTC:      $WBTC"
-echo "TREASURE:  $TREASURE"
-echo "BTC_TOKEN: $BTC_TOKEN"
-echo "VAULT:     $VAULT"
+echo "Deployer: $DEPLOYER_ADDRESS"
 echo ""
-echo "Environment saved to: $ENV_FILE"
+echo "Shared:"
+echo "  TREASURE:      $TREASURE"
 echo ""
-echo "To stop Anvil: kill $ANVIL_PID"
+echo "WBTC Stack:"
+echo "  WBTC:          $WBTC"
+echo "  BTC_TOKEN:     $BTC_TOKEN_WBTC"
+echo "  VAULT:         $VAULT_WBTC"
+echo ""
+echo "cbBTC Stack:"
+echo "  CBBTC:         $CBBTC"
+echo "  BTC_TOKEN:     $BTC_TOKEN_CBBTC"
+echo "  VAULT:         $VAULT_CBBTC"
+echo ""
+# Get final vault count
+FINAL_VAULT_BALANCE_RAW=$(cast call "$VAULT_CBBTC" "balanceOf(address)" "$DEPLOYER_ADDRESS" --rpc-url "$RPC_URL" 2>/dev/null || echo "0x0")
+FINAL_VAULT_BALANCE_DEC=$(cast to-dec "$FINAL_VAULT_BALANCE_RAW" 2>/dev/null || echo "0")
+
+echo "Balances:"
+echo "  WBTC:          ${WBTC_BALANCE_DEC} WBTC"
+echo "  cbBTC:         ${CBBTC_BALANCE_DEC} cbBTC"
+echo "  Treasure NFTs: ${TREASURE_BALANCE_DEC}"
+echo "  Vaults:        ${FINAL_VAULT_BALANCE_DEC}"
+echo ""
+
+if [[ "$REUSED_ANVIL" == "true" ]]; then
+    echo "Note: Reused existing Anvil instance"
+else
+    echo "To stop Anvil: kill $ANVIL_PID"
+fi
+
+if [[ "$SEEDED_VAULTS" -gt 0 ]]; then
+    echo "Note: Created $SEEDED_VAULTS test vaults across $SEEDED_VAULTS wallets ($VAULT_AGE_DAYS days old)"
+fi
+
+echo ""
+echo "Epoch: Jan 1 2024 (Day 0)"
 echo ""
 echo "Next steps:"
-echo "  ./btcnft mint <treasure_id> <btc_amount_satoshis>"
-echo "  ./btcnft status <vault_token_id>"
+echo "  1. cd apps/ascent && npm run dev"
+echo "  2. Connect wallet to Anvil (chainId 31337)"
+echo "  3. Import account: $DEPLOYER_PRIVATE_KEY"
+echo "  4. Leaderboard will show vaults with $VAULT_AGE_DAYS days held"
