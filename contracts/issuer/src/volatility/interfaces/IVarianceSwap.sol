@@ -198,10 +198,10 @@ interface IVarianceSwap {
     function estimateSettlement(uint256 swapId) external view returns (SettlementResult memory);
 
     /// @notice Calculate required long collateral for given terms
-    function calculateLongCollateral(SwapTerms calldata terms) external view returns (uint256);
+    function calculateLongCollateral(SwapTerms memory terms) external pure returns (uint256);
 
     /// @notice Calculate required short collateral for given terms
-    function calculateShortCollateral(SwapTerms calldata terms) external view returns (uint256);
+    function calculateShortCollateral(SwapTerms memory terms) external pure returns (uint256);
 
     /// @notice Get oracle address
     function oracle() external view returns (address);

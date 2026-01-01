@@ -154,7 +154,7 @@ contract VarianceSwap is IVarianceSwap, ReentrancyGuard {
         uint256 collateralAmount
     ) external nonReentrant {
         SwapPosition storage position = _positions[swapId];
-        SwapTerms storage terms = _terms[swapId];
+        SwapTerms memory terms = _terms[swapId];
 
         if (position.state != SwapState.OPEN) {
             revert SwapNotOpen(swapId);
@@ -473,13 +473,13 @@ contract VarianceSwap is IVarianceSwap, ReentrancyGuard {
     }
 
     /// @inheritdoc IVarianceSwap
-    function calculateLongCollateral(SwapTerms calldata terms) public pure returns (uint256) {
+    function calculateLongCollateral(SwapTerms memory terms) public pure returns (uint256) {
         // Long max loss = notional × strike (if realized = 0)
         return (terms.notionalAmount * terms.strikeVariance) / PRECISION;
     }
 
     /// @inheritdoc IVarianceSwap
-    function calculateShortCollateral(SwapTerms calldata terms) public pure returns (uint256) {
+    function calculateShortCollateral(SwapTerms memory terms) public pure returns (uint256) {
         // Short max loss = notional × (maxVariance - strike)
         return (terms.notionalAmount * (MAX_VARIANCE - terms.strikeVariance)) / PRECISION;
     }
