@@ -25,8 +25,8 @@ export function useChainTime() {
       return Number(block.timestamp);
     },
     enabled: !!publicClient,
-    refetchInterval: isAnvil ? 5000 : false,
-    staleTime: isAnvil ? 1000 : 60000,
+    refetchInterval: isAnvil ? 10000 : false,
+    staleTime: isAnvil ? 10000 : 60000,
   });
 
   const refresh = () => {

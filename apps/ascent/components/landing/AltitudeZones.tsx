@@ -63,7 +63,8 @@ export function AltitudeZones() {
 
     const zones = containerRef.current.querySelectorAll('.zone-item');
 
-    // For inverted scroll: elements enter viewport from TOP
+    // For inverted scroll: scrollY decreases as user progresses
+    // ScrollTrigger sees this as "scrolling back", so use onEnterBack/onLeaveBack
     zones.forEach((zone, i) => {
       gsap.from(zone, {
         x: i % 2 === 0 ? -100 : 100,
@@ -71,8 +72,8 @@ export function AltitudeZones() {
         duration: 0.8,
         scrollTrigger: {
           trigger: zone,
-          start: 'bottom 20%',  // Element's bottom at 20% from viewport top
-          toggleActions: 'play none none reverse',
+          start: 'top 80%',
+          toggleActions: 'none none play reverse',  // onEnterBack: play, onLeaveBack: reverse
         },
       });
     });

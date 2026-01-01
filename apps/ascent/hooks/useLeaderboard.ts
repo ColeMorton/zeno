@@ -100,5 +100,9 @@ export function useLeaderboard() {
     },
     enabled: isAnvil && !!publicClient,
     staleTime: 60 * 1000,
+    structuralSharing: (oldData, newData) => {
+      if (!oldData || !newData) return newData;
+      return JSON.stringify(oldData) === JSON.stringify(newData) ? oldData : newData;
+    },
   });
 }

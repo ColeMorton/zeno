@@ -2,12 +2,10 @@
 
 import { formatCohortDisplay, deriveCohortId } from '@/lib/cohort';
 import { calculateAltitude } from '@/lib/altitude';
-import { useAchievementName } from '@/hooks/useAchievementName';
+import { useTreasureName } from '@/hooks/useTreasureName';
 import { useChainTime } from '@/hooks/useChainTime';
 import type { Address } from 'viem';
 
-// Vault interface matches SDK schema (uses treasureContract/treasureTokenId internally)
-// UI displays these as "Achievement" for The Ascent campaign
 interface Vault {
   tokenId: bigint;
   mintTimestamp: bigint;
@@ -49,8 +47,7 @@ export function VaultCard({ vault, percentile = 50 }: VaultCardProps) {
   const altitudeInfo = calculateAltitude(vault.mintTimestamp, chainTime);
   const tier = getTier(percentile);
   const tierConfig = TIER_CONFIG[tier];
-  // SDK uses treasureContract/treasureTokenId, UI displays as "Achievement"
-  const { data: achievementName, isLoading: isLoadingName } = useAchievementName(
+  const { data: treasureName, isLoading: isLoadingName } = useTreasureName(
     vault.treasureContract,
     vault.treasureTokenId
   );
@@ -66,7 +63,7 @@ export function VaultCard({ vault, percentile = 50 }: VaultCardProps) {
             {isLoadingName ? (
               <span className="inline-block h-6 w-20 bg-gray-700 rounded animate-pulse" />
             ) : (
-              achievementName
+              treasureName
             )}
           </div>
         </div>
@@ -97,7 +94,7 @@ export function VaultCard({ vault, percentile = 50 }: VaultCardProps) {
             {isLoadingName ? (
               <span className="inline-block h-4 w-16 bg-gray-700 rounded animate-pulse" />
             ) : (
-              achievementName
+              treasureName
             )}
           </span>
         </div>

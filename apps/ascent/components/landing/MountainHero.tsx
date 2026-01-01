@@ -1,54 +1,8 @@
 'use client';
 
-import { useRef } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { useGSAP } from '@gsap/react';
-
-if (typeof window !== 'undefined') {
-  gsap.registerPlugin(ScrollTrigger);
-}
-
 export function MountainHero() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const subtitleRef = useRef<HTMLParagraphElement>(null);
-
-  useGSAP(() => {
-    if (!containerRef.current || !titleRef.current || !subtitleRef.current) return;
-
-    // Parallax effect for inverted scroll (user starts here, scrolls UP to leave)
-    // As user scrolls UP, hero exits toward bottom of viewport
-    gsap.to(titleRef.current, {
-      yPercent: -50,  // Move UP as hero exits
-      opacity: 0,
-      ease: 'none',
-      scrollTrigger: {
-        trigger: containerRef.current,
-        start: 'bottom bottom',  // When hero's bottom at viewport bottom
-        end: 'top bottom',       // When hero's top at viewport bottom (fully scrolled past)
-        scrub: true,
-      },
-    });
-
-    gsap.to(subtitleRef.current, {
-      yPercent: -100,  // Move UP faster
-      opacity: 0,
-      ease: 'none',
-      scrollTrigger: {
-        trigger: containerRef.current,
-        start: 'bottom bottom',
-        end: 'center bottom',  // Fade out by halfway
-        scrub: true,
-      },
-    });
-  }, []);
-
   return (
-    <div
-      ref={containerRef}
-      className="relative min-h-screen flex items-center justify-center overflow-hidden"
-    >
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Mountain gradient background */}
       <div className="absolute inset-0 bg-gradient-to-t from-mountain-trailhead via-gray-900 to-black" />
 
@@ -99,16 +53,10 @@ export function MountainHero() {
 
       {/* Content */}
       <div className="relative z-10 text-center px-6">
-        <h1
-          ref={titleRef}
-          className="text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-6"
-        >
+        <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-6">
           The Ascent
         </h1>
-        <p
-          ref={subtitleRef}
-          className="text-xl md:text-2xl text-gray-300 max-w-2xl mx-auto mb-8"
-        >
+        <p className="text-xl md:text-2xl text-gray-300 max-w-2xl mx-auto mb-8">
           The mountain has always been here. It will always be here.
           <br />
           <span className="text-mountain-summit">

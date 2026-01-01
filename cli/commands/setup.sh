@@ -186,6 +186,7 @@ NEXT_PUBLIC_BTC_TOKEN_ANVIL=$BTC_TOKEN_CBBTC
 NEXT_PUBLIC_CBBTC_ANVIL=$CBBTC
 
 # Shared contracts
+# Note: TreasureNFT is the NFT that gets locked inside vaults
 NEXT_PUBLIC_TREASURE_NFT_ANVIL=$TREASURE
 EOF
 

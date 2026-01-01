@@ -10,6 +10,7 @@ import {
   AltitudeProgressSkeleton,
 } from '@/components/dashboard/AltitudeProgress';
 import { VaultCard, VaultCardSkeleton } from '@/components/dashboard/VaultCard';
+import { ActiveChapterCard, ActiveChapterCardSkeleton } from '@/components/chapters';
 
 function DashboardContent() {
   const { isConnected } = useAccount();
@@ -33,9 +34,12 @@ function DashboardContent() {
 
   if (isLoading) {
     return (
-      <div className="grid gap-6 lg:grid-cols-2">
-        <AltitudeProgressSkeleton />
-        <VaultCardSkeleton />
+      <div className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-2">
+          <AltitudeProgressSkeleton />
+          <VaultCardSkeleton />
+        </div>
+        <ActiveChapterCardSkeleton />
       </div>
     );
   }
@@ -99,6 +103,9 @@ function DashboardContent() {
           </div>
         </div>
       </div>
+
+      {/* Active Chapter */}
+      <ActiveChapterCard />
 
       {/* All vaults */}
       {vaults.length > 1 && (

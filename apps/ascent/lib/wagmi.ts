@@ -1,4 +1,11 @@
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { createConfig, http } from 'wagmi';
+import { connectorsForWallets } from '@rainbow-me/rainbowkit';
+import {
+  injectedWallet,
+  rainbowWallet,
+  walletConnectWallet,
+  coinbaseWallet,
+} from '@rainbow-me/rainbowkit/wallets';
 import { base } from 'wagmi/chains';
 import { defineChain } from 'viem';
 
@@ -21,10 +28,26 @@ const isDev = process.env.NODE_ENV === 'development';
 // Production: Base only (hide chain selector)
 const chains = isDev ? ([anvil] as const) : ([base] as const);
 
-export const config = getDefaultConfig({
-  appName: 'The Ascent',
-  projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_ID ?? 'demo',
+const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_ID ?? 'demo';
+
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: 'Popular',
+      wallets: [injectedWallet, rainbowWallet, walletConnectWallet, coinbaseWallet],
+    },
+  ],
+  { appName: 'The Ascent', projectId }
+);
+
+export const config = createConfig({
   chains,
+  connectors,
+  pollingInterval: 10_000,
+  transports: {
+    [anvil.id]: http(),
+    [base.id]: http(),
+  },
   ssr: true,
 });
 

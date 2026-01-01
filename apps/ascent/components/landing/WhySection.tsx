@@ -38,16 +38,17 @@ export function WhySection() {
 
     const items = containerRef.current.querySelectorAll('.reason-item');
 
-    // For inverted scroll: elements enter viewport from TOP
+    // For inverted scroll: scrollY decreases as user progresses
+    // ScrollTrigger sees this as "scrolling back", so use onEnterBack/onLeaveBack
     items.forEach((item) => {
       gsap.from(item, {
-        y: -60,  // Start ABOVE, slide DOWN into view
+        y: 60,  // Start below, slide UP into view
         opacity: 0,
         duration: 0.8,
         scrollTrigger: {
           trigger: item,
-          start: 'bottom 20%',  // Element's bottom at 20% from viewport top
-          toggleActions: 'play none none reverse',
+          start: 'top 80%',
+          toggleActions: 'none none play reverse',  // onEnterBack: play, onLeaveBack: reverse
         },
       });
     });
