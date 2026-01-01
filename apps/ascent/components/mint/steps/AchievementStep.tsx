@@ -1,96 +1,97 @@
 'use client';
 
-import { useAchievementNfts, type AchievementNft } from '@/hooks/useAchievementNfts';
-import { useAchievementName } from '@/hooks/useAchievementName';
+import { CHAPTER_1_ACHIEVEMENTS, type Chapter1Achievement } from '@/lib/chapters';
+import { ACHIEVEMENT_TYPES, ACHIEVEMENT_DISPLAY_NAMES, type AchievementName } from '@/lib/achievements';
+
+export interface SelectedAchievement {
+  name: AchievementName;
+  displayName: string;
+  description: string;
+  achievementType: `0x${string}`;
+}
 
 interface AchievementStepProps {
-  onSelect: (achievement: AchievementNft) => void;
+  onSelect: (achievement: SelectedAchievement) => void;
 }
+
+// Category icons for Chapter 1 achievements
+const CATEGORY_ICONS: Record<string, string> = {
+  Registration: '📝',
+  Milestone: '🎯',
+  Activity: '⚡',
+  Identity: '🔑',
+  Referral: '👥',
+  Preparation: '🛠️',
+  Consistency: '📊',
+  Commitment: '🤝',
+  Learning: '📚',
+  Completion: '🏆',
+};
 
 function AchievementCard({
   achievement,
   onSelect,
 }: {
-  achievement: AchievementNft;
+  achievement: Chapter1Achievement;
   onSelect: () => void;
 }) {
-  const { data: achievementName, isLoading: isLoadingName } = useAchievementName(
-    achievement.contract,
-    achievement.tokenId
-  );
+  const icon = CATEGORY_ICONS[achievement.category] ?? '⭐';
+  const displayName = ACHIEVEMENT_DISPLAY_NAMES[achievement.name as AchievementName] ?? achievement.name;
 
   return (
     <button
       onClick={onSelect}
       className="w-full p-6 rounded-xl border-2 border-gray-700 bg-gray-800/50 hover:border-mountain-summit hover:bg-gray-800 transition-all text-left"
     >
-      <div className="text-sm text-gray-400">Achievement</div>
-      <div className="text-2xl font-bold text-white">
-        {isLoadingName ? (
-          <span className="inline-block h-7 w-24 bg-gray-700 rounded animate-pulse" />
-        ) : (
-          achievementName
-        )}
-      </div>
-      <div className="mt-4 text-xs text-gray-500 font-mono truncate">
-        {achievement.contract}
+      <div className="flex items-start gap-4">
+        <span className="text-3xl">{icon}</span>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs text-gray-500">Week {achievement.week}</span>
+            <span className="text-xs text-gray-600">•</span>
+            <span className="text-xs text-gray-500">{achievement.category}</span>
+          </div>
+          <div className="text-lg font-bold text-white">{displayName}</div>
+          <div className="text-sm text-gray-400 mt-1">{achievement.description}</div>
+        </div>
       </div>
     </button>
   );
 }
 
-function AchievementCardSkeleton() {
-  return (
-    <div className="p-6 rounded-xl border-2 border-gray-700 bg-gray-800/50 animate-pulse">
-      <div className="h-4 w-24 bg-gray-700 rounded mb-2" />
-      <div className="h-8 w-16 bg-gray-700 rounded" />
-      <div className="mt-4 h-4 w-full bg-gray-700 rounded" />
-    </div>
-  );
-}
 
 export function AchievementStep({ onSelect }: AchievementStepProps) {
-  const { data: achievements, isLoading, error } = useAchievementNfts();
+  // For now, show all Chapter 1 achievements as available
+  // TODO: Filter based on actual eligibility once contract integration is complete
+  const availableAchievements = CHAPTER_1_ACHIEVEMENTS;
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-white mb-2">
-            Select Your Achievement
-          </h2>
-          <p className="text-gray-400">
-            Choose which Achievement to lock in your Vault.
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <AchievementCardSkeleton />
-          <AchievementCardSkeleton />
-        </div>
-      </div>
-    );
-  }
+  const handleSelect = (achievement: Chapter1Achievement) => {
+    const name = achievement.name as AchievementName;
+    const achievementType = ACHIEVEMENT_TYPES[name];
 
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <span className="text-4xl mb-4 block">⚠️</span>
-        <h2 className="text-xl font-bold text-white mb-2">Error Loading Achievements</h2>
-        <p className="text-gray-400">{error.message}</p>
-      </div>
-    );
-  }
+    if (!achievementType) {
+      console.error(`Unknown achievement type: ${name}`);
+      return;
+    }
 
-  if (!achievements || achievements.length === 0) {
+    onSelect({
+      name,
+      displayName: ACHIEVEMENT_DISPLAY_NAMES[name],
+      description: achievement.description,
+      achievementType,
+    });
+  };
+
+  if (availableAchievements.length === 0) {
     return (
       <div className="text-center py-12">
-        <span className="text-6xl mb-6 block">🎁</span>
+        <span className="text-6xl mb-6 block">🏔️</span>
         <h2 className="text-2xl font-bold text-white mb-4">
-          No Achievements Found
+          No Achievements Available
         </h2>
         <p className="text-gray-400 max-w-md mx-auto">
-          You need an Achievement NFT to mint a Vault. Achievements are issued
-          during minting events.
+          Complete Chapter 1 objectives to unlock achievements that can be
+          minted into Vaults.
         </p>
       </div>
     );
@@ -103,20 +104,23 @@ export function AchievementStep({ onSelect }: AchievementStepProps) {
           Select Your Achievement
         </h2>
         <p className="text-gray-400">
-          Choose which Achievement to lock in your Vault. You have{' '}
-          {achievements.length} Achievement{achievements.length !== 1 ? 's' : ''}{' '}
-          available.
+          Choose which Chapter 1 achievement to mint into your Vault. You have{' '}
+          {availableAchievements.length} achievement
+          {availableAchievements.length !== 1 ? 's' : ''} available.
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        {achievements.map((achievement) => (
+        {availableAchievements.map((achievement) => (
           <AchievementCard
-            key={achievement.tokenId.toString()}
+            key={achievement.name}
             achievement={achievement}
-            onSelect={() => onSelect(achievement)}
+            onSelect={() => handleSelect(achievement)}
           />
         ))}
       </div>
     </div>
   );
 }
+
+// Keep TreasureStep as an alias for backwards compatibility
+export { AchievementStep as TreasureStep };

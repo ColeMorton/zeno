@@ -3,11 +3,10 @@
 import { useEffect } from 'react';
 import { formatUnits } from 'viem';
 import { useVaultMint } from '@/hooks/useVaultMint';
-import { useAchievementName } from '@/hooks/useAchievementName';
-import type { AchievementNft } from '@/hooks/useAchievementNfts';
+import type { SelectedAchievement } from './AchievementStep';
 
 interface MintStepProps {
-  achievement: AchievementNft;
+  achievement: SelectedAchievement;
   collateralAmount: bigint;
   onSuccess: () => void;
   onBack: () => void;
@@ -20,10 +19,6 @@ export function MintStep({
   onBack,
 }: MintStepProps) {
   const { mint, isPending, isSuccess, txHash, receipt, error } = useVaultMint();
-  const { data: achievementName, isLoading: isLoadingName } = useAchievementName(
-    achievement.contract,
-    achievement.tokenId
-  );
 
   useEffect(() => {
     if (isSuccess && receipt) {
@@ -33,8 +28,7 @@ export function MintStep({
 
   const handleMint = () => {
     mint({
-      achievementContract: achievement.contract,
-      achievementTokenId: achievement.tokenId,
+      achievementType: achievement.achievementType,
       collateralAmount,
     });
   };
@@ -51,13 +45,7 @@ export function MintStep({
       <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700 space-y-4">
         <div className="flex justify-between">
           <span className="text-gray-400">Achievement</span>
-          <span className="text-white font-mono">
-            {isLoadingName ? (
-              <span className="inline-block h-5 w-20 bg-gray-700 rounded animate-pulse" />
-            ) : (
-              achievementName
-            )}
-          </span>
+          <span className="text-white font-medium">{achievement.displayName}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-400">Collateral</span>

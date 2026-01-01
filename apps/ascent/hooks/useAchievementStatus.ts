@@ -4,26 +4,38 @@ import { useQuery } from '@tanstack/react-query';
 import { useAccount, useChainId } from 'wagmi';
 import { useVaults } from './useVaults';
 import { useChainTime } from './useChainTime';
+import { ALTITUDE_ZONES, ZONES_ORDERED, type ZoneName } from '@/lib/altitude';
 
 export type AchievementStatus = 'locked' | 'available' | 'minted';
 
 export interface AchievementState {
   id: string;
   status: AchievementStatus;
-  daysRequired: number;
+  chapterStart: number;
+  chapterEnd: number | undefined;
   daysHeld: number;
 }
 
-// Achievement definitions with duration requirements
-const ACHIEVEMENT_DEFINITIONS = [
-  { id: 'CLIMBER', daysRequired: 0 },
-  { id: 'TRAIL_HEAD', daysRequired: 30 },
-  { id: 'BASE_CAMP', daysRequired: 91 },
-  { id: 'RIDGE_WALKER', daysRequired: 182 },
-  { id: 'HIGH_CAMP', daysRequired: 365 },
-  { id: 'SUMMIT_PUSH', daysRequired: 730 },
-  { id: 'SUMMIT', daysRequired: 1129 },
-] as const;
+// Chapter achievement definitions - each can ONLY be minted during its chapter window
+const CHAPTER_ACHIEVEMENTS = ZONES_ORDERED.map((zone, index) => {
+  const zoneData = ALTITUDE_ZONES[zone];
+  const nextZone = ZONES_ORDERED[index + 1];
+  const endDay = nextZone ? ALTITUDE_ZONES[nextZone].days - 1 : undefined;
+
+  return {
+    id: zone,
+    chapterStart: zoneData.days,
+    chapterEnd: endDay,
+  };
+});
+
+function isInChapter(daysHeld: number, chapterStart: number, chapterEnd: number | undefined): boolean {
+  if (chapterEnd === undefined) {
+    // Summit chapter - no end
+    return daysHeld >= chapterStart;
+  }
+  return daysHeld >= chapterStart && daysHeld <= chapterEnd;
+}
 
 export function useAchievementStatus() {
   const { address } = useAccount();
@@ -32,7 +44,7 @@ export function useAchievementStatus() {
   const { chainTime } = useChainTime();
 
   return useQuery({
-    queryKey: ['achievementStatus', address, chainId, vaults?.length, chainTime],
+    queryKey: ['achievementStatus', address, chainId, vaults?.length],
     queryFn: async (): Promise<Record<string, AchievementState>> => {
       if (!address) {
         throw new Error('Wallet not connected');
@@ -53,25 +65,26 @@ export function useAchievementStatus() {
 
       const hasVault = vaults && vaults.length > 0;
 
-      for (const achievement of ACHIEVEMENT_DEFINITIONS) {
+      for (const achievement of CHAPTER_ACHIEVEMENTS) {
         let status: AchievementStatus;
 
         if (!hasVault) {
           // No vault = all achievements locked
           status = 'locked';
-        } else if (maxDaysHeld >= achievement.daysRequired) {
-          // User meets the duration requirement = available to claim
+        } else if (isInChapter(maxDaysHeld, achievement.chapterStart, achievement.chapterEnd)) {
+          // User is currently IN this chapter = available to mint
           // Note: In a full implementation, we'd check if already minted on-chain
           status = 'available';
         } else {
-          // Has vault but duration not met = locked
+          // User is not in this chapter (either before or after) = locked
           status = 'locked';
         }
 
         results[achievement.id] = {
           id: achievement.id,
           status,
-          daysRequired: achievement.daysRequired,
+          chapterStart: achievement.chapterStart,
+          chapterEnd: achievement.chapterEnd,
           daysHeld: maxDaysHeld,
         };
       }
@@ -80,5 +93,9 @@ export function useAchievementStatus() {
     },
     enabled: !!address && !vaultsLoading,
     staleTime: 30 * 1000,
+    structuralSharing: (oldData, newData) => {
+      if (!oldData || !newData) return newData;
+      return JSON.stringify(oldData) === JSON.stringify(newData) ? oldData : newData;
+    },
   });
 }

@@ -1,20 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useAchievementName } from '@/hooks/useAchievementName';
-import type { Address } from 'viem';
 
 interface MintSuccessProps {
-  achievementContract: Address;
-  achievementTokenId: bigint;
+  achievementName: string;
 }
 
-export function MintSuccess({ achievementContract, achievementTokenId }: MintSuccessProps) {
+export function MintSuccess({ achievementName }: MintSuccessProps) {
   const router = useRouter();
-  const { data: achievementName, isLoading: isLoadingName } = useAchievementName(
-    achievementContract,
-    achievementTokenId
-  );
 
   return (
     <div className="text-center py-12">
@@ -24,11 +17,7 @@ export function MintSuccess({ achievementContract, achievementTokenId }: MintSuc
       </h2>
       <p className="text-gray-400 mb-2">Your journey to the summit begins now.</p>
       <p className="text-2xl font-bold text-mountain-summit mb-8">
-        {isLoadingName ? (
-          <span className="inline-block h-8 w-24 bg-gray-700 rounded animate-pulse" />
-        ) : (
-          achievementName
-        )}
+        {achievementName}
       </p>
 
       <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700 max-w-md mx-auto mb-8">

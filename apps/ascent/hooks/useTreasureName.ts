@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { usePublicClient } from 'wagmi';
 import type { Address } from 'viem';
 
-interface AchievementMetadata {
+interface TreasureMetadata {
   name: string;
   description?: string;
   image?: string;
@@ -20,7 +20,7 @@ const ERC721_METADATA_ABI = [
   },
 ] as const;
 
-function parseTokenURI(uri: string): AchievementMetadata {
+function parseTokenURI(uri: string): TreasureMetadata {
   if (uri.startsWith('data:application/json;base64,')) {
     const base64Data = uri.replace('data:application/json;base64,', '');
     const json = atob(base64Data);
@@ -30,30 +30,33 @@ function parseTokenURI(uri: string): AchievementMetadata {
   throw new Error(`Unsupported token URI format: ${uri.slice(0, 50)}`);
 }
 
-export function useAchievementName(
-  achievementContract: Address | undefined,
-  achievementTokenId: bigint | undefined
+/**
+ * Hook to fetch the name of a TreasureNFT by parsing its tokenURI metadata
+ */
+export function useTreasureName(
+  treasureContract: Address | undefined,
+  treasureTokenId: bigint | undefined
 ) {
   const publicClient = usePublicClient();
 
   return useQuery({
-    queryKey: ['achievementName', achievementContract, achievementTokenId?.toString()],
+    queryKey: ['treasureName', treasureContract, treasureTokenId?.toString()],
     queryFn: async (): Promise<string> => {
-      if (!achievementContract || achievementTokenId === undefined || !publicClient) {
-        throw new Error('Missing achievement contract, token ID, or public client');
+      if (!treasureContract || treasureTokenId === undefined || !publicClient) {
+        throw new Error('Missing treasure contract, token ID, or public client');
       }
 
       const tokenURI = await publicClient.readContract({
-        address: achievementContract,
+        address: treasureContract,
         abi: ERC721_METADATA_ABI,
         functionName: 'tokenURI',
-        args: [achievementTokenId],
+        args: [treasureTokenId],
       });
 
       const metadata = parseTokenURI(tokenURI);
       return metadata.name;
     },
-    enabled: !!achievementContract && achievementTokenId !== undefined && !!publicClient,
+    enabled: !!treasureContract && treasureTokenId !== undefined && !!publicClient,
     staleTime: Infinity,
   });
 }

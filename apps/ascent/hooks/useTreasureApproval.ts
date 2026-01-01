@@ -11,7 +11,7 @@ import {
 } from 'wagmi';
 import { getContractAddresses, ERC721_ABI } from '@/lib/contracts';
 
-export function useAchievementApproval() {
+export function useTreasureApproval() {
   const { address } = useAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient();
@@ -20,13 +20,13 @@ export function useAchievementApproval() {
   const contracts = getContractAddresses(chainId);
 
   const approvalQuery = useQuery({
-    queryKey: ['achievementApproval', address, chainId],
+    queryKey: ['treasureApproval', address, chainId],
     queryFn: async () => {
       if (!address) throw new Error('Wallet not connected');
       if (!publicClient) throw new Error('Public client not available');
 
       const isApproved = await publicClient.readContract({
-        address: contracts.achievementNFT,
+        address: contracts.treasureNFT,
         abi: ERC721_ABI,
         functionName: 'isApprovedForAll',
         args: [address, contracts.vaultNFT],
@@ -51,14 +51,14 @@ export function useAchievementApproval() {
   useEffect(() => {
     if (isSuccess) {
       queryClient.invalidateQueries({
-        queryKey: ['achievementApproval', address, chainId],
+        queryKey: ['treasureApproval', address, chainId],
       });
     }
   }, [isSuccess, queryClient, address, chainId]);
 
   const approve = () => {
     writeContract({
-      address: contracts.achievementNFT,
+      address: contracts.treasureNFT,
       abi: ERC721_ABI,
       functionName: 'setApprovalForAll',
       args: [contracts.vaultNFT, true],

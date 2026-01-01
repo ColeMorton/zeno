@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { AchievementStep } from './steps/AchievementStep';
+import { AchievementStep, type SelectedAchievement } from './steps/AchievementStep';
 import { CollateralStep } from './steps/CollateralStep';
 import { ApprovalStep } from './steps/ApprovalStep';
 import { MintStep } from './steps/MintStep';
 import { MintSuccess } from './MintSuccess';
-import type { AchievementNft } from '@/hooks/useAchievementNfts';
 
 type Step = 'achievement' | 'collateral' | 'approval' | 'mint' | 'success';
 
@@ -58,12 +57,10 @@ function StepIndicator({ currentStep }: { currentStep: Step }) {
 
 export function MintStepper() {
   const [step, setStep] = useState<Step>('achievement');
-  const [selectedAchievement, setSelectedAchievement] = useState<AchievementNft | null>(
-    null
-  );
+  const [selectedAchievement, setSelectedAchievement] = useState<SelectedAchievement | null>(null);
   const [collateralAmount, setCollateralAmount] = useState<bigint>(0n);
 
-  const handleAchievementSelect = (achievement: AchievementNft) => {
+  const handleAchievementSelect = (achievement: SelectedAchievement) => {
     setSelectedAchievement(achievement);
     setStep('collateral');
   };
@@ -115,8 +112,7 @@ export function MintStepper() {
 
       {step === 'success' && selectedAchievement && (
         <MintSuccess
-          achievementContract={selectedAchievement.contract}
-          achievementTokenId={selectedAchievement.tokenId}
+          achievementName={selectedAchievement.displayName}
         />
       )}
     </div>

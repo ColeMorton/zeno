@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useCbBtcApproval } from '@/hooks/useCbBtcApproval';
-import { useAchievementApproval } from '@/hooks/useAchievementApproval';
+import { useTreasureApproval } from '@/hooks/useTreasureApproval';
 
 interface ApprovalStepProps {
   collateralAmount: bigint;
@@ -66,9 +66,9 @@ export function ApprovalStep({
   onBack,
 }: ApprovalStepProps) {
   const cbBtcApproval = useCbBtcApproval(collateralAmount);
-  const achievementApproval = useAchievementApproval();
+  const treasureApproval = useTreasureApproval();
 
-  const allApproved = cbBtcApproval.isApproved && achievementApproval.isApproved;
+  const allApproved = cbBtcApproval.isApproved && treasureApproval.isApproved;
 
   useEffect(() => {
     if (allApproved) {
@@ -99,12 +99,12 @@ export function ApprovalStep({
         />
 
         <ApprovalCard
-          title="Approve Achievement NFT"
-          description="Allow the Vault contract to transfer your Achievement NFT"
-          isApproved={achievementApproval.isApproved}
-          isPending={achievementApproval.isPending}
-          error={achievementApproval.error}
-          onApprove={achievementApproval.approve}
+          title="Approve Treasure NFT"
+          description="Allow the Vault contract to transfer your Treasure NFT"
+          isApproved={treasureApproval.isApproved}
+          isPending={treasureApproval.isPending}
+          error={treasureApproval.error}
+          onApprove={treasureApproval.approve}
         />
       </div>
 
