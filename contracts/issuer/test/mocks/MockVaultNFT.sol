@@ -72,4 +72,22 @@ contract MockVaultNFT is ERC721 {
     function totalSupply() external view returns (uint256) {
         return _nextTokenId;
     }
+
+    /// @notice Test helper to directly mint a vault without transfers
+    /// @param to Owner of the vault
+    /// @param treasure Treasure contract address
+    /// @param timestamp Mint timestamp
+    /// @return tokenId The minted token ID
+    function mockMint(address to, address treasure, uint256 timestamp) external returns (uint256 tokenId) {
+        tokenId = _nextTokenId++;
+        _mint(to, tokenId);
+
+        vaults[tokenId] = VaultData({
+            treasureContract: treasure,
+            treasureTokenId: 0,
+            collateralToken: address(0),
+            collateralAmount: 0,
+            mintTimestamp: timestamp
+        });
+    }
 }
