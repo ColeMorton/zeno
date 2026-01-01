@@ -422,6 +422,75 @@ COMMUNITY MILESTONES (issuer-tracked):
 
 ---
 
+## 10. Layer 5: Chapters (Seasonal Content)
+
+Chapters provide rotating, time-limited achievements that exist alongside the perpetual personal journey. Each chapter corresponds to a calendar quarter and a specific segment of the holder's journey.
+
+### Chapter Structure
+
+| Chapter | Days Held Range | Duration | Example Calendar Period |
+|---------|----------------|----------|------------------------|
+| 1 | 0-90 | 91 days | 2025 Q1 (Jan-Mar) |
+| 2 | 91-181 | 91 days | 2025 Q2 (Apr-Jun) |
+| 3 | 182-272 | 91 days | 2025 Q3 (Jul-Sep) |
+| 4 | 273-363 | 91 days | 2025 Q4 (Oct-Dec) |
+| 5 | 364-454 | 91 days | 2026 Q1 |
+| 6 | 455-545 | 91 days | 2026 Q2 |
+| 7 | 546-636 | 91 days | 2026 Q3 |
+| 8 | 637-727 | 91 days | 2026 Q4 |
+| 9 | 728-818 | 91 days | 2027 Q1 |
+| 10 | 819-909 | 91 days | 2027 Q2 |
+| 11 | 910-1000 | 91 days | 2027 Q3 |
+| 12 | 1001-1129 | 128 days (extended) | 2027 Q4+ |
+
+### Hybrid Eligibility
+
+Chapters use a **hybrid eligibility model**:
+
+1. **Calendar Window**: Chapter achievements are only claimable during their calendar quarter
+2. **Journey Gate**: Holder must be within the chapter's day range to participate
+
+> **Example**: To claim Chapter 3 achievements during Q3 2025, a holder must have held their vault for 182-272 days.
+
+### Chapter Versioning
+
+Each chapter receives new content every year:
+
+```
+Chapter 1 (2025 Q1) - "Frozen Tundra" theme
+Chapter 1 (2026 Q1) - "Volcanic Ridge" theme
+Chapter 1 (2027 Q1) - "Crystal Caverns" theme
+```
+
+Version ID format: `CH{number}_{year}Q{quarter}` (e.g., `CH1_2025Q1`)
+
+### Chapter Maps
+
+Each chapter features:
+
+- **Visual Theme**: Thematic landscape background (e.g., "Frozen Tundra")
+- **Skill Tree**: Achievement graph showing unlock paths and prerequisites
+- **Exclusive Achievements**: Time-limited, permanently locked after quarter ends
+
+### Permanent Scarcity
+
+Chapter achievements lock **forever** when their calendar quarter ends. If you miss the window, those specific achievements are gone permanently. New versions of the chapter will have different achievements.
+
+### Relationship to Personal Journey
+
+| System | Nature | Timing | Achievements |
+|--------|--------|--------|--------------|
+| Personal Journey (Layers 1-4) | Perpetual | Individual (days held) | Always available |
+| Chapters (Layer 5) | Seasonal | Calendar-based + journey-gated | Time-limited |
+
+Both systems coexist. A holder can earn personal journey achievements at any time while also participating in the current chapter if they meet the eligibility requirements.
+
+### Technical Reference
+
+See [Chapter System Specification](./Chapter_System_Specification.md) for contract interfaces and implementation details.
+
+---
+
 ## Navigation
 
 [Issuer Layer](./README.md) | [Achievements Specification](./Achievements_Specification.md) | [Campaign Design Example](./examples/personal-brand/Campaign_Design.md)

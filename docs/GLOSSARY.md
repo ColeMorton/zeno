@@ -1,8 +1,8 @@
 # BTCNFT Protocol Glossary
 
-> **Version:** 1.2
+> **Version:** 1.3
 > **Status:** Final
-> **Last Updated:** 2025-12-30
+> **Last Updated:** 2025-12-31
 
 Standardized terminology for BTCNFT Protocol documentation.
 
@@ -544,3 +544,124 @@ interface IVotingPowerSource {
 A contract implementing `IVotingPowerSource` for a specific derivative product. Adapters bridge the gap between derivative-specific logic and the standard voting power interface.
 
 **Pattern:** Adapter Pattern (GoF) - converts one interface to another
+
+---
+
+## Chapter System (The Ascent)
+
+### Chapter
+
+A quarterly campaign period within The Ascent that unlocks exclusive achievements for holders within a specific journey day range. Each of the 12 chapters corresponds to a ~91-day segment of the 1129-day vesting period.
+
+| Property | Description |
+|----------|-------------|
+| Duration | 91 days (Chapter 12 extended to 128 days) |
+| Content | Unique map, achievements, visual theme |
+| Lifecycle | Active during calendar quarter, locked forever after |
+
+**Note:** Chapters layer alongside (not replace) the perpetual personal journey achievements.
+
+### Chapter Achievement
+
+A soulbound NFT earned by completing chapter-specific objectives within the mint window. Unlike perpetual journey achievements, chapter achievements lock forever when the quarter ends.
+
+| Property | Description |
+|----------|-------------|
+| Standard | ERC-721 + ERC-5192 (soulbound) |
+| Minting | During chapter's calendar quarter only |
+| Prerequisites | May require other achievements in skill tree |
+
+### Chapter ID
+
+Unique identifier encoding chapter number, year, and quarter.
+
+| Format | Example |
+|--------|---------|
+| `CH{number}_{year}Q{quarter}` | CH1_2025Q1 |
+
+**On-chain:** `keccak256(abi.encodePacked("CH", chapterNumber, "_", year, "Q", quarter))`
+
+### Achievement ID
+
+Unique identifier for a specific achievement within a chapter version.
+
+| Format | Example |
+|--------|---------|
+| `{chapterId}_{achievementName}` | CH1_2025Q1_FIRST_STEPS |
+
+**On-chain:** `keccak256(abi.encodePacked(chapterId, "_", name))`
+
+### Hybrid Eligibility
+
+Dual requirement system combining calendar-based mint windows with personal journey progress gates.
+
+| Gate | Requirement |
+|------|-------------|
+| Time Gate | Current timestamp within chapter's calendar quarter |
+| Journey Gate | Holder's days held within chapter's day range |
+
+**Example:** To participate in Chapter 2 (2025Q2), holder must:
+1. Be within April-June 2025 (time gate)
+2. Have held vault for 91-181 days (journey gate)
+
+### Journey Gate
+
+The personal journey day range required to participate in a chapter. Ensures holders can only engage with chapter content matching their actual journey progress.
+
+| Chapter | Day Range |
+|---------|-----------|
+| 1 | 0–90 |
+| 2 | 91–181 |
+| ... | ... |
+| 12 | 1001–1129 |
+
+### Mint Window
+
+The calendar period during which chapter achievements can be claimed. Permanently closes at quarter end.
+
+| Property | Description |
+|----------|-------------|
+| Open | `startTimestamp` (quarter start) |
+| Close | `endTimestamp` (quarter end) |
+| After Close | Achievements locked forever |
+
+### Chapter Version
+
+A specific instance of a chapter tied to a year and quarter. Each chapter runs annually with fresh content.
+
+| Example | Description |
+|---------|-------------|
+| CH1_2025Q1 | Chapter 1, Q1 2025 |
+| CH1_2026Q1 | Chapter 1, Q1 2026 (different content) |
+
+**Note:** Same chapter number can have multiple versions across years.
+
+### Skill Tree
+
+Achievement dependency graph within a chapter. Some achievements require completing prerequisites first.
+
+| Property | Description |
+|----------|-------------|
+| Nodes | Individual achievements |
+| Edges | Prerequisite relationships |
+| Root | Achievements with no prerequisites |
+
+### Permanent Scarcity
+
+Design principle where chapter content becomes permanently unobtainable after the mint window closes. Creates authentic time-limited collectibility without artificial burns.
+
+| Mechanism | Description |
+|-----------|-------------|
+| Time Lock | `endTimestamp` enforced on-chain |
+| No Extensions | Quarter end is final |
+| No Rereleases | Each version unique to its year |
+
+### Chapter Map
+
+Visual representation of a chapter's achievements displayed as a skill tree overlay on a thematic landscape background.
+
+| Component | Storage |
+|-----------|---------|
+| Background image | Static website (`/chapters/ch{N}/{year}q{Q}/`) |
+| Skill tree config | Static website (`config.json`) |
+| Achievement NFT images | IPFS (high-resolution)
