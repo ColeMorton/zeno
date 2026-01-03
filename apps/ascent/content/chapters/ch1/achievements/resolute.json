@@ -1,0 +1,59 @@
+{
+  "achievementId": "RESOLUTE",
+  "week": 11,
+  "category": "Commitment",
+  "defiConcept": "attestations",
+  "lesson": {
+    "title": "Cryptographic Attestations",
+    "objective": "Sign messages to prove ownership and intent",
+    "sections": [
+      {
+        "type": "text",
+        "content": "Not every commitment requires gas. Signing a message with your wallet proves ownership without spending anything. This is how voting, commitments, and off-chain verification work."
+      },
+      {
+        "type": "text",
+        "content": "When you sign an attestation, you're creating cryptographic proof of your intent. The message is tied to your wallet forever. It's a public declaration - I am here, I am committed, and this is my signature."
+      },
+      {
+        "type": "keyPoints",
+        "content": [
+          "Signing messages costs no gas",
+          "EIP-712 creates structured, readable signatures",
+          "Signatures prove ownership without on-chain transactions",
+          "Attestations can be verified by anyone, anytime"
+        ]
+      }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "What is the benefit of signing messages vs. transactions?",
+        "options": [
+          "Messages are more secure",
+          "No gas cost required",
+          "Messages cannot be verified",
+          "Transactions are always better"
+        ],
+        "correct": 1
+      },
+      {
+        "question": "What does EIP-712 provide?",
+        "options": [
+          "Lower transaction fees",
+          "Structured, human-readable signatures",
+          "Faster block times",
+          "Encrypted storage"
+        ],
+        "correct": 1
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Sign a commitment attestation with your wallet",
+  "nextSteps": [
+    "Your commitment is now cryptographically sealed.",
+    "Complete STUDENT to demonstrate your learning."
+  ]
+}

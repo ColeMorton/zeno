@@ -1,0 +1,59 @@
+{
+  "achievementId": "IDENTIFIED",
+  "week": 4,
+  "category": "Identity",
+  "defiConcept": "socialRecovery",
+  "lesson": {
+    "title": "Verifiable Identity in Web3",
+    "objective": "Link social identity for reputation and recovery",
+    "sections": [
+      {
+        "type": "text",
+        "content": "While wallet addresses are pseudonymous, linking a verifiable identity adds layers of utility. ENS names (yourname.eth) make addresses human-readable. Farcaster creates social reputation."
+      },
+      {
+        "type": "text",
+        "content": "Identity links also enable social recovery - if you lose access to one account, your connected identities can help verify you're the rightful owner. It's building a web of trust without centralized authorities."
+      },
+      {
+        "type": "keyPoints",
+        "content": [
+          "ENS names are NFTs that resolve to wallet addresses",
+          "Farcaster is a decentralized social protocol",
+          "Linked identities build on-chain reputation",
+          "Multiple identity links increase recovery options"
+        ]
+      }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "What is the primary benefit of linking an ENS name?",
+        "options": [
+          "It increases transaction speed",
+          "It makes your address human-readable",
+          "It reduces gas costs",
+          "It's required for all transactions"
+        ],
+        "correct": 1
+      },
+      {
+        "question": "How does identity linking help with security?",
+        "options": [
+          "It encrypts your transactions",
+          "It enables social recovery options",
+          "It blocks hackers automatically",
+          "It hides your transaction history"
+        ],
+        "correct": 1
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Link your ENS name or Farcaster account",
+  "nextSteps": [
+    "Your identity is now verifiable across protocols.",
+    "Continue building your on-chain presence with regular interactions."
+  ]
+}

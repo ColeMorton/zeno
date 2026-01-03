@@ -1,0 +1,69 @@
+{
+  "concepts": {
+    "identity": {
+      "name": "On-Chain Identity",
+      "description": "Your wallet address is your identity in DeFi. Unlike traditional accounts, it's pseudonymous, portable, and owned by you.",
+      "keyTerms": ["wallet address", "EOA", "private key", "public key"]
+    },
+    "commitment": {
+      "name": "Time Commitment",
+      "description": "Many DeFi protocols reward long-term participation. Time-weighted mechanisms align incentives between users and protocols.",
+      "keyTerms": ["vesting", "lock period", "time-weighted", "diamond hands"]
+    },
+    "transactions": {
+      "name": "Smart Contract Transactions",
+      "description": "Interacting with DeFi means calling smart contract functions. Each transaction costs gas and is permanently recorded on-chain.",
+      "keyTerms": ["gas", "transaction", "contract call", "confirmation"]
+    },
+    "socialRecovery": {
+      "name": "Social Recovery & Identity",
+      "description": "Linking verifiable identities (ENS, Farcaster) adds a recovery layer and builds reputation across protocols.",
+      "keyTerms": ["ENS", "Farcaster", "social recovery", "reputation"]
+    },
+    "yieldMechanics": {
+      "name": "Time-Weighted Yield",
+      "description": "Protocols often distribute rewards based on how long you've participated, not just how much. Patience is rewarded.",
+      "keyTerms": ["yield", "rewards", "time-weighted", "accrual"]
+    },
+    "protocolDiversity": {
+      "name": "Protocol Diversity",
+      "description": "DeFi is an ecosystem of specialized protocols. Exploring different contracts teaches you the building blocks of decentralized finance.",
+      "keyTerms": ["protocol", "composability", "DeFi legos", "ecosystem"]
+    },
+    "networkEffects": {
+      "name": "Network Effects",
+      "description": "Protocols grow through referrals and community. Your network becomes part of your on-chain reputation.",
+      "keyTerms": ["referral", "network effects", "growth", "community"]
+    },
+    "tokenApprovals": {
+      "name": "Token Approvals",
+      "description": "Before a protocol can move your tokens, you must approve it. Understanding approvals is critical for DeFi security.",
+      "keyTerms": ["approve", "allowance", "ERC-20", "revoke"]
+    },
+    "consistency": {
+      "name": "Consistent Participation",
+      "description": "Regular engagement compounds benefits. Many protocols reward consistent activity over sporadic large actions.",
+      "keyTerms": ["consistency", "streaks", "compound", "regular"]
+    },
+    "vesting": {
+      "name": "Vesting & Lock Mechanisms",
+      "description": "Locking tokens for extended periods often unlocks additional benefits. It signals long-term alignment.",
+      "keyTerms": ["vesting", "lock", "unlock", "cliff"]
+    },
+    "attestations": {
+      "name": "Cryptographic Attestations",
+      "description": "Signing messages proves ownership without spending gas. It's used for voting, commitments, and off-chain verification.",
+      "keyTerms": ["signature", "attestation", "EIP-712", "sign message"]
+    },
+    "metaLearning": {
+      "name": "Meta-Learning",
+      "description": "Understanding how to learn DeFi is as important as learning individual concepts. Build mental models and verify understanding.",
+      "keyTerms": ["learning", "verification", "understanding", "mastery"]
+    },
+    "mastery": {
+      "name": "Chapter Mastery",
+      "description": "Completing a chapter demonstrates comprehensive understanding of foundational DeFi concepts.",
+      "keyTerms": ["mastery", "completion", "foundations", "progression"]
+    }
+  }
+}

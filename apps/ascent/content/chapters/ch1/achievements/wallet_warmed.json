@@ -1,0 +1,59 @@
+{
+  "achievementId": "WALLET_WARMED",
+  "week": 3,
+  "category": "Activity",
+  "defiConcept": "transactions",
+  "lesson": {
+    "title": "Your First Smart Contract Interaction",
+    "objective": "Execute a transaction and understand gas mechanics",
+    "sections": [
+      {
+        "type": "text",
+        "content": "Every DeFi action is a transaction. When you interact with a smart contract, you're calling a function on immutable code that executes exactly as written. No intermediaries, no permissions needed, no reversals possible."
+      },
+      {
+        "type": "text",
+        "content": "Transactions cost gas - a fee paid to network validators for processing your request. Gas prices fluctuate with network demand. Learning to time transactions and set appropriate gas limits is a core DeFi skill."
+      },
+      {
+        "type": "keyPoints",
+        "content": [
+          "Smart contracts are self-executing code on the blockchain",
+          "Gas = computational cost, paid in the network's native token",
+          "Failed transactions still cost gas (the computation was attempted)",
+          "Always verify the contract you're interacting with"
+        ]
+      }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "What is gas in blockchain transactions?",
+        "options": [
+          "A type of cryptocurrency",
+          "The fee paid for computational work",
+          "A smart contract function",
+          "A wallet feature"
+        ],
+        "correct": 1
+      },
+      {
+        "question": "If a transaction fails, what happens to the gas you paid?",
+        "options": [
+          "It's fully refunded",
+          "It's partially refunded",
+          "It's still consumed",
+          "It's sent to the contract"
+        ],
+        "correct": 2
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Interact with any core protocol contract",
+  "nextSteps": [
+    "You've executed your first transaction. EXPLORER requires 3 interactions.",
+    "Each interaction teaches you more about how DeFi contracts work."
+  ]
+}

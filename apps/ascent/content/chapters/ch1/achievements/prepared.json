@@ -1,0 +1,59 @@
+{
+  "achievementId": "PREPARED",
+  "week": 8,
+  "category": "Preparation",
+  "defiConcept": "tokenApprovals",
+  "lesson": {
+    "title": "Token Approvals and Security",
+    "objective": "Master ERC-20 approvals and protect your assets",
+    "sections": [
+      {
+        "type": "text",
+        "content": "Before any protocol can move your tokens, you must explicitly approve it. This is a security feature - contracts can only spend what you authorize. But it's also a responsibility."
+      },
+      {
+        "type": "text",
+        "content": "Unlimited approvals are convenient but risky. If a contract is exploited, attackers can drain approved tokens. Best practice: approve only what you need, and revoke approvals you no longer use."
+      },
+      {
+        "type": "keyPoints",
+        "content": [
+          "approve() grants spending permission to a contract",
+          "Unlimited approvals persist even after transactions complete",
+          "Revoking approvals costs gas but increases security",
+          "Always verify the contract address before approving"
+        ]
+      }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "What does token approval allow a contract to do?",
+        "options": [
+          "View your transaction history",
+          "Spend your tokens up to the approved amount",
+          "Access your private key",
+          "Change your wallet settings"
+        ],
+        "correct": 1
+      },
+      {
+        "question": "What is the safest approval practice?",
+        "options": [
+          "Always approve unlimited amounts",
+          "Approve only what you need, revoke when done",
+          "Never approve anything",
+          "Approve everything at once"
+        ],
+        "correct": 1
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Approve tokens for protocol interaction",
+  "nextSteps": [
+    "Your tokens are now approved for use.",
+    "Remember to review and revoke old approvals periodically."
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "achievementId": "STEADY_PACE",
+  "week": 5,
+  "category": "Milestone",
+  "defiConcept": "yieldMechanics",
+  "lesson": {
+    "title": "Time-Weighted Rewards",
+    "objective": "Understand how protocols reward duration over size",
+    "sections": [
+      {
+        "type": "text",
+        "content": "30 days in DeFi separates tourists from participants. You've now held through market cycles, news events, and the constant temptation to react. This patience is the foundation of yield."
+      },
+      {
+        "type": "text",
+        "content": "Time-weighted mechanisms distribute rewards proportionally to how long you've participated. A smaller deposit held longer often earns more than a large deposit held briefly. Time is the great equalizer."
+      },
+      {
+        "type": "keyPoints",
+        "content": [
+          "Time-weighted = rewards accrue over duration",
+          "Early withdrawal often means forfeiting accrued rewards",
+          "Compound effects multiply over longer time periods",
+          "30 days is ~3% of the 1129-day journey"
+        ]
+      }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "In time-weighted systems, who typically earns more?",
+        "options": [
+          "Whoever deposits the most",
+          "Whoever deposits first",
+          "Whoever holds the longest",
+          "Whoever trades most frequently"
+        ],
+        "correct": 2
+      },
+      {
+        "question": "What is a key benefit of compound effects over time?",
+        "options": [
+          "Lower gas costs",
+          "Exponential growth of rewards",
+          "Faster transactions",
+          "Reduced risk"
+        ],
+        "correct": 1
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Wait 30 days after creating your profile",
+  "nextSteps": [
+    "You're building momentum. COMMITTED awaits at 60 days.",
+    "This is the rhythm of long-term holding."
+  ]
+}

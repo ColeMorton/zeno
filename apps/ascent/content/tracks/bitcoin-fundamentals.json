@@ -1,0 +1,328 @@
+{
+  "id": "bitcoin-fundamentals",
+  "name": "Bitcoin Fundamentals",
+  "description": "Understand the thesis behind the 1129-day SMA and why Bitcoin serves as pristine collateral",
+  "graduationStandard": "Articulate why 1129 days + 12% withdrawal rate creates perpetual income",
+  "lessons": [
+    {
+      "id": "what-is-bitcoin",
+      "title": "What is Bitcoin?",
+      "objective": "Understand digital scarcity, proof of work, and the 21 million cap",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Bitcoin is the first truly scarce digital asset. Unlike traditional currencies that can be printed infinitely, Bitcoin has a hard cap of 21 million coins that will ever exist. This scarcity is enforced by mathematics and a decentralized network of computers, not by any government or institution."
+        },
+        {
+          "type": "text",
+          "content": "Proof of Work (PoW) is Bitcoin's consensus mechanism. Miners expend real-world energy to secure the network and validate transactions. This energy expenditure creates an unforgeable costliness - you cannot fake or shortcut the work required. This is what gives Bitcoin its trustless security."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "21 million cap - enforced by code, not policy",
+            "Proof of Work - energy expenditure creates security",
+            "Decentralized - no single point of control",
+            "Trustless - verify, don't trust",
+            "Halvings - emission rate cuts in half every ~4 years"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What makes Bitcoin scarce?",
+            "options": [
+              "Government regulation",
+              "A hard cap of 21 million enforced by code",
+              "Mining companies limiting supply",
+              "Central bank policies"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "What does Proof of Work provide?",
+            "options": [
+              "Faster transactions",
+              "Lower fees",
+              "Trustless security through energy expenditure",
+              "Anonymous transactions"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "wrapped-btc-variants",
+      "title": "Wrapped BTC Variants",
+      "objective": "Compare WBTC, cbBTC, and tBTC custody models and risk profiles",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Native Bitcoin cannot run on Ethereum. To use BTC in DeFi, it must be 'wrapped' - locked in custody while an equivalent ERC-20 token is minted. Different wrapping solutions have different trust assumptions and risk profiles."
+        },
+        {
+          "type": "text",
+          "content": "WBTC (Wrapped Bitcoin) uses BitGo as custodian. It's the most liquid but relies on a centralized entity. cbBTC uses Coinbase institutional custody - different custodian, same centralized model. tBTC uses threshold signatures across a decentralized network - no single custodian, but more technical complexity."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "WBTC - BitGo custody, most liquid, centralized risk",
+            "cbBTC - Coinbase custody, institutional grade, centralized risk",
+            "tBTC - Threshold signatures, decentralized, technical complexity",
+            "Risk isolation - protocol deploys separately per collateral type",
+            "Choose based on your custody risk tolerance"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "Why does the protocol deploy separately for each wrapped BTC type?",
+            "options": [
+              "To increase gas costs",
+              "For marketing purposes",
+              "Risk isolation - custody failure in one doesn't affect others",
+              "Technical limitation"
+            ],
+            "correct": 2
+          },
+          {
+            "question": "Which wrapped BTC uses decentralized custody?",
+            "options": [
+              "WBTC",
+              "cbBTC",
+              "tBTC",
+              "All use centralized custody"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "1129-day-sma",
+      "title": "The 1129-Day SMA",
+      "objective": "Understand how the 1129-day Simple Moving Average transforms volatility into stability",
+      "sections": [
+        {
+          "type": "text",
+          "content": "A Simple Moving Average (SMA) smooths price data by averaging values over a specific window. The 1129-day SMA averages Bitcoin's price over approximately 3 years and 1 month. This specific window was chosen based on historical analysis."
+        },
+        {
+          "type": "text",
+          "content": "Analysis of every possible 1129-day window in Bitcoin's history (1,837 rolling samples) shows that 100% of them produced positive returns. The minimum return was +77.78%, mean return was +313.07%, and maximum was +902.96%. No other holding period has achieved this consistency."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "1129 days = ~3 years 1 month",
+            "100% positive returns across all 1,837 historical windows",
+            "Minimum return: +77.78%",
+            "Mean return: +313.07%",
+            "This is the thesis: time-averaging eliminates negative outcomes"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "How many 1129-day windows in Bitcoin's history have shown positive returns?",
+            "options": [
+              "About 50%",
+              "About 75%",
+              "About 95%",
+              "100%"
+            ],
+            "correct": 3
+          },
+          {
+            "question": "What was the minimum return in any 1129-day window?",
+            "options": [
+              "-15%",
+              "0%",
+              "+77.78%",
+              "+313.07%"
+            ],
+            "correct": 2
+          },
+          {
+            "question": "Why is 1129 days significant?",
+            "options": [
+              "It's a round number",
+              "Regulatory requirement",
+              "All historical windows of this length show positive returns",
+              "Marketing decision"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "volatility-inversion",
+      "title": "Volatility Inversion",
+      "objective": "Learn how extreme volatility becomes a feature when time-averaged",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Bitcoin's volatility is legendary - 70-80% drawdowns and 300-900% gains are common. Traditional finance views this as unacceptable risk. But this volatility is precisely what enables the 1129-day thesis."
+        },
+        {
+          "type": "text",
+          "content": "When you commit to holding for 1129 days, volatility works FOR you, not against you. The severe drawdowns create entry opportunities within your holding period, while the massive recoveries drive the consistently positive outcomes. Time transforms the volatility liability into an asset."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Short-term: 70-80% drawdowns possible",
+            "Long-term: 100% of 1129-day windows positive",
+            "Volatility enables the outsized returns",
+            "Time is the averaging mechanism - no oracle needed",
+            "This inversion is unique to Bitcoin's characteristics"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "Why is Bitcoin's volatility actually beneficial for the 1129-day thesis?",
+            "options": [
+              "It makes trading more exciting",
+              "Drawdowns create entry opportunities, recoveries drive positive outcomes",
+              "High volatility means higher fees",
+              "It attracts more users"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "What transforms volatility from liability to asset?",
+            "options": [
+              "Active trading",
+              "Hedging strategies",
+              "Time commitment (1129 days)",
+              "Stop-loss orders"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "market-cycles",
+      "title": "Market Cycles",
+      "objective": "Understand Bitcoin's halving cycles and why bear markets are shorter than 1129 days",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Bitcoin operates on a predictable halving cycle. Approximately every 4 years (210,000 blocks), the mining reward is cut in half. This creates a supply shock that historically triggers bull markets. The pattern: halving -> supply reduction -> price increase -> excess -> bear market -> repeat."
+        },
+        {
+          "type": "text",
+          "content": "Historical bear markets: 2014 (-86%), 2018 (-84%), 2022 (-77%). Each was severe but none lasted longer than 1129 days from peak to full recovery. The 1129-day window encompasses approximately 3/4 of a halving cycle, ensuring exposure to at least one significant recovery phase."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Halving every ~4 years reduces new supply by 50%",
+            "Historical drawdowns: -77% to -86%",
+            "All bear markets recovered within 1129 days",
+            "1129 days spans ~3/4 of a halving cycle",
+            "Long-term holders always rewarded if patient"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "How often does Bitcoin's mining reward halving occur?",
+            "options": [
+              "Every year",
+              "Every 2 years",
+              "Approximately every 4 years",
+              "Every 10 years"
+            ],
+            "correct": 2
+          },
+          {
+            "question": "What is the significance of 1129 days relative to market cycles?",
+            "options": [
+              "It's exactly one halving cycle",
+              "It spans ~3/4 of a cycle, ensuring recovery exposure",
+              "It's the shortest possible holding period",
+              "It's a random number"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "pristine-collateral",
+      "title": "Pristine Collateral",
+      "objective": "Understand why Bitcoin is ideal for perpetual withdrawal mechanisms",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Pristine collateral has three properties: verifiable scarcity, no counterparty risk in holding, and reliable value appreciation over time. Bitcoin uniquely satisfies all three. Gold has scarcity but is hard to verify. Stocks have growth but counterparty risk. Bonds have predictability but inflation risk."
+        },
+        {
+          "type": "text",
+          "content": "For perpetual withdrawals to work, the collateral must appreciate faster than the withdrawal rate over time. At 12% annual withdrawal (1% monthly), Bitcoin's historical minimum return of +77.78% over 1129 days (annualized ~23%) provides substantial margin. This is why Bitcoin works where other assets cannot."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Verifiable scarcity - 21M cap enforced by code",
+            "No counterparty risk - hold your own keys",
+            "Reliable appreciation - 100% positive 1129-day windows",
+            "12% annual withdrawal requires ~12% appreciation to maintain",
+            "Historical minimum annualized: ~23%, well above 12%"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What makes Bitcoin 'pristine' collateral?",
+            "options": [
+              "Its price never drops",
+              "Verifiable scarcity + no counterparty risk + reliable long-term appreciation",
+              "Government backing",
+              "High liquidity"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "Why is 12% annual withdrawal sustainable with Bitcoin collateral?",
+            "options": [
+              "Bitcoin always goes up",
+              "The protocol subsidizes withdrawals",
+              "Historical minimum annualized return (~23%) exceeds withdrawal rate (12%)",
+              "Withdrawals come from new deposits"
+            ],
+            "correct": 2
+          },
+          {
+            "question": "What is the fundamental thesis of using Bitcoin for perpetual withdrawals?",
+            "options": [
+              "Bitcoin is trendy",
+              "Time-averaged BTC returns consistently exceed withdrawal rate",
+              "Regulatory compliance",
+              "Lower gas fees"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      }
+    }
+  ]
+}

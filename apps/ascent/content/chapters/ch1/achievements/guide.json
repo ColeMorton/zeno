@@ -1,0 +1,59 @@
+{
+  "achievementId": "GUIDE",
+  "week": 7,
+  "category": "Referral",
+  "defiConcept": "networkEffects",
+  "lesson": {
+    "title": "Network Effects in DeFi",
+    "objective": "Understand how communities drive protocol growth",
+    "sections": [
+      {
+        "type": "text",
+        "content": "Protocols don't grow through advertising - they grow through users bringing users. Every referral strengthens the network, increases liquidity, and improves outcomes for everyone."
+      },
+      {
+        "type": "text",
+        "content": "By guiding another user to the protocol, you become part of the growth engine. Your on-chain referral is permanent proof of contribution. Many protocols reward referrers with bonuses or governance weight."
+      },
+      {
+        "type": "keyPoints",
+        "content": [
+          "Network effects = more users = more value for all",
+          "Referrals are tracked on-chain, creating verifiable contribution history",
+          "Communities built on referrals are often more engaged",
+          "Your network becomes part of your on-chain reputation"
+        ]
+      }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "Why are network effects important for protocols?",
+        "options": [
+          "They reduce gas costs",
+          "More users increases value for everyone",
+          "They're required by smart contracts",
+          "They make transactions faster"
+        ],
+        "correct": 1
+      },
+      {
+        "question": "How are referrals typically tracked in DeFi?",
+        "options": [
+          "Through email verification",
+          "On-chain via smart contracts",
+          "By customer support tickets",
+          "Through social media links"
+        ],
+        "correct": 1
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Refer another user to the protocol",
+  "nextSteps": [
+    "You've contributed to protocol growth.",
+    "Continue building your network - higher referral tiers unlock with more referrals."
+  ]
+}

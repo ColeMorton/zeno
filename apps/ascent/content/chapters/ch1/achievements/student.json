@@ -1,0 +1,60 @@
+{
+  "achievementId": "STUDENT",
+  "week": 12,
+  "category": "Learning",
+  "defiConcept": "metaLearning",
+  "lesson": {
+    "title": "Verified Learning",
+    "objective": "Demonstrate understanding through quiz completion",
+    "sections": [
+      {
+        "type": "text",
+        "content": "Doing is not the same as understanding. STUDENT requires you to prove you've absorbed the concepts, not just clicked through them. This is the difference between activity and learning."
+      },
+      {
+        "type": "text",
+        "content": "Complete a quiz for any previous achievement. By passing, you demonstrate that the knowledge has been internalized. This meta-learning - learning how to learn DeFi - is the most valuable skill of all."
+      },
+      {
+        "type": "keyPoints",
+        "content": [
+          "Theory + practice = true understanding",
+          "Quizzes verify comprehension, not just completion",
+          "This achievement unlocks when you pass any chapter quiz",
+          "Learning compounds - early concepts enable advanced ones"
+        ]
+      }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "Why is verified learning important in DeFi?",
+        "options": [
+          "To increase gas costs",
+          "To ensure users understand before acting",
+          "To slow down the protocol",
+          "It's not important"
+        ],
+        "correct": 1
+      },
+      {
+        "question": "What does STUDENT achievement verify?",
+        "options": [
+          "That you visited the website",
+          "That you passed an educational quiz",
+          "That you spent money",
+          "That you have an ENS name"
+        ],
+        "correct": 1
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Complete and pass the quiz for any previous achievement",
+  "nextSteps": [
+    "You've demonstrated learning. Knowledge is now verified on-chain.",
+    "With 10+ achievements, you can claim CHAPTER_COMPLETE."
+  ],
+  "verificationNote": "This achievement requires completing at least one quiz from any previous achievement in the chapter. The quiz completion is verified via a signed attestation."
+}

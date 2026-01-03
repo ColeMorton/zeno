@@ -1,0 +1,263 @@
+{
+  "id": "security-risk",
+  "name": "Security & Risk",
+  "description": "Develop due diligence capabilities and understand protocol security guarantees",
+  "graduationStandard": "Evaluate a protocol's risk profile independently",
+  "lessons": [
+    {
+      "id": "immutability-guarantees",
+      "title": "Immutability Guarantees",
+      "objective": "Verify that a contract has no admin functions or upgrade mechanisms",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Immutability means the code cannot be changed after deployment. The protocol has no admin keys, no proxy pattern, no upgrade mechanism, and no pause function. The 1129-day vesting period, 1% withdrawal rate, and all parameters are constants in bytecode."
+        },
+        {
+          "type": "text",
+          "content": "You can verify this yourself. On Etherscan, check for: owner() or admin() functions, proxy patterns (implementation address), or pausable modifiers. The protocol has none. Code is law - what you see deployed is what runs forever."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "No admin() or owner() functions",
+            "No proxy pattern (no upgrades)",
+            "No pause() function",
+            "Constants in bytecode, not storage",
+            "Verify by reading the deployed code"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "How can you verify a contract is immutable?",
+            "options": [
+              "Trust the team's word",
+              "Check for no admin/owner functions, no proxy, no pause",
+              "Look at the website",
+              "Check social media"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "Why is the absence of a pause() function important?",
+            "options": [
+              "It saves gas",
+              "No one can stop withdrawals - truly permissionless",
+              "It's faster",
+              "It's more decentralized"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "explorer",
+        "description": "Verify the VaultNFT contract has no admin functions",
+        "verificationHint": "Search the contract code for owner, admin, pause, upgrade"
+      }
+    },
+    {
+      "id": "risk-categories",
+      "title": "Risk Categories",
+      "objective": "Classify smart contract, market, and custody risks",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Smart contract risk: bugs in code. Mitigated by audits, formal verification, and battle-testing. Market risk: price volatility, liquidity drying up. Custody risk: wrapped BTC custodian failure (BitGo, Coinbase, threshold signers)."
+        },
+        {
+          "type": "text",
+          "content": "This protocol isolates custody risk by deploying separately per collateral type. A WBTC custodian failure doesn't affect cbBTC holders. Smart contract risk is shared across all deployments. Market risk is managed by the 1129-day thesis - time-averaging eliminates short-term volatility."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Smart contract risk - bugs, mitigated by audits",
+            "Market risk - volatility, mitigated by time-averaging",
+            "Custody risk - wrapped BTC failures, isolated per deployment",
+            "Operational risk - key management, user responsibility",
+            "Systemic risk - Ethereum failure, rare but possible"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "How does the protocol handle custody risk?",
+            "options": [
+              "Uses only decentralized custody",
+              "Separate deployments per collateral type (isolation)",
+              "Insurance coverage",
+              "Ignores it"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "How is market risk (volatility) mitigated?",
+            "options": [
+              "Hedging with derivatives",
+              "Stablecoin conversion",
+              "1129-day time-averaging thesis",
+              "Active trading"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "audit-interpretation",
+      "title": "Audit Interpretation",
+      "objective": "Read and interpret smart contract audit reports",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Audit reports classify findings by severity: Critical (immediate funds at risk), High (significant impact), Medium (conditional impact), Low (minor issues), Informational (suggestions). Focus on Critical and High - they indicate real vulnerabilities."
+        },
+        {
+          "type": "text",
+          "content": "Check the scope (which contracts were audited), the status (acknowledged, fixed, disputed), and the auditor reputation (Trail of Bits, OpenZeppelin, Consensys Diligence are tier-1). Multiple audits by different firms increase confidence. No audit guarantees safety - they reduce risk."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Severity: Critical > High > Medium > Low > Info",
+            "Check: scope, status of findings, auditor reputation",
+            "Multiple independent audits = better coverage",
+            "Audits reduce risk, don't eliminate it",
+            "Recent audits more relevant than old ones"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What does a 'Critical' severity finding mean?",
+            "options": [
+              "Minor code style issue",
+              "Immediate funds at risk",
+              "Future potential issue",
+              "Documentation problem"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "What should you check in an audit report?",
+            "options": [
+              "Only the conclusion",
+              "Scope, status of findings, auditor reputation",
+              "Length of report",
+              "Date only"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "no-oracle-design",
+      "title": "No-Oracle Design",
+      "objective": "Understand why the protocol doesn't rely on external price oracles",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Price oracles are external contracts that report asset prices. They're attack vectors - oracle manipulation has caused millions in losses across DeFi. Flash loans can temporarily move prices, triggering unfair liquidations or mispricings."
+        },
+        {
+          "type": "text",
+          "content": "This protocol doesn't use oracles. Prices are discovered through market trading on Curve. No external dependency means no oracle manipulation risk. Withdrawals are BTC-denominated (1% of remaining), not USD-denominated. The market determines vestedBTC value, not an oracle."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Oracle = external price reporting contract",
+            "Oracle manipulation = common DeFi attack vector",
+            "This protocol: no oracle dependency",
+            "Prices discovered via market (Curve trading)",
+            "Withdrawals in BTC, not USD - no pricing needed"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "Why are oracles a security risk?",
+            "options": [
+              "They're expensive",
+              "They can be manipulated (flash loans, exploits)",
+              "They're slow",
+              "They require gas"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "How does this protocol handle pricing?",
+            "options": [
+              "Chainlink oracle",
+              "Internal price algorithm",
+              "Market discovery (Curve trading), no oracle",
+              "Admin-set prices"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "multi-collateral-isolation",
+      "title": "Multi-Collateral Isolation",
+      "objective": "Understand how separate deployments prevent contagion",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Each wrapped BTC type (WBTC, cbBTC, tBTC) has its own protocol deployment. Separate VaultNFT contract, separate vestedBTC token, separate match pool. If one custodian fails (e.g., BitGo for WBTC), only that deployment is affected."
+        },
+        {
+          "type": "text",
+          "content": "This is risk isolation by design. Choose your deployment based on custody risk tolerance. WBTC: most liquid, centralized custodian. cbBTC: institutional grade, still centralized. tBTC: decentralized, more complexity. Your collateral is only exposed to risks of your chosen custodian."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Separate deployment per collateral type",
+            "Each has own contracts, tokens, pools",
+            "Custodian failure affects only that deployment",
+            "Choose based on risk tolerance",
+            "No cross-contamination between deployments"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "If WBTC's custodian fails, what happens to cbBTC Vaults?",
+            "options": [
+              "They're also affected",
+              "Nothing - separate deployment, isolated risk",
+              "They get compensation",
+              "They're automatically migrated"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "Why have multiple deployments instead of one?",
+            "options": [
+              "More gas revenue",
+              "Marketing purposes",
+              "Risk isolation - different custody risks separated",
+              "Technical limitation"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      }
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "achievementId": "TRAILHEAD",
+  "week": 1,
+  "category": "Registration",
+  "defiConcept": "identity",
+  "lesson": {
+    "title": "Your On-Chain Identity",
+    "objective": "Understand wallet addresses and on-chain profiles",
+    "sections": [
+      {
+        "type": "text",
+        "content": "In DeFi, your wallet address IS your identity. Unlike traditional finance where you need ID documents and bank approvals, a wallet address lets you interact with any protocol instantly. It's pseudonymous (not tied to your real name), portable (works across all chains), and truly owned by you."
+      },
+      {
+        "type": "text",
+        "content": "Creating an on-chain profile registers your presence in the protocol. This timestamp becomes the start of your journey - every achievement, every milestone, measured from this moment."
+      },
+      {
+        "type": "keyPoints",
+        "content": [
+          "Your wallet address is a 42-character hexadecimal string starting with 0x",
+          "Private key = ownership. Never share it. Ever.",
+          "On-chain profiles are permanent and transparent",
+          "Your journey timestamp starts when you register"
+        ]
+      }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "What makes a wallet address different from a bank account?",
+        "options": [
+          "It requires government ID to open",
+          "It's owned and controlled entirely by you",
+          "It only works with one protocol",
+          "It requires monthly fees"
+        ],
+        "correct": 1
+      },
+      {
+        "question": "What should you NEVER share?",
+        "options": [
+          "Your wallet address",
+          "Your transaction history",
+          "Your private key",
+          "Your on-chain profile"
+        ],
+        "correct": 2
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Create your on-chain profile to begin your journey",
+  "nextSteps": [
+    "Your profile is now live. In 15 days, you can claim FIRST_STEPS.",
+    "Consider linking your ENS or Farcaster identity for the IDENTIFIED achievement."
+  ]
+}

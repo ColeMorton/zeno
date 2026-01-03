@@ -1,0 +1,59 @@
+{
+  "achievementId": "EXPLORER",
+  "week": 6,
+  "category": "Activity",
+  "defiConcept": "protocolDiversity",
+  "lesson": {
+    "title": "The DeFi Ecosystem",
+    "objective": "Explore multiple contracts and understand composability",
+    "sections": [
+      {
+        "type": "text",
+        "content": "DeFi is not one protocol - it's an ecosystem of specialized building blocks. Lending protocols, DEXs, vaults, bridges - each serves a specific function. Together, they compose into complex financial systems."
+      },
+      {
+        "type": "text",
+        "content": "Interacting with 3+ contracts teaches you that DeFi is modular. Protocols plug into each other. Your tokens can flow from a vault to a DEX to a lending protocol, each step adding utility."
+      },
+      {
+        "type": "keyPoints",
+        "content": [
+          "Composability = protocols building on other protocols",
+          "Each contract type has specific functions and risks",
+          "Exploring widely builds mental models of the ecosystem",
+          "The same tokens can be used across many protocols"
+        ]
+      }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "What does 'composability' mean in DeFi?",
+        "options": [
+          "Protocols can only work in isolation",
+          "Protocols can integrate and build on each other",
+          "All protocols use the same code",
+          "Protocols must be approved by a central authority"
+        ],
+        "correct": 1
+      },
+      {
+        "question": "Why is exploring multiple contracts valuable?",
+        "options": [
+          "It increases gas refunds",
+          "It builds understanding of the ecosystem",
+          "It's required by regulators",
+          "It reduces transaction fees"
+        ],
+        "correct": 1
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Interact with 3 or more protocol contracts",
+  "nextSteps": [
+    "You're becoming a DeFi native. Each protocol teaches something new.",
+    "REGULAR requires consistent engagement across multiple days."
+  ]
+}

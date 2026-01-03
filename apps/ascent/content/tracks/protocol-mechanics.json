@@ -1,0 +1,403 @@
+{
+  "id": "protocol-mechanics",
+  "name": "Protocol Mechanics",
+  "description": "Master core protocol operations, the Vault lifecycle, and Zeno's paradox applied to finance",
+  "graduationStandard": "Execute a withdrawal via blockchain explorer",
+  "lessons": [
+    {
+      "id": "vault-nft",
+      "title": "Vault NFT (ERC-998)",
+      "objective": "Understand the composable NFT structure that holds your collateral",
+      "sections": [
+        {
+          "type": "text",
+          "content": "A Vault NFT is an ERC-998 composable token. Unlike regular NFTs (ERC-721) that are standalone, ERC-998 can own other tokens. Your Vault NFT contains two things: a Treasure NFT (ERC-721) and BTC collateral (ERC-20). When you own the Vault, you own everything inside it."
+        },
+        {
+          "type": "text",
+          "content": "This composition is enforced at the smart contract level. The Treasure cannot be removed without destroying the Vault. The collateral can only be accessed through withdrawal (after vesting) or redemption. The Vault NFT is your single proof of ownership for the entire bundle."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "ERC-998 = composable NFT standard",
+            "Vault contains: Treasure NFT + BTC collateral",
+            "Single token ownership = complete bundle ownership",
+            "Treasure is permanently bound to Vault",
+            "Transferring Vault transfers everything inside"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What makes ERC-998 different from ERC-721?",
+            "options": [
+              "ERC-998 is faster",
+              "ERC-998 can own other tokens",
+              "ERC-998 is cheaper",
+              "ERC-998 is fungible"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "What does a Vault NFT contain?",
+            "options": [
+              "Only BTC collateral",
+              "Only a Treasure NFT",
+              "Treasure NFT + BTC collateral",
+              "Multiple Vault NFTs"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "explorer",
+        "description": "View a Vault NFT's composition on the blockchain explorer",
+        "verificationHint": "Navigate to a Vault NFT contract and find the childTokens mapping"
+      }
+    },
+    {
+      "id": "treasure-nft",
+      "title": "Treasure NFT",
+      "objective": "Understand the NFT component that represents issuer-specific identity",
+      "sections": [
+        {
+          "type": "text",
+          "content": "The Treasure NFT is the identity component of your Vault. It's minted by an issuer and represents membership in their specific ecosystem. Different issuers can create different Treasure collections with unique art, metadata, and community benefits."
+        },
+        {
+          "type": "text",
+          "content": "When you mint a Vault, you deposit a Treasure NFT along with BTC collateral. The Treasure becomes permanently bound to the Vault. If you redeem early, the Treasure is burned. This commitment mechanism ensures the Treasure maintains meaning - it cannot be separated and resold."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "ERC-721 standard NFT",
+            "Created by issuers, not the protocol",
+            "Permanently bound once deposited into Vault",
+            "Burned on early redemption",
+            "Represents issuer-specific community membership"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What happens to the Treasure NFT on early redemption?",
+            "options": [
+              "It's returned to the owner",
+              "It's transferred to the issuer",
+              "It's burned (destroyed)",
+              "It stays in the Vault"
+            ],
+            "correct": 2
+          },
+          {
+            "question": "Who creates Treasure NFTs?",
+            "options": [
+              "The protocol automatically",
+              "Issuers (organizations using the protocol)",
+              "Other Vault holders",
+              "Governance votes"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "explorer",
+        "description": "Find the Treasure NFT inside a Vault by viewing the child token",
+        "verificationHint": "Look for the childContract and childTokenId in the Vault's state"
+      }
+    },
+    {
+      "id": "vesting-period",
+      "title": "Vesting Period",
+      "objective": "Understand the 1129-day lock and why it's immutable",
+      "sections": [
+        {
+          "type": "text",
+          "content": "The vesting period is exactly 1129 days. This is not a parameter that can be changed - it's a constant embedded in the smart contract bytecode. No governance, no admin key, no upgrade mechanism can modify it. This immutability is the foundation of trust."
+        },
+        {
+          "type": "text",
+          "content": "During vesting, you cannot withdraw collateral. You can still transfer the Vault NFT, view your position, or redeem early (with penalty). The vesting period ensures every Vault holder has committed to the same timeframe, creating a shared experience and fair comparison."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "1129 days exactly - immutable constant",
+            "No withdrawals until vesting complete",
+            "Can transfer Vault during vesting",
+            "Can redeem early with linear penalty",
+            "Same rules for everyone - no exceptions"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "Can the 1129-day vesting period be changed by governance?",
+            "options": [
+              "Yes, with 51% vote",
+              "Yes, by the admin",
+              "No, it's immutable bytecode",
+              "Only by protocol upgrade"
+            ],
+            "correct": 2
+          },
+          {
+            "question": "What can you do with a Vault during the vesting period?",
+            "options": [
+              "Withdraw freely",
+              "Transfer it, view it, or redeem early with penalty",
+              "Nothing at all",
+              "Add more collateral"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "explorer",
+        "description": "Check a Vault's vesting status and days remaining",
+        "verificationHint": "Read the vestingEndTime or daysRemaining for a specific tokenId"
+      }
+    },
+    {
+      "id": "zeno-paradox",
+      "title": "Zeno's Paradox",
+      "objective": "Master the mathematical foundation of perpetual withdrawals",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Zeno's paradox of motion states that to reach a destination, you must first cover half the distance, then half of what remains, then half again - infinite steps, yet you still arrive. Applied to finance: withdrawing 1% of remaining collateral never depletes it."
+        },
+        {
+          "type": "text",
+          "content": "Each withdrawal is 1% of REMAINING collateral, not original. Month 1: 1% of 1.0 BTC = 0.01 BTC, leaving 0.99. Month 2: 1% of 0.99 = 0.0099, leaving 0.9801. Month 100: 1% of ~0.366 = 0.00366. The balance approaches zero asymptotically but never reaches it. Withdrawals continue forever."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "1% of REMAINING, not original",
+            "Formula: remaining(n) = initial * (0.99)^n",
+            "Never depletes to zero",
+            "12% annual rate (1% monthly)",
+            "Perpetual income stream"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "After 100 monthly withdrawals of 1% each, approximately how much of the original 1 BTC remains?",
+            "options": [
+              "0 BTC - fully depleted",
+              "~0.366 BTC",
+              "0.50 BTC",
+              "0.88 BTC"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "Why does the collateral never fully deplete?",
+            "options": [
+              "The protocol adds new collateral",
+              "Withdrawals are 1% of remaining, not original (asymptotic)",
+              "There's a minimum balance rule",
+              "Other users' forfeitures top it up"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "What is the withdrawal rate?",
+            "options": [
+              "1% of original monthly",
+              "1% of remaining monthly (12% annual)",
+              "12% of original annually",
+              "Variable based on governance"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "calculation",
+        "description": "Calculate withdrawal amounts for months 1, 12, and 60 given 1 BTC initial collateral",
+        "verificationHint": "Use the formula: withdrawal = remaining * 0.01, remaining = 1 * (0.99)^n"
+      }
+    },
+    {
+      "id": "withdrawal-mechanics",
+      "title": "Withdrawal Mechanics",
+      "objective": "Learn the cooldown system and how to execute withdrawals",
+      "sections": [
+        {
+          "type": "text",
+          "content": "After vesting completes, you can withdraw 1% of remaining collateral every 30 days. This is enforced by a per-Vault cooldown. Call withdraw(), receive BTC, and the cooldown starts. After 30 days, you can withdraw again. Miss a month? No problem - withdrawals don't accumulate but you don't lose anything."
+        },
+        {
+          "type": "text",
+          "content": "The withdrawal amount is calculated at execution time based on current collateral. If your collateral increased (from match pool claims), your withdrawal amount increases too. If BTC price changed, the BTC amount stays the same but USD value changes. You receive actual BTC tokens, not USD."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "30-day cooldown between withdrawals",
+            "1% of current remaining collateral",
+            "Withdrawals don't accumulate - no penalty for skipping",
+            "Amount calculated at withdrawal time",
+            "Receive actual BTC tokens (WBTC, cbBTC, etc.)"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What happens if you skip a withdrawal month?",
+            "options": [
+              "You lose that month's withdrawal forever",
+              "The amount accumulates to next month",
+              "Nothing - you just withdraw when ready",
+              "Your Vault is penalized"
+            ],
+            "correct": 2
+          },
+          {
+            "question": "When is the withdrawal amount calculated?",
+            "options": [
+              "At Vault creation",
+              "At vesting completion",
+              "At withdrawal execution time",
+              "Once per year"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "explorer",
+        "description": "Check the withdrawal cooldown status for a vested Vault",
+        "verificationHint": "Read the lastWithdrawal timestamp and compare to current time + 30 days"
+      }
+    },
+    {
+      "id": "early-redemption",
+      "title": "Early Redemption",
+      "objective": "Understand the linear unlock formula and forfeit destinations",
+      "sections": [
+        {
+          "type": "text",
+          "content": "You can exit at any time during vesting, but with a penalty. The formula is linear: redeemable = collateral * (daysHeld / 1129). Day 0: 0% redeemable. Day 565 (halfway): 50% redeemable. Day 1129: 100% redeemable. Simple, predictable, fair."
+        },
+        {
+          "type": "text",
+          "content": "Forfeited collateral goes to a destination set by the issuer: ISSUER (issuer receives it), TREASURY (protocol treasury), SERIES_HOLDERS (other holders of same Treasure series), or ALL_HOLDERS (all Vault holders via match pool). Most issuers choose ALL_HOLDERS - your forfeit benefits patient holders."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Linear formula: redeemable = collateral * (days / 1129)",
+            "Forfeit = collateral - redeemable",
+            "Treasure NFT is burned on redemption",
+            "Forfeit destination set by issuer",
+            "Most common: ALL_HOLDERS (match pool)"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "How much collateral can you redeem at day 500?",
+            "options": [
+              "0%",
+              "~44% (500/1129)",
+              "50%",
+              "100%"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "What happens to the Treasure NFT on early redemption?",
+            "options": [
+              "Returned to you",
+              "Transferred to issuer",
+              "Burned (destroyed)",
+              "Sold on marketplace"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "calculation",
+        "description": "Calculate redeemable and forfeited amounts for a 1 BTC Vault at day 750",
+        "verificationHint": "redeemable = 1 * (750/1129) = ~0.664 BTC, forfeit = 1 - 0.664 = ~0.336 BTC"
+      }
+    },
+    {
+      "id": "collateral-matching",
+      "title": "Collateral Matching",
+      "objective": "Understand how forfeited collateral benefits patient holders",
+      "sections": [
+        {
+          "type": "text",
+          "content": "The match pool collects forfeited collateral from early redemptions. When someone exits early, their forfeit goes to the pool (if issuer chose ALL_HOLDERS). Patient holders can claim their pro-rata share: your claim = matchPool * (yourCollateral / totalActiveCollateral)."
+        },
+        {
+          "type": "text",
+          "content": "Claims are lazy - you request your share when you want it, not automatically. The match pool creates a flywheel: early exits fund rewards for stayers, incentivizing patience. More redemptions = larger pool = better rewards for those who hold. Your patience is literally rewarded by others' impatience."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Match pool funded by early redemption forfeits",
+            "Pro-rata distribution based on your collateral share",
+            "Lazy claiming - request when ready",
+            "Flywheel: exits fund rewards for stayers",
+            "Per-collateral isolation (WBTC pool separate from cbBTC pool)"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "Where does forfeited collateral go when issuer sets ALL_HOLDERS?",
+            "options": [
+              "Burned forever",
+              "To the issuer",
+              "To the match pool for all Vault holders",
+              "To the protocol treasury"
+            ],
+            "correct": 2
+          },
+          {
+            "question": "How is your match pool share calculated?",
+            "options": [
+              "Equal split among all holders",
+              "Pro-rata based on your collateral / total active collateral",
+              "First come, first served",
+              "Based on how long you've held"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "explorer",
+        "description": "View the current match pool balance and calculate your potential claim",
+        "verificationHint": "Read matchPoolBalance and calculate: pool * (yourCollateral / totalCollateral)"
+      }
+    }
+  ]
+}

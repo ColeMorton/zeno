@@ -1,0 +1,59 @@
+{
+  "achievementId": "COMMITTED",
+  "week": 10,
+  "category": "Milestone",
+  "defiConcept": "vesting",
+  "lesson": {
+    "title": "Vesting and Lock Mechanisms",
+    "objective": "Understand why long-term locks create value",
+    "sections": [
+      {
+        "type": "text",
+        "content": "60 days. Two months. In a world of instant gratification, this is genuine commitment. Vesting mechanisms exist because long-term alignment creates better outcomes for everyone."
+      },
+      {
+        "type": "text",
+        "content": "Lock periods filter out speculators. When you commit to staying, you're signaling that you believe in the protocol's future. This signal is valuable - it builds trust with the community and often unlocks additional benefits."
+      },
+      {
+        "type": "keyPoints",
+        "content": [
+          "Vesting = tokens unlock over time, not all at once",
+          "Lock mechanisms align incentives for long-term success",
+          "Early exit typically forfeits unvested rewards",
+          "60 days is ~5% of the 1129-day journey"
+        ]
+      }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "What is the purpose of vesting schedules?",
+        "options": [
+          "To make tokens worthless",
+          "To align incentives for long-term commitment",
+          "To confuse users",
+          "To increase gas costs"
+        ],
+        "correct": 1
+      },
+      {
+        "question": "What typically happens if you exit before vesting completes?",
+        "options": [
+          "You receive bonus rewards",
+          "Nothing changes",
+          "You forfeit unvested tokens",
+          "The contract pauses"
+        ],
+        "correct": 2
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Wait 60 days after creating your profile",
+  "nextSteps": [
+    "You're now deeply committed. The summit is in sight.",
+    "RESOLUTE awaits - sign your commitment attestation."
+  ]
+}

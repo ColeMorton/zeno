@@ -1,0 +1,63 @@
+{
+  "achievementId": "CHAPTER_COMPLETE",
+  "week": 13,
+  "category": "Completion",
+  "defiConcept": "mastery",
+  "lesson": {
+    "title": "Chapter 1 Mastery",
+    "objective": "Demonstrate comprehensive understanding of DeFi foundations",
+    "sections": [
+      {
+        "type": "text",
+        "content": "You've done it. With 10 or more achievements claimed, you've proven mastery of Chapter 1: DeFi Foundations. You understand identity, transactions, approvals, consistency, and commitment."
+      },
+      {
+        "type": "text",
+        "content": "This isn't the end - it's the foundation. Everything you've learned in Chapter 1 prepares you for what comes next: trading, liquidity, lending, and beyond. The mountain has 12 chapters, and you've completed the first."
+      },
+      {
+        "type": "keyPoints",
+        "content": [
+          "10+ achievements = comprehensive foundation",
+          "Theory + practice verified on-chain",
+          "Ready for Chapter 2: Trading concepts",
+          "Your progress is permanent and verifiable"
+        ]
+      }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "What have you demonstrated by completing Chapter 1?",
+        "options": [
+          "Ability to spend money",
+          "Comprehensive understanding of DeFi foundations",
+          "Nothing significant",
+          "Just clicking buttons"
+        ],
+        "correct": 1
+      },
+      {
+        "question": "What comes after Chapter 1?",
+        "options": [
+          "The journey ends",
+          "Chapter 2: Trading concepts",
+          "You start over",
+          "The protocol shuts down"
+        ],
+        "correct": 1
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Earn 10 or more chapter achievements",
+  "nextSteps": [
+    "Chapter 1 complete. You've mastered the foundations.",
+    "Chapter 2 awaits at day 91 - trading, swaps, and slippage."
+  ],
+  "celebration": {
+    "title": "Chapter 1 Complete!",
+    "message": "You've mastered DeFi Foundations. Your knowledge is now verified on-chain forever."
+  }
+}

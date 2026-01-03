@@ -1,0 +1,278 @@
+{
+  "id": "explorer-operations",
+  "name": "Explorer Operations",
+  "description": "Master direct contract interaction to operate the protocol without any UI",
+  "graduationStandard": "Execute a withdrawal via blockchain explorer",
+  "lessons": [
+    {
+      "id": "reading-contract-state",
+      "title": "Reading Contract State",
+      "objective": "Query view functions to read Vault data directly from the blockchain",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Every smart contract exposes view functions - read-only methods that don't change state. On Etherscan, go to Contract -> Read Contract. You can query ownerOf(tokenId) to see who owns a Vault, balanceOf(address) for Vault count, and getCollateral(tokenId) for current collateral amount."
+        },
+        {
+          "type": "text",
+          "content": "View functions are free - no gas required. Enter the parameters (usually a tokenId or address), click Query, and the result appears. This is how you verify any claim about the protocol. Don't trust screenshots - read the chain directly."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Read Contract tab on Etherscan",
+            "View functions = read-only, free (no gas)",
+            "ownerOf(tokenId) = who owns the Vault",
+            "getCollateral(tokenId) = current collateral",
+            "Verify claims by reading the chain directly"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "Do view functions cost gas?",
+            "options": [
+              "Yes, always",
+              "No, they're read-only",
+              "Only on mainnet",
+              "Depends on the function"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "How do you verify a claim about Vault ownership?",
+            "options": [
+              "Trust the website",
+              "Check social media",
+              "Call ownerOf(tokenId) on Etherscan",
+              "Ask the team"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "explorer",
+        "description": "Read the collateral amount for a specific Vault tokenId",
+        "verificationHint": "Go to VaultNFT contract -> Read Contract -> getCollateral -> enter tokenId"
+      }
+    },
+    {
+      "id": "understanding-functions",
+      "title": "Understanding Functions",
+      "objective": "Interpret function signatures and parameters",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Function signatures describe what a function does and what inputs it needs. withdraw(uint256 tokenId) takes one input - the Vault ID. mintVestedBTC(uint256 tokenId) separates collateral. grantDelegation(address delegate, uint256 percentage) sets up withdrawal delegation."
+        },
+        {
+          "type": "text",
+          "content": "Common types: uint256 = big number (token IDs, amounts), address = 42-character hex string (0x...), bool = true/false. Amounts are usually in wei (18 decimals) - 1 ETH = 1000000000000000000 wei. Check the ABI or documentation for expected formats."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Function signature = name + parameters",
+            "uint256 = number (IDs, amounts)",
+            "address = 0x... wallet or contract",
+            "bool = true/false",
+            "Amounts in wei (18 decimals)"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What does withdraw(uint256 tokenId) expect?",
+            "options": [
+              "An address",
+              "A number (the Vault ID)",
+              "A boolean",
+              "No parameters"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "How is 1.5 BTC typically represented in smart contracts?",
+            "options": [
+              "1.5",
+              "1500000000000000000 (1.5 * 10^18 wei)",
+              "150",
+              "0.0000015"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "executing-transactions",
+      "title": "Executing Transactions",
+      "objective": "Call write functions to modify state via Etherscan",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Write functions change blockchain state and require gas. On Etherscan, go to Contract -> Write Contract -> Connect to Web3 (connect your wallet). Fill in parameters and click Write. Your wallet will prompt for signature and gas payment."
+        },
+        {
+          "type": "text",
+          "content": "Before executing: double-check parameters (wrong tokenId = failed tx). Verify you have enough ETH for gas. Review the transaction in your wallet before signing. After execution, get a transaction hash to track confirmation."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Write Contract tab on Etherscan",
+            "Connect wallet first (Connect to Web3)",
+            "Write functions cost gas",
+            "Double-check parameters before signing",
+            "Transaction hash = proof of execution"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What do you need before executing a write function?",
+            "options": [
+              "Just an internet connection",
+              "Connected wallet + ETH for gas",
+              "Admin approval",
+              "Nothing"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "How do you track a submitted transaction?",
+            "options": [
+              "Wait and hope",
+              "Check email",
+              "Use the transaction hash on Etherscan",
+              "Ask the team"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "onchain",
+        "description": "Execute any write function (even a simple approval) via Etherscan",
+        "verificationHint": "The transaction should appear in your wallet's transaction history"
+      }
+    },
+    {
+      "id": "event-interpretation",
+      "title": "Event Interpretation",
+      "objective": "Find and interpret contract events (logs) for transaction history",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Events are logs emitted by contracts when significant actions occur. Withdrawal(tokenId, amount, recipient) logs every withdrawal. Transfer(from, to, tokenId) logs NFT transfers. Events are indexed and searchable - useful for building history."
+        },
+        {
+          "type": "text",
+          "content": "On Etherscan, click a transaction -> Logs tab to see emitted events. You can also use the Events tab on a contract to see all historical events. Decode the data using the ABI to understand what happened."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Events = logs emitted by contracts",
+            "Found in transaction Logs tab",
+            "Indexed for searchability",
+            "Decode using ABI for readability",
+            "Build transaction history from events"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "Where do you find events for a specific transaction?",
+            "options": [
+              "Contract read functions",
+              "Transaction -> Logs tab",
+              "Block explorer homepage",
+              "Gas tracker"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "What is the purpose of events?",
+            "options": [
+              "Speed up transactions",
+              "Log significant actions for history and indexing",
+              "Reduce gas costs",
+              "Improve security"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "explorer",
+        "description": "Find a Withdrawal event and decode its parameters",
+        "verificationHint": "Search for Withdrawal events on the VaultNFT contract's Events tab"
+      }
+    },
+    {
+      "id": "full-independence",
+      "title": "Full Independence",
+      "objective": "Execute a complete withdrawal flow without using any UI",
+      "sections": [
+        {
+          "type": "text",
+          "content": "You now have all the skills to operate independently. The complete flow: 1) Read your Vault's tokenId from ownerOf queries or events. 2) Check getCollateral(tokenId) for current amount. 3) Verify lastWithdrawal to ensure cooldown passed. 4) Call withdraw(tokenId). 5) Verify via Withdrawal event."
+        },
+        {
+          "type": "text",
+          "content": "This independence is the ultimate trust guarantee. No website can censor you. No frontend bug can block you. No hosting issue can lock your funds. As long as Ethereum runs, you can access your Vaults directly. This is true decentralization."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Read: ownerOf, getCollateral, lastWithdrawal",
+            "Verify: cooldown passed (30 days since last)",
+            "Execute: withdraw(tokenId)",
+            "Confirm: check Withdrawal event",
+            "No UI dependency - true independence"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What should you check before calling withdraw()?",
+            "options": [
+              "Just the tokenId",
+              "TokenId + cooldown passed + collateral amount",
+              "Gas price only",
+              "Team approval"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "Why is UI independence important?",
+            "options": [
+              "Faster transactions",
+              "Lower gas",
+              "No censorship, no frontend dependency, always accessible",
+              "Better UX"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "onchain",
+        "description": "Execute a complete withdrawal using only Etherscan",
+        "verificationHint": "Successful Withdrawal event with your address as recipient"
+      }
+    }
+  ]
+}

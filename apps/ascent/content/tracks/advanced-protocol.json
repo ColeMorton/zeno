@@ -1,0 +1,323 @@
+{
+  "id": "advanced-protocol",
+  "name": "Advanced Protocol",
+  "description": "Master advanced features including vestedBTC, delegation, and dormancy",
+  "graduationStandard": "Use all protocol features",
+  "lessons": [
+    {
+      "id": "vestedbtc-separation",
+      "title": "vestedBTC Separation",
+      "objective": "Understand how to separate collateral into fungible claims",
+      "sections": [
+        {
+          "type": "text",
+          "content": "vestedBTC is an ERC-20 token representing your BTC collateral claim. By calling mintVestedBTC(), you convert your Vault's collateral into fungible tokens. This is like bond stripping - separating the principal (collateral) from the income stream (withdrawal rights)."
+        },
+        {
+          "type": "text",
+          "content": "After separation: Your Vault NFT keeps withdrawal rights (1% monthly after vesting). The vestedBTC represents the collateral claim. You can sell, LP, or use vestedBTC in DeFi while retaining your Vault. However, redemption rights are locked until you return all vestedBTC."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "mintVestedBTC() converts collateral to ERC-20",
+            "1:1 ratio - vestedBTC minted = current collateral",
+            "Vault keeps withdrawal rights",
+            "Redemption rights locked after separation",
+            "Enables DeFi composability"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What happens to withdrawal rights after vestedBTC separation?",
+            "options": [
+              "They're transferred with vestedBTC",
+              "They remain with the Vault NFT owner",
+              "They're canceled",
+              "They go to the protocol"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "What is locked after separation?",
+            "options": [
+              "Withdrawal rights",
+              "Vault transfers",
+              "Redemption rights (can't exit early)",
+              "All Vault functions"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "explorer",
+        "description": "View a Vault's separation state (vestedBTCAmount mapping)",
+        "verificationHint": "Read vestedBTCAmount[tokenId] - if > 0, collateral is separated"
+      }
+    },
+    {
+      "id": "vestedbtc-recombination",
+      "title": "vestedBTC Recombination",
+      "objective": "Learn the all-or-nothing requirement for returning vestedBTC",
+      "sections": [
+        {
+          "type": "text",
+          "content": "To restore redemption rights, you must return ALL originally minted vestedBTC. Call returnVestedBTC() with the full amount. Partial returns are rejected. This prevents gaming - you can't keep some vestedBTC while regaining partial redemption."
+        },
+        {
+          "type": "text",
+          "content": "The requirement is exact: if you separated 1.0 BTC worth of vestedBTC, you need exactly that amount to recombine (minus any withdrawals that reduced collateral). After recombination, your Vault functions normally - you can redeem, transfer, or withdraw as usual."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Must return FULL original amount",
+            "No partial returns accepted",
+            "Prevents arbitrage between separated/unseparated states",
+            "After return: all rights restored",
+            "Requires Vault ownership + vestedBTC balance"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "Can you return half your vestedBTC to get partial redemption rights?",
+            "options": [
+              "Yes, proportionally",
+              "No, it's all-or-nothing",
+              "Yes, with a fee",
+              "Depends on vesting status"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "What do you need to recombine vestedBTC?",
+            "options": [
+              "Just the vestedBTC tokens",
+              "Just the Vault NFT",
+              "Both Vault NFT ownership AND full vestedBTC amount",
+              "Governance approval"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "withdrawal-delegation",
+      "title": "Withdrawal Delegation",
+      "objective": "Master wallet-level and vault-level delegation mechanics",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Delegation lets others withdraw on your behalf without transferring ownership. Two levels exist: Wallet-level covers ALL your Vaults. Vault-level covers a specific Vault only. Vault-level takes precedence - if both exist, vault-specific rules apply."
+        },
+        {
+          "type": "text",
+          "content": "Delegates share your withdrawal allowance. If you grant 60% to delegate A and 40% to delegate B, they split the 1% monthly rate. Each delegate has their own 30-day cooldown per Vault. Use cases: family allowances, DAO treasury committees, automated services."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Wallet-level = all Vaults",
+            "Vault-level = specific Vault (takes precedence)",
+            "Percentage-based (e.g., 60%/40% split)",
+            "Each delegate has own cooldown",
+            "Non-custodial - ownership stays with you"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "If both wallet-level and vault-level delegation exist, which applies?",
+            "options": [
+              "Wallet-level (higher scope)",
+              "Vault-level (more specific, takes precedence)",
+              "Both combine",
+              "Neither works"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "Does granting delegation transfer Vault ownership?",
+            "options": [
+              "Yes, partially",
+              "Yes, fully",
+              "No, it's non-custodial",
+              "Only for withdrawals"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "onchain",
+        "description": "Grant a test delegation to yourself or another address",
+        "verificationHint": "Look for DelegationGranted events with your address as grantor"
+      }
+    },
+    {
+      "id": "dormancy-system",
+      "title": "Dormancy System",
+      "objective": "Understand activity tracking, poke mechanics, and vestedBTC holder claims",
+      "sections": [
+        {
+          "type": "text",
+          "content": "The dormancy system prevents collateral from being locked forever when separated Vaults become inactive. A Vault is dormancy-eligible if: collateral is separated AND owner doesn't hold full vestedBTC AND no activity for 1129+ days."
+        },
+        {
+          "type": "text",
+          "content": "Anyone can 'poke' an eligible Vault, starting a 30-day grace period. The owner can proveActivity() to reset. If grace expires without response, vestedBTC holders can burn their tokens to claim the underlying collateral. This recovers 'zombie' positions."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Dormancy requires: separated + no full vestedBTC + 1129 days inactive",
+            "Poke starts 30-day grace period",
+            "Owner can proveActivity() to reset",
+            "After grace: vestedBTC holders can claim",
+            "Recovers collateral from abandoned Vaults"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What makes a Vault dormancy-eligible?",
+            "options": [
+              "Just being inactive for 1129 days",
+              "Separated collateral + no full vestedBTC + 1129 days inactive",
+              "Any Vault over 3 years old",
+              "Low collateral balance"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "Who can claim dormant collateral?",
+            "options": [
+              "Anyone",
+              "The original owner only",
+              "vestedBTC holders (burn tokens to claim)",
+              "Protocol governance"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "explorer",
+        "description": "Check a Vault's dormancy state and lastActivity timestamp",
+        "verificationHint": "Read lastActivity[tokenId] and compare to current time"
+      }
+    },
+    {
+      "id": "hybrid-collateral",
+      "title": "Hybrid Collateral",
+      "objective": "Understand dual-collateral vaults and the flywheel effect",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Hybrid Collateral Vaults hold two types of assets: Primary (70% target) is direct BTC (cbBTC). LP Component (30% target) is vestedBTC/cbBTC Curve LP tokens. This creates structural protocol-owned liquidity - every new Vault deepens the secondary market."
+        },
+        {
+          "type": "text",
+          "content": "Dual withdrawal model: BTC portion follows normal 1% monthly perpetual withdrawals. LP portion is released 100% at vesting completion - a one-time liquidity event. Zero rent extraction - all LP swap fees go to Vault owner, not the protocol."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "70% BTC + 30% LP target ratio",
+            "BTC: 1% monthly perpetual withdrawals",
+            "LP: 100% at vesting (one-time)",
+            "Flywheel: more Vaults = deeper LP = tighter spreads",
+            "Zero protocol fees on LP rewards"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "How is LP collateral withdrawn differently from BTC collateral?",
+            "options": [
+              "Same 1% monthly rate",
+              "LP is 100% at vesting, BTC is 1% monthly perpetual",
+              "LP cannot be withdrawn",
+              "LP has higher withdrawal rate"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "What is the flywheel effect of hybrid vaults?",
+            "options": [
+              "Higher gas costs",
+              "More Vaults = deeper LP = tighter spreads = more minting",
+              "Faster vesting",
+              "Higher withdrawal rates"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "governance-voting",
+      "title": "Governance Voting",
+      "objective": "Understand organic and transitional voting power",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Organic voting power comes from BTC exposure: vestedBTC balance + unsplit Vault collateral + derivative positions (yvBTC, LP tokens). Your power is proportional to your actual economic stake in the protocol. No artificial token inflation."
+        },
+        {
+          "type": "text",
+          "content": "Transitional voting power gives the founder team initial control that decays to zero over 1129 days. Formula: transitional = totalProtocolBTC * (1 - daysSinceLaunch/1129). Day 0: 100% founder control. Day 1129: 0% - full community governance."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Organic power = your BTC exposure",
+            "Includes: vestedBTC + unsplit Vaults + derivatives",
+            "Transitional power decays linearly",
+            "Day 0: founder controls, Day 1129: community controls",
+            "Smooth, predictable transition"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What determines organic voting power?",
+            "options": [
+              "Token holdings",
+              "Your actual BTC exposure across protocol",
+              "Time in protocol",
+              "Number of transactions"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "When does transitional (founder) voting power reach zero?",
+            "options": [
+              "After first governance vote",
+              "When TVL reaches $100M",
+              "Day 1129 after launch",
+              "Never"
+            ],
+            "correct": 2
+          }
+        ],
+        "passingScore": 100
+      }
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "achievementId": "REGULAR",
+  "week": 9,
+  "category": "Consistency",
+  "defiConcept": "consistency",
+  "lesson": {
+    "title": "The Power of Consistent Participation",
+    "objective": "Learn how regular engagement compounds benefits",
+    "sections": [
+      {
+        "type": "text",
+        "content": "Showing up once is easy. Showing up repeatedly demonstrates commitment. Many protocols reward consistency - daily check-ins, regular claims, ongoing participation. It's not about size, it's about reliability."
+      },
+      {
+        "type": "text",
+        "content": "Consistent engagement builds habits. By returning across 3 separate days, you're developing the rhythm of an active DeFi participant. This muscle memory compounds into expertise over time."
+      },
+      {
+        "type": "keyPoints",
+        "content": [
+          "Consistency > intensity for long-term success",
+          "Many protocols offer streak bonuses",
+          "Regular engagement builds expertise faster",
+          "Small, consistent actions compound over time"
+        ]
+      }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "Why do protocols reward consistent participation?",
+        "options": [
+          "To increase transaction volume",
+          "Because reliable users are more valuable",
+          "It's required by law",
+          "To make the protocol seem busier"
+        ],
+        "correct": 1
+      },
+      {
+        "question": "What compounds more effectively over time?",
+        "options": [
+          "One large action",
+          "Many small, consistent actions",
+          "Random sporadic activity",
+          "Watching without participating"
+        ],
+        "correct": 1
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Interact with the protocol across 3 separate days",
+  "nextSteps": [
+    "You've proven you can show up consistently.",
+    "This habit will serve you throughout your DeFi journey."
+  ]
+}

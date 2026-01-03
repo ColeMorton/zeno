@@ -1,0 +1,59 @@
+{
+  "achievementId": "FIRST_STEPS",
+  "week": 2,
+  "category": "Milestone",
+  "defiConcept": "commitment",
+  "lesson": {
+    "title": "The Value of Time in DeFi",
+    "objective": "Learn why time-in-protocol matters for rewards and trust",
+    "sections": [
+      {
+        "type": "text",
+        "content": "Fifteen days might seem short, but in crypto it's an eternity. Markets can move 50% in a week. Holding through volatility demonstrates conviction that protocols reward."
+      },
+      {
+        "type": "text",
+        "content": "Time-weighted mechanisms exist throughout DeFi: vesting schedules, lock multipliers, loyalty rewards. By staying 15 days, you've proven you're not here for a quick flip. You're building something."
+      },
+      {
+        "type": "keyPoints",
+        "content": [
+          "Time commitment signals long-term alignment",
+          "Many protocols offer bonuses for longer lock periods",
+          "Early quitters often forfeit rewards to patient holders",
+          "Your 15-day milestone is just the beginning of a 1129-day journey"
+        ]
+      }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "Why do protocols reward time-in-protocol?",
+        "options": [
+          "To punish short-term traders",
+          "To align incentives with long-term holders",
+          "Because they have no other choice",
+          "It's a regulatory requirement"
+        ],
+        "correct": 1
+      },
+      {
+        "question": "What often happens to early redeemers in vesting protocols?",
+        "options": [
+          "They receive bonus rewards",
+          "They get priority access",
+          "They forfeit rewards to remaining holders",
+          "Nothing changes"
+        ],
+        "correct": 2
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Wait 15 days after creating your profile",
+  "nextSteps": [
+    "You've passed the first time gate. STEADY_PACE awaits at 30 days.",
+    "While waiting, explore protocol interactions for WALLET_WARMED."
+  ]
+}

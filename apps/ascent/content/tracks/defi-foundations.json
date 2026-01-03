@@ -1,0 +1,373 @@
+{
+  "id": "defi-foundations",
+  "name": "DeFi Foundations",
+  "description": "Build general DeFi literacy to understand broader ecosystem utility",
+  "graduationStandard": "Evaluate a DeFi position independently",
+  "lessons": [
+    {
+      "id": "wallet-identity",
+      "title": "Wallet & Identity",
+      "objective": "Understand EOAs, private keys, and self-custody fundamentals",
+      "sections": [
+        {
+          "type": "text",
+          "content": "An Externally Owned Account (EOA) is your wallet. It's controlled by a private key - a 256-bit number that should NEVER be shared. Your public address (0x...) can be shared freely, but the private key is your proof of ownership. Lose it and you lose access. Share it and you lose everything."
+        },
+        {
+          "type": "text",
+          "content": "Self-custody means YOU hold the private key. No bank, no exchange, no company can freeze, seize, or access your funds. With this power comes responsibility - you are your own bank. Hardware wallets (Ledger, Trezor) store keys offline. Software wallets (MetaMask) are more convenient but less secure."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "EOA = wallet controlled by private key",
+            "Private key = ownership. NEVER share.",
+            "Public address (0x...) = safe to share",
+            "Self-custody = you control your funds",
+            "Hardware wallets = most secure"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What should you NEVER share?",
+            "options": [
+              "Your wallet address",
+              "Your transaction history",
+              "Your private key",
+              "Your ENS name"
+            ],
+            "correct": 2
+          },
+          {
+            "question": "What is self-custody?",
+            "options": [
+              "Letting an exchange hold your keys",
+              "You personally controlling your private keys",
+              "Government-insured storage",
+              "Cloud backup of passwords"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "token-standards",
+      "title": "Token Standards",
+      "objective": "Differentiate ERC-20, ERC-721, and ERC-998 token types",
+      "sections": [
+        {
+          "type": "text",
+          "content": "ERC-20 tokens are fungible - each token is identical and interchangeable. USDC, WBTC, and most DeFi tokens are ERC-20. If you have 10 USDC, each dollar is equivalent to any other. This fungibility enables trading, lending, and liquidity pools."
+        },
+        {
+          "type": "text",
+          "content": "ERC-721 tokens are non-fungible (NFTs) - each token is unique with a distinct ID. CryptoPunks, BAYC, and Treasure NFTs are ERC-721. Token #1234 is different from #5678. ERC-998 extends this by allowing NFTs to own other tokens, creating composable bundles like Vault NFTs."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "ERC-20 = fungible (identical, interchangeable)",
+            "ERC-721 = non-fungible (unique, distinct IDs)",
+            "ERC-998 = composable (can own other tokens)",
+            "Vault NFT is ERC-998 (owns Treasure + collateral)",
+            "vestedBTC is ERC-20 (fungible claims)"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "Which token standard allows NFTs to own other tokens?",
+            "options": [
+              "ERC-20",
+              "ERC-721",
+              "ERC-998",
+              "ERC-1155"
+            ],
+            "correct": 2
+          },
+          {
+            "question": "What type of token is vestedBTC?",
+            "options": [
+              "ERC-721 (unique NFT)",
+              "ERC-20 (fungible)",
+              "ERC-998 (composable)",
+              "Native ETH"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "dex-amm",
+      "title": "DEX & AMM",
+      "objective": "Understand decentralized exchanges and automated market makers",
+      "sections": [
+        {
+          "type": "text",
+          "content": "A DEX (Decentralized Exchange) enables trading without intermediaries. Instead of order books (buyers/sellers waiting), most DEXs use AMMs (Automated Market Makers). An AMM is a smart contract holding two tokens in a pool, using a formula to price trades."
+        },
+        {
+          "type": "text",
+          "content": "The constant product formula: x * y = k. If a pool has 100 ETH (x) and 200,000 USDC (y), k = 20,000,000. Buying ETH removes it from the pool, raising its price. The formula ensures there's always a price, but large trades cause slippage - the price moves against you as you trade."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "DEX = decentralized exchange, no intermediary",
+            "AMM = automated market maker using formulas",
+            "Constant product: x * y = k",
+            "Slippage = price impact from trade size",
+            "Examples: Uniswap, Curve, SushiSwap"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What determines prices in an AMM?",
+            "options": [
+              "Order book matching",
+              "A mathematical formula (constant product)",
+              "Central authority",
+              "Random selection"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "What is slippage?",
+            "options": [
+              "Gas fees",
+              "Price impact from your trade size",
+              "Network latency",
+              "Exchange fees"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "onchain",
+        "description": "Execute a small swap on any DEX to experience slippage firsthand",
+        "verificationHint": "Look for Swap events from Uniswap, Curve, or other DEX contracts"
+      }
+    },
+    {
+      "id": "liquidity-provision",
+      "title": "Liquidity Provision",
+      "objective": "Understand LP tokens and how liquidity pools work",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Liquidity providers (LPs) deposit tokens into AMM pools and receive LP tokens in return. These LP tokens represent your share of the pool. When traders swap, they pay fees (usually 0.3%) that are distributed to LPs proportional to their share."
+        },
+        {
+          "type": "text",
+          "content": "LP tokens are themselves ERC-20 tokens. They can be transferred, used as collateral, or deposited into other protocols. When you want to exit, you burn your LP tokens and receive your share of the underlying tokens - which may be different from what you deposited due to trading."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Deposit tokens -> receive LP tokens",
+            "LP tokens = share of the pool",
+            "Earn trading fees (typically 0.3%)",
+            "LP tokens are ERC-20 (composable)",
+            "Exit by burning LP tokens"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "What do LP tokens represent?",
+            "options": [
+              "Governance voting power",
+              "Your share of a liquidity pool",
+              "Debt to the protocol",
+              "Future trading rights"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "How do liquidity providers earn money?",
+            "options": [
+              "Mining rewards",
+              "Trading fees paid by swappers",
+              "Interest from borrowers",
+              "Token inflation"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "explorer",
+        "description": "View the composition of an LP token position",
+        "verificationHint": "Read the reserves of a liquidity pool contract"
+      }
+    },
+    {
+      "id": "impermanent-loss",
+      "title": "Impermanent Loss",
+      "objective": "Calculate and mitigate impermanent loss in LP positions",
+      "sections": [
+        {
+          "type": "text",
+          "content": "Impermanent Loss (IL) is the difference between holding tokens versus providing liquidity. When prices diverge, arbitrageurs rebalance the pool, leaving you with more of the depreciated token and less of the appreciated one. If ETH doubles, you'd have more value just holding than LPing."
+        },
+        {
+          "type": "text",
+          "content": "IL formula approximation: IL = 2 * sqrt(priceRatio) / (1 + priceRatio) - 1. At 2x price change: ~5.7% IL. At 5x: ~25% IL. It's 'impermanent' because if prices return to original, IL disappears. Stable pairs (USDC/DAI) have minimal IL because prices stay correlated."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "IL = loss vs simply holding tokens",
+            "Caused by price divergence between paired tokens",
+            "More divergence = more IL",
+            "Impermanent if prices return to original",
+            "Stable pairs minimize IL"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "When is impermanent loss highest?",
+            "options": [
+              "When both tokens go up equally",
+              "When prices stay stable",
+              "When prices diverge significantly",
+              "When volume is high"
+            ],
+            "correct": 2
+          },
+          {
+            "question": "Why do stable pairs have minimal IL?",
+            "options": [
+              "They have no trading fees",
+              "Prices stay correlated (no divergence)",
+              "They use different formulas",
+              "Government guarantees"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      },
+      "practicalExercise": {
+        "type": "calculation",
+        "description": "Calculate IL for a 2x price change scenario",
+        "verificationHint": "2 * sqrt(2) / (1 + 2) - 1 = ~5.7% loss vs holding"
+      }
+    },
+    {
+      "id": "lending-basics",
+      "title": "Lending Basics",
+      "objective": "Understand collateralized lending, LTV ratios, and liquidation",
+      "sections": [
+        {
+          "type": "text",
+          "content": "DeFi lending is overcollateralized - you deposit more value than you borrow. Loan-to-Value (LTV) ratio determines how much you can borrow. At 75% LTV with $1000 collateral, you can borrow up to $750. This buffer protects lenders if your collateral drops in value."
+        },
+        {
+          "type": "text",
+          "content": "If your collateral value drops (or debt grows), you may face liquidation. When LTV exceeds the liquidation threshold (e.g., 82.5%), anyone can repay part of your debt and claim discounted collateral. This keeps the protocol solvent. Monitor your health factor to avoid liquidation."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "Overcollateralized - deposit more than you borrow",
+            "LTV = loan value / collateral value",
+            "Liquidation threshold > max LTV",
+            "Liquidators repay debt, claim discounted collateral",
+            "Health factor < 1 = liquidation risk"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "Why is DeFi lending overcollateralized?",
+            "options": [
+              "To earn more interest",
+              "To protect lenders if collateral drops",
+              "Regulatory requirement",
+              "To increase gas costs"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "What triggers liquidation?",
+            "options": [
+              "Borrowing any amount",
+              "LTV exceeding liquidation threshold",
+              "Interest accrual",
+              "Time-based expiry"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      }
+    },
+    {
+      "id": "yield-mechanics",
+      "title": "Yield Mechanics",
+      "objective": "Differentiate APY vs APR and understand compounding",
+      "sections": [
+        {
+          "type": "text",
+          "content": "APR (Annual Percentage Rate) is simple interest - 10% APR on $1000 = $100/year. APY (Annual Percentage Yield) includes compounding - if you reinvest earnings, you earn interest on interest. 10% APR compounded daily = ~10.52% APY. More frequent compounding = higher APY."
+        },
+        {
+          "type": "text",
+          "content": "DeFi yields come from real sources (trading fees, borrowing interest) or incentives (token emissions). 'Real yield' is sustainable - fees will continue as long as activity exists. Emission-based yield dilutes token supply and often decreases over time. Always understand the source of yield."
+        },
+        {
+          "type": "keyPoints",
+          "content": [
+            "APR = simple interest rate",
+            "APY = includes compounding effect",
+            "APY > APR when compounding",
+            "Real yield = trading fees, interest",
+            "Emission yield = token rewards (often unsustainable)"
+          ]
+        }
+      ],
+      "quiz": {
+        "questions": [
+          {
+            "question": "Why is APY typically higher than APR?",
+            "options": [
+              "Marketing manipulation",
+              "APY includes compounding effect",
+              "APY excludes fees",
+              "Different time periods"
+            ],
+            "correct": 1
+          },
+          {
+            "question": "What is 'real yield'?",
+            "options": [
+              "Yield from token emissions",
+              "Yield from actual protocol revenue (fees, interest)",
+              "Yield adjusted for inflation",
+              "Government bond rates"
+            ],
+            "correct": 1
+          }
+        ],
+        "passingScore": 100
+      }
+    }
+  ]
+}
