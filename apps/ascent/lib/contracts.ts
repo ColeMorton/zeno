@@ -236,6 +236,40 @@ export const VAULT_NFT_ABI = [
   },
 ] as const;
 
+export const VAULT_MINT_CONTROLLER_ABI = [
+  {
+    name: 'mintVault',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'achievementType', type: 'bytes32' },
+      { name: 'collateralAmount', type: 'uint256' },
+    ],
+    outputs: [{ name: 'vaultId', type: 'uint256' }],
+  },
+  {
+    name: 'treasureNFT',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'address' }],
+  },
+  {
+    name: 'vaultNFT',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'address' }],
+  },
+  {
+    name: 'collateralToken',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'address' }],
+  },
+] as const;
+
 export const TREASURE_NFT_ABI = [
   {
     name: 'mintWithAchievement',
@@ -304,6 +338,7 @@ interface ContractAddresses {
   vaultNFT: `0x${string}`;
   treasureNFT: `0x${string}`;
   cbBTC: `0x${string}`;
+  vaultMintController: `0x${string}`;
   chapterRegistry?: `0x${string}`;
   chapterMinter?: `0x${string}`;
   chapterAchievementNFT?: `0x${string}`;
@@ -317,10 +352,11 @@ export function getContractAddresses(chainId: number): ContractAddresses {
     const vaultNFT = process.env.NEXT_PUBLIC_VAULT_NFT_ANVIL;
     const treasureNFT = process.env.NEXT_PUBLIC_TREASURE_NFT_ANVIL;
     const cbBTC = process.env.NEXT_PUBLIC_CBBTC_ANVIL;
+    const vaultMintController = process.env.NEXT_PUBLIC_VAULT_MINT_CONTROLLER_ANVIL;
 
-    if (!vaultNFT || !treasureNFT || !cbBTC) {
+    if (!vaultNFT || !treasureNFT || !cbBTC || !vaultMintController) {
       throw new Error(
-        'Anvil contract addresses not configured. Set NEXT_PUBLIC_VAULT_NFT_ANVIL, NEXT_PUBLIC_TREASURE_NFT_ANVIL, and NEXT_PUBLIC_CBBTC_ANVIL'
+        'Anvil contract addresses not configured. Set NEXT_PUBLIC_VAULT_NFT_ANVIL, NEXT_PUBLIC_TREASURE_NFT_ANVIL, NEXT_PUBLIC_CBBTC_ANVIL, and NEXT_PUBLIC_VAULT_MINT_CONTROLLER_ANVIL'
       );
     }
 
@@ -328,6 +364,7 @@ export function getContractAddresses(chainId: number): ContractAddresses {
       vaultNFT: vaultNFT as `0x${string}`,
       treasureNFT: treasureNFT as `0x${string}`,
       cbBTC: cbBTC as `0x${string}`,
+      vaultMintController: vaultMintController as `0x${string}`,
       chapterRegistry: process.env.NEXT_PUBLIC_CHAPTER_REGISTRY_ANVIL as `0x${string}` | undefined,
       chapterMinter: process.env.NEXT_PUBLIC_CHAPTER_MINTER_ANVIL as `0x${string}` | undefined,
       chapterAchievementNFT: process.env.NEXT_PUBLIC_CHAPTER_ACHIEVEMENT_NFT_ANVIL as `0x${string}` | undefined,
@@ -343,10 +380,11 @@ export function getContractAddresses(chainId: number): ContractAddresses {
     const cbBTC =
       process.env.NEXT_PUBLIC_CBBTC_BASE ??
       '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf';
+    const vaultMintController = process.env.NEXT_PUBLIC_VAULT_MINT_CONTROLLER_BASE;
 
-    if (!vaultNFT || !treasureNFT) {
+    if (!vaultNFT || !treasureNFT || !vaultMintController) {
       throw new Error(
-        'Base contract addresses not configured. Set NEXT_PUBLIC_VAULT_NFT_BASE and NEXT_PUBLIC_TREASURE_NFT_BASE'
+        'Base contract addresses not configured. Set NEXT_PUBLIC_VAULT_NFT_BASE, NEXT_PUBLIC_TREASURE_NFT_BASE, and NEXT_PUBLIC_VAULT_MINT_CONTROLLER_BASE'
       );
     }
 
@@ -354,6 +392,7 @@ export function getContractAddresses(chainId: number): ContractAddresses {
       vaultNFT: vaultNFT as `0x${string}`,
       treasureNFT: treasureNFT as `0x${string}`,
       cbBTC: cbBTC as `0x${string}`,
+      vaultMintController: vaultMintController as `0x${string}`,
       chapterRegistry: process.env.NEXT_PUBLIC_CHAPTER_REGISTRY_BASE as `0x${string}` | undefined,
       chapterMinter: process.env.NEXT_PUBLIC_CHAPTER_MINTER_BASE as `0x${string}` | undefined,
       chapterAchievementNFT: process.env.NEXT_PUBLIC_CHAPTER_ACHIEVEMENT_NFT_BASE as `0x${string}` | undefined,

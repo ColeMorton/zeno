@@ -29,7 +29,7 @@ export function useCbBtcApproval(amount: bigint) {
         address: contracts.cbBTC,
         abi: ERC20_ABI,
         functionName: 'allowance',
-        args: [address, contracts.vaultNFT],
+        args: [address, contracts.vaultMintController],
       });
 
       return allowance;
@@ -44,8 +44,9 @@ export function useCbBtcApproval(amount: bigint) {
     error: writeError,
   } = useWriteContract();
 
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+  const { isLoading: isConfirming, isSuccess, isError: receiptError } = useWaitForTransactionReceipt({
     hash: txHash,
+    confirmations: 1,
   });
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export function useCbBtcApproval(amount: bigint) {
       address: contracts.cbBTC,
       abi: ERC20_ABI,
       functionName: 'approve',
-      args: [contracts.vaultNFT, amount],
+      args: [contracts.vaultMintController, amount],
       // Skip gas estimation on localhost - MetaMask has issues with eth_estimateGas on local networks
       ...(chainId === 31337 && { gas: 100_000n }),
     });
@@ -76,6 +77,6 @@ export function useCbBtcApproval(amount: bigint) {
     approve,
     isPending: isWritePending || isConfirming,
     isSuccess,
-    error: writeError,
+    error: writeError || (receiptError ? new Error('Transaction failed') : undefined),
   };
 }

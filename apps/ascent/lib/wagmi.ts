@@ -10,13 +10,16 @@ import { base } from 'wagmi/chains';
 import { defineChain } from 'viem';
 
 // Local Anvil chain for development
+// IMPORTANT: Use 127.0.0.1 (not localhost) to avoid IPv6 resolution issues on macOS
+const ANVIL_RPC = 'http://127.0.0.1:8545';
+
 export const anvil = defineChain({
   id: 31337,
   name: 'Anvil',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: {
-      http: [process.env.NEXT_PUBLIC_ANVIL_RPC ?? 'http://127.0.0.1:8545'],
+      http: [ANVIL_RPC],
     },
   },
   testnet: true,
@@ -43,9 +46,9 @@ const connectors = connectorsForWallets(
 export const config = createConfig({
   chains,
   connectors,
-  pollingInterval: 10_000,
+  pollingInterval: isDev ? 1_000 : 10_000,
   transports: {
-    [anvil.id]: http(),
+    [anvil.id]: http(ANVIL_RPC),  // Explicit URL to match MetaMask config
     [base.id]: http(),
   },
   ssr: true,
