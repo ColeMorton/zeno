@@ -1,8 +1,8 @@
-# BTCNFT Protocol - Wallet-Level Withdrawal Delegation
+# BTCNFT Protocol - Withdrawal Delegation
 
-> **Version:** 2.0
+> **Version:** 3.0
 > **Status:** Draft
-> **Last Updated:** 2025-12-30
+> **Last Updated:** 2026-01-01
 > **Related Documents:**
 > - [Technical Specification](./Technical_Specification.md)
 > - [Product Specification](./Product_Specification.md)
@@ -13,37 +13,49 @@
 
 1. [Overview](#1-overview)
 2. [Use Cases](#2-use-cases)
-3. [Technical Implementation](#3-technical-implementation)
+3. [Wallet-Level Delegation](#3-wallet-level-delegation)
    - 3.1 [Data Structures](#31-data-structures)
    - 3.2 [Functions](#32-functions)
-   - 3.3 [Access Control](#33-access-control)
-   - 3.4 [Withdrawal Calculations](#34-withdrawal-calculations)
-4. [Integration with Existing Features](#4-integration-with-existing-features)
-5. [Security Considerations](#5-security-considerations)
-6. [Example Scenarios](#6-example-scenarios)
-7. [Events and Monitoring](#7-events-and-monitoring)
-8. [ERC-4337 Withdrawal Automation](#8-erc-4337-withdrawal-automation)
+4. [Vault-Level Delegation](#4-vault-level-delegation)
+   - 4.1 [Data Structures](#41-data-structures)
+   - 4.2 [Functions](#42-functions)
+   - 4.3 [Time-Limited Delegation](#43-time-limited-delegation)
+5. [Delegation Resolution](#5-delegation-resolution)
+6. [Access Control](#6-access-control)
+7. [Withdrawal Calculations](#7-withdrawal-calculations)
+8. [Integration with Existing Features](#8-integration-with-existing-features)
+9. [Security Considerations](#9-security-considerations)
+10. [Example Scenarios](#10-example-scenarios)
+11. [Events and Monitoring](#11-events-and-monitoring)
+12. [ERC-4337 Withdrawal Automation](#12-erc-4337-withdrawal-automation)
 
 ---
 
 ## 1. Overview
 
-The Withdrawal Delegation feature allows wallet owners to grant withdrawal permissions to delegate addresses. **Wallet-level delegation** means a single grant applies to ALL vaults owned by that wallet, eliminating the need for per-vault configuration.
+The Withdrawal Delegation feature allows vault owners to grant withdrawal permissions to delegate addresses. The protocol supports **two delegation levels**:
+
+| Level | Scope | Use Case |
+|-------|-------|----------|
+| **Wallet-Level** | All vaults owned by wallet | Multi-vault automation |
+| **Vault-Level** | Single specific vault | Granular control, time-limited |
 
 ### Key Features
 
-- **Wallet-level delegation**: One grant covers ALL vaults owned by the granting wallet
+- **Dual-level delegation**: Wallet-wide or vault-specific grants
+- **Vault-level precedence**: Vault-specific overrides wallet-level
+- **Time-limited grants**: Vault-level supports optional expiry
 - **Per-vault cooldowns**: Each vault tracks its own 30-day cooldown per delegate
-- **Revocable permissions**: Wallet owner can revoke at any time
-- **Multiple delegates**: Support multiple delegates with different percentages (up to 100% total)
+- **Revocable permissions**: Owner can revoke at any time
+- **Multiple delegates**: Support multiple delegates (up to 100% total per level)
 
 ### Design Principles
 
 1. **Non-custodial**: Vault ownership never transfers
-2. **Owner sovereignty**: Only wallet owner can grant/revoke permissions
+2. **Owner sovereignty**: Only owner can grant/revoke permissions
 3. **Proportional access**: Delegates can only access their granted percentage
 4. **Activity preservation**: Delegate actions prevent vault dormancy
-5. **Simplicity**: One delegation covers all current and future vaults
+5. **Vault-level precedence**: Vault-specific delegation always takes priority
 
 ---
 
@@ -78,7 +90,9 @@ Vault holder delegates to a smart contract for:
 
 ---
 
-## 3. Technical Implementation
+## 3. Wallet-Level Delegation
+
+**Wallet-level delegation** means a single grant applies to ALL vaults owned by that wallet, eliminating the need for per-vault configuration.
 
 ### 3.1 Data Structures
 
@@ -262,16 +276,216 @@ function walletTotalDelegatedBPS(address owner) external view returns (uint256) 
 }
 ```
 
-### 3.3 Access Control
+---
 
-| Function | Caller Requirement |
-|----------|-------------------|
-| `grantWithdrawalDelegate` | Any wallet (grants for their own vaults) |
-| `revokeWithdrawalDelegate` | Any wallet (revokes their own grants) |
-| `withdrawAsDelegate` | Active delegate of vault's current owner |
-| `withdraw` (original) | Vault NFT owner only (unchanged) |
+## 4. Vault-Level Delegation
 
-### 3.4 Withdrawal Calculations
+**Vault-level delegation** allows granular control over individual vaults with optional time-limited grants. Vault-specific grants take precedence over wallet-level delegation.
+
+### 4.1 Data Structures
+
+```solidity
+/// @notice Vault-specific delegation permission (applies to a single vault)
+struct VaultDelegatePermission {
+    uint256 percentageBPS;      // Basis points (100 = 1%, 10000 = 100%)
+    uint256 grantedAt;          // When permission was granted
+    uint256 expiresAt;          // 0 = no expiry, >0 = auto-expires at timestamp
+    bool active;                // Permission status
+}
+
+/// @notice Delegation type for resolution reporting
+enum DelegationType { None, WalletLevel, VaultSpecific }
+
+// Vault-level delegation: tokenId => delegate => permission
+mapping(uint256 => mapping(address => VaultDelegatePermission)) public vaultDelegates;
+
+// Total delegated percentage per vault
+mapping(uint256 => uint256) public vaultTotalDelegatedBPS;
+```
+
+### 4.2 Functions
+
+#### Grant Vault-Level Delegation
+
+```solidity
+/// @notice Grant vault-specific withdrawal delegation
+/// @param tokenId Vault token ID (caller must be owner)
+/// @param delegate Address to delegate to
+/// @param percentageBPS Percentage in basis points (100 = 1%)
+/// @param durationSeconds Duration in seconds (0 = indefinite)
+function grantVaultDelegate(
+    uint256 tokenId,
+    address delegate,
+    uint256 percentageBPS,
+    uint256 durationSeconds
+) external {
+    if (ownerOf(tokenId) != msg.sender) revert NotVaultOwner(tokenId);
+    if (delegate == address(0)) revert ZeroAddress();
+    if (delegate == msg.sender) revert CannotDelegateSelf();
+    if (percentageBPS == 0 || percentageBPS > 10000) revert InvalidPercentage(percentageBPS);
+
+    uint256 currentVaultDelegated = vaultTotalDelegatedBPS[tokenId];
+    VaultDelegatePermission storage existing = vaultDelegates[tokenId][delegate];
+    bool isUpdate = existing.active;
+    uint256 oldPercentageBPS = existing.percentageBPS;
+
+    if (isUpdate) {
+        currentVaultDelegated -= oldPercentageBPS;
+    }
+    if (currentVaultDelegated + percentageBPS > 10000) revert ExceedsVaultDelegationLimit(tokenId);
+
+    uint256 expiresAt = durationSeconds > 0 ? block.timestamp + durationSeconds : 0;
+    vaultDelegates[tokenId][delegate] = VaultDelegatePermission({
+        percentageBPS: percentageBPS,
+        grantedAt: block.timestamp,
+        expiresAt: expiresAt,
+        active: true
+    });
+    vaultTotalDelegatedBPS[tokenId] = currentVaultDelegated + percentageBPS;
+
+    if (isUpdate) {
+        emit VaultDelegateUpdated(tokenId, delegate, oldPercentageBPS, percentageBPS, expiresAt);
+    } else {
+        emit VaultDelegateGranted(tokenId, delegate, percentageBPS, expiresAt);
+    }
+}
+```
+
+#### Revoke Vault-Level Delegation
+
+```solidity
+/// @notice Revoke a vault-specific delegate's permission
+/// @param tokenId Vault token ID (caller must be owner)
+/// @param delegate Address to revoke
+function revokeVaultDelegate(uint256 tokenId, address delegate) external {
+    if (ownerOf(tokenId) != msg.sender) revert NotVaultOwner(tokenId);
+
+    VaultDelegatePermission storage permission = vaultDelegates[tokenId][delegate];
+    if (!permission.active) revert VaultDelegateNotActive(tokenId, delegate);
+
+    vaultTotalDelegatedBPS[tokenId] -= permission.percentageBPS;
+    permission.active = false;
+
+    emit VaultDelegateRevoked(tokenId, delegate);
+}
+```
+
+#### View Functions
+
+```solidity
+/// @notice Get vault-specific delegate permission
+function getVaultDelegatePermission(uint256 tokenId, address delegate)
+    external view returns (VaultDelegatePermission memory) {
+    return vaultDelegates[tokenId][delegate];
+}
+
+/// @notice Get total delegated BPS for a specific vault
+function vaultTotalDelegatedBPS(uint256 tokenId) external view returns (uint256) {
+    return vaultTotalDelegatedBPS[tokenId];
+}
+
+/// @notice Get effective delegation (resolves precedence)
+function getEffectiveDelegation(uint256 tokenId, address delegate)
+    external view returns (uint256 percentageBPS, DelegationType dtype, bool isExpired) {
+    VaultDelegatePermission storage vaultPerm = vaultDelegates[tokenId][delegate];
+
+    // Check vault-specific first (takes precedence)
+    if (vaultPerm.active) {
+        bool expired = vaultPerm.expiresAt > 0 && block.timestamp > vaultPerm.expiresAt;
+        return (vaultPerm.percentageBPS, DelegationType.VaultSpecific, expired);
+    }
+
+    // Fall back to wallet-level
+    address vaultOwner = ownerOf(tokenId);
+    WalletDelegatePermission storage walletPerm = walletDelegates[vaultOwner][delegate];
+    if (walletPerm.active && walletTotalDelegatedBPS[vaultOwner] > 0) {
+        return (walletPerm.percentageBPS, DelegationType.WalletLevel, false);
+    }
+
+    return (0, DelegationType.None, false);
+}
+```
+
+### 4.3 Time-Limited Delegation
+
+Vault-level delegation supports optional expiry via the `durationSeconds` parameter:
+
+| Duration | Behavior |
+|----------|----------|
+| `0` | No expiry (indefinite until revoked) |
+| `> 0` | Auto-expires after `block.timestamp + durationSeconds` |
+
+**Use Cases:**
+- **Temporary contractor access**: 30-day delegation for service providers
+- **Seasonal automation**: 90-day delegation for quarterly operations
+- **Trial periods**: 7-day delegation for testing automation services
+
+**Expiry Behavior:**
+- Expired delegations remain in storage but are inactive
+- `canDelegateWithdraw()` returns `false` for expired grants
+- `getEffectiveDelegation()` returns `isExpired = true`
+- Owner can re-grant at any time (creates new grant)
+
+---
+
+## 5. Delegation Resolution
+
+When a delegate attempts withdrawal, the contract resolves which delegation applies:
+
+```
+withdrawAsDelegate(tokenId)
+    │
+    ├─ 1. Check vault-specific delegation for (tokenId, msg.sender)
+    │      if active AND (no expiry OR not expired):
+    │          → USE vault-specific percentage
+    │
+    └─ 2. Fall back to wallet-level delegation for (vaultOwner, msg.sender)
+           if active:
+               → USE wallet-level percentage
+           else:
+               → REVERT NotActiveDelegate
+```
+
+**Resolution Priority:**
+1. **Vault-specific** takes precedence over wallet-level
+2. An expired vault-specific grant falls back to wallet-level
+3. Revoked vault-specific grant falls back to wallet-level
+
+### Example: Override Scenario
+
+```solidity
+// Alice owns Vault #1, grants wallet-level to Bob at 50%
+grantWithdrawalDelegate(bob, 5000);
+
+// Later, Alice grants vault-specific to Bob at 30% for Vault #1 only
+grantVaultDelegate(1, bob, 3000, 0);
+
+// Bob withdraws from Vault #1
+withdrawAsDelegate(1);
+// → Uses 30% (vault-specific takes precedence)
+
+// Bob withdraws from Vault #2 (no vault-specific grant)
+withdrawAsDelegate(2);
+// → Uses 50% (falls back to wallet-level)
+```
+
+---
+
+## 6. Access Control
+
+| Function | Caller Requirement | Level |
+|----------|-------------------|-------|
+| `grantWithdrawalDelegate` | Any wallet (for own vaults) | Wallet |
+| `revokeWithdrawalDelegate` | Any wallet (own grants) | Wallet |
+| `revokeAllWithdrawalDelegates` | Any wallet (own grants) | Wallet |
+| `grantVaultDelegate` | Vault NFT owner | Vault |
+| `revokeVaultDelegate` | Vault NFT owner | Vault |
+| `withdrawAsDelegate` | Active delegate | Both |
+| `withdraw` (original) | Vault NFT owner only | N/A |
+
+---
+
+## 7. Withdrawal Calculations
 
 For a vault with 1 BTC collateral after vesting:
 
@@ -286,13 +500,14 @@ For a vault with 1 BTC collateral after vesting:
 **Key Points:**
 - Each delegate has their OWN 30-day cooldown PER VAULT
 - Cooldowns are tracked independently: `delegateVaultCooldown[delegate][tokenId]`
-- A single delegation grant applies to ALL vaults owned by the granting wallet
+- Wallet-level grants apply to ALL vaults owned by the granting wallet
+- Vault-level grants apply to a SINGLE vault only
 
 ---
 
-## 4. Integration with Existing Features
+## 8. Integration with Existing Features
 
-### 4.1 Ownership Transfer Behavior
+### 8.1 Ownership Transfer Behavior
 
 | Scenario | Behavior |
 |----------|----------|
@@ -307,25 +522,25 @@ For a vault with 1 BTC collateral after vesting:
 4. Dave delegates to Bob
 5. Bob still can't withdraw until cooldown expires (tied to Bob + Vault #1)
 
-### 4.2 Activity Tracking
+### 8.2 Activity Tracking
 
 Delegate withdrawals update `lastActivity[tokenId]` to prevent dormancy.
 
-### 4.3 vestedBTC Compatibility
+### 8.3 vestedBTC Compatibility
 
 - Delegation affects only withdrawal rights, not redemption
 - vestedBTC holders cannot delegate (no withdrawal rights)
 
-### 4.4 Dormancy Protection
+### 8.4 Dormancy Protection
 
 - Any delegate withdrawal resets dormancy timer
 - Active delegations indicate vault is managed
 
 ---
 
-## 5. Security Considerations
+## 9. Security Considerations
 
-### 5.1 Attack Vectors and Mitigations
+### 9.1 Attack Vectors and Mitigations
 
 | Attack Vector | Mitigation |
 |--------------|------------|
@@ -334,7 +549,7 @@ Delegate withdrawals update `lastActivity[tokenId]` to prevent dormancy.
 | Cooldown gaming | Cooldowns persist across ownership transfers |
 | Withdrawal racing | Independent cooldowns per delegate per vault |
 
-### 5.2 Edge Cases
+### 9.2 Edge Cases
 
 | Scenario | Handling |
 |----------|----------|
@@ -345,9 +560,9 @@ Delegate withdrawals update `lastActivity[tokenId]` to prevent dormancy.
 
 ---
 
-## 6. Example Scenarios
+## 10. Example Scenarios
 
-### 6.1 Multi-Vault Setup
+### 10.1 Multi-Vault Setup
 
 ```solidity
 // Alice owns 5 Vault NFTs and wants to delegate to Bob
@@ -360,7 +575,7 @@ withdrawAsDelegate(vault2); // Works (independent cooldown)
 withdrawAsDelegate(vault3); // Works (independent cooldown)
 ```
 
-### 6.2 Ownership Transfer
+### 10.2 Ownership Transfer
 
 ```solidity
 // Alice owns Vault #1, delegates to Bob
@@ -387,9 +602,9 @@ withdrawAsDelegate(1); // Success
 
 ---
 
-## 7. Events and Monitoring
+## 11. Events and Monitoring
 
-### 7.1 Events
+### 11.1 Wallet-Level Events
 
 ```solidity
 event WalletDelegateGranted(
@@ -420,17 +635,41 @@ event DelegatedWithdrawal(
 );
 ```
 
+### 11.2 Vault-Level Events
+
+```solidity
+event VaultDelegateGranted(
+    uint256 indexed tokenId,
+    address indexed delegate,
+    uint256 percentageBPS,
+    uint256 expiresAt
+);
+
+event VaultDelegateUpdated(
+    uint256 indexed tokenId,
+    address indexed delegate,
+    uint256 oldPercentageBPS,
+    uint256 newPercentageBPS,
+    uint256 expiresAt
+);
+
+event VaultDelegateRevoked(
+    uint256 indexed tokenId,
+    address indexed delegate
+);
+```
+
 ---
 
-## 8. ERC-4337 Withdrawal Automation
+## 12. ERC-4337 Withdrawal Automation
 
-### 8.1 Overview
+### 12.1 Overview
 
 With wallet-level delegation, ERC-4337 automation becomes simpler:
 - **One session key** covers ALL vaults owned by a smart account
 - **One Gelato task** can manage multiple vaults
 
-### 8.2 Architecture
+### 12.2 Architecture
 
 ```
 Hardware Wallet (Owner)
@@ -452,7 +691,7 @@ Gelato Web3 Function (Cron: monthly)
         └── 4. Submit via bundler
 ```
 
-### 8.3 Helper Contract
+### 12.3 Helper Contract
 
 The `WithdrawalAutomationHelper` provides batch query utilities:
 
@@ -482,15 +721,30 @@ function getAutomationStatus(
 
 ## Errors
 
+### Shared Errors
+
 ```solidity
 error ZeroAddress();
 error CannotDelegateSelf();
 error InvalidPercentage(uint256 percentage);
+error StillVesting(uint256 tokenId);
+error WithdrawalPeriodNotMet(uint256 tokenId, address delegate);
+```
+
+### Wallet-Level Errors
+
+```solidity
 error ExceedsDelegationLimit();
 error DelegateNotActive(address owner, address delegate);
 error NotActiveDelegate(uint256 tokenId, address delegate);
-error WithdrawalPeriodNotMet(uint256 tokenId, address delegate);
-error StillVesting(uint256 tokenId);
+```
+
+### Vault-Level Errors
+
+```solidity
+error NotVaultOwner(uint256 tokenId);
+error ExceedsVaultDelegationLimit(uint256 tokenId);
+error VaultDelegateNotActive(uint256 tokenId, address delegate);
 ```
 
 ---

@@ -1,12 +1,13 @@
 # BTCNFT Protocol Technical Specification
 
-> **Version:** 2.3
+> **Version:** 2.5
 > **Status:** Draft
-> **Last Updated:** 2025-12-28
+> **Last Updated:** 2026-01-03
 > **Related Documents:**
 > - [Product Specification](./Product_Specification.md)
 > - [Quantitative Validation](./Quantitative_Validation.md)
 > - [Withdrawal Delegation](./Withdrawal_Delegation.md)
+> - [Hybrid Collateral Vault](./Dual_Collateral_Vault.md)
 
 ---
 
@@ -15,6 +16,7 @@
 1. [Token Lifecycle](#1-token-lifecycle)
    - 1.1 [Minting](#11-minting)
    - 1.2 [Permissionless Minting](#12-permissionless-minting)
+     - 1.2.1 [Hybrid Collateral Variant](#121-hybrid-collateral-variant)
    - 1.3 [Vesting Period](#13-vesting-period)
    - 1.4 [Post-Vesting Withdrawals](#14-post-vesting-withdrawals)
    - 1.5 [Withdrawal Delegation](#15-withdrawal-delegation)
@@ -81,13 +83,13 @@ This is not policy—it is technical impossibility.
 
 ### Technical Implementation
 
-Immutability is enforced through Solidity's `immutable` keyword, which stores values in contract bytecode rather than storage slots:
+Immutability is enforced through Solidity's `constant` keyword in the VaultMath library, which embeds values directly in contract bytecode:
 
 ```solidity
-// These values are embedded in deployed bytecode - cannot be modified
-immutable uint256 VESTING_PERIOD = 1129 days;
-immutable uint256 WITHDRAWAL_PERIOD = 30 days;
-immutable uint256 WITHDRAWAL_RATE = 1000; // 1.0% = 1000/100000
+// VaultMath.sol - These values are embedded in deployed bytecode
+uint256 internal constant VESTING_PERIOD = 1129 days;
+uint256 internal constant WITHDRAWAL_PERIOD = 30 days;
+uint256 internal constant WITHDRAWAL_RATE = 1000; // 1.0% = 1000/100000
 ```
 
 **Verification:** Anyone can read these values from the deployed contract. They match the bytecode and cannot differ from what was compiled.
@@ -148,6 +150,32 @@ function mint(
 ```
 
 The protocol has no concept of "issuers" - it accepts any caller with valid inputs. Organizations building on the protocol may implement their own access control above this permissionless layer. See [Issuer Integration Guide](../issuer/Integration_Guide.md) for integration patterns.
+
+### 1.2.1 Hybrid Collateral Variant (v2.0)
+
+The protocol supports a **Hybrid Collateral Vault** that automatically contributes to LP depth:
+
+| Component | Allocation | Withdrawal |
+|-----------|-----------|------------|
+| cbBTC | 70% (dynamic 50-90%) | 1% monthly perpetual |
+| Curve LP | 30% (dynamic 10-50%) | 100% at vesting |
+
+**Key Properties:**
+- Self-calibrating ratio formula (monthly issuer optimization with rate limits)
+- Slippage-based signal replaces arbitrary TVL thresholds
+- LP automatically added to vestedCBBTC/cbBTC pool at mint
+- Zero protocol/issuer fees (all value to owner)
+- LP fees accrue to owner via LP position appreciation
+
+**Algorithm Signals:**
+
+| Signal | Effect on LP Ratio |
+|--------|-------------------|
+| Slippage > 0.5% target | ↑ Increase (pool needs depth) |
+| vestedBTC Discount > threshold | ↑ Increase (absorb selling) |
+| Normal conditions | 30% base allocation |
+
+See [Hybrid Collateral Vault Specification](./Dual_Collateral_Vault.md) for implementation details.
 
 ### 1.3 Vesting Period
 
@@ -636,7 +664,7 @@ uint256 amount = (numerator * multiplier) / denominator; // Solidity default: fl
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `DORMANCY_THRESHOLD` | uint256 | 1129 days (constant) - Inactivity period before dormant-eligible |
-| `GRACE_PERIOD` | uint256 | 30 days (immutable) - Time for owner to respond after poke |
+| `GRACE_PERIOD` | uint256 | 30 days (constant) - Time for owner to respond after poke |
 | `lastActivity` | mapping(uint256 => uint256) | Per-token timestamp of last activity |
 | `pokeTimestamp` | mapping(uint256 => uint256) | Per-token timestamp when poked (0 = not poked) |
 

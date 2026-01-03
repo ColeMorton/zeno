@@ -21,6 +21,8 @@
 7. [Map Asset Storage](#7-map-asset-storage)
 8. [Chapter 1 Achievements](#8-chapter-1-achievements)
 9. [Admin Workflow](#9-admin-workflow)
+10. [Verifier Architecture](#10-verifier-architecture)
+11. [Education System](#11-education-system)
 
 ---
 
@@ -494,3 +496,242 @@ registry.addAchievement(
 | Resume chapter | `setChapterActive(chapterId, true)` |
 
 **Note:** Pausing does not extend the mint window. Once `endTimestamp` passes, achievements are permanently locked regardless of pause status.
+
+---
+
+## 10. Verifier Architecture
+
+### 10.1 Overview
+
+Achievement verification is modular via the `IAchievementVerifier` interface. Each achievement can optionally reference a verifier contract for custom eligibility logic.
+
+### 10.2 Interface
+
+```solidity
+interface IAchievementVerifier {
+    /// @notice Verify if a wallet is eligible for an achievement
+    /// @param wallet The wallet claiming the achievement
+    /// @param achievementId The achievement being claimed
+    /// @param data Optional verification data (signatures, proofs, etc.)
+    /// @return eligible True if wallet meets achievement requirements
+    function verify(
+        address wallet,
+        bytes32 achievementId,
+        bytes calldata data
+    ) external view returns (bool eligible);
+}
+```
+
+### 10.3 Verifier Contracts
+
+| Contract | Path | Purpose |
+|----------|------|---------|
+| `ProfileVerifier` | `verifiers/ProfileVerifier.sol` | Checks `ProfileRegistry.hasProfile()` |
+| `PresenceVerifier` | `verifiers/PresenceVerifier.sol` | Checks days registered threshold |
+| `InteractionVerifier` | `verifiers/InteractionVerifier.sol` | Counts distinct contract interactions |
+| `ReferralVerifier` | `verifiers/ReferralVerifier.sol` | Validates referral relationships |
+| `ApprovalVerifier` | `verifiers/ApprovalVerifier.sol` | Checks token approval state |
+| `SignatureVerifier` | `verifiers/SignatureVerifier.sol` | Validates EIP-712 signed commitments |
+| `IdentityVerifier` | `verifiers/IdentityVerifier.sol` | Verifies social identity links |
+| `AggregateVerifier` | `verifiers/AggregateVerifier.sol` | Checks count of other achievements |
+
+### 10.4 Chapter 1 Achievement-to-Verifier Mapping
+
+| Achievement | Verifier | Verification Logic |
+|-------------|----------|-------------------|
+| TRAILHEAD | ProfileVerifier | `profileRegistry.hasProfile(wallet)` |
+| FIRST_STEPS | PresenceVerifier | `getDaysRegistered() >= 15` |
+| STEADY_PACE | PresenceVerifier | `getDaysRegistered() >= 30` |
+| COMMITTED | PresenceVerifier | `getDaysRegistered() >= 60` |
+| WALLET_WARMED | InteractionVerifier | Core contract interaction logged |
+| IDENTIFIED | IdentityVerifier | ENS/Farcaster/Lens linked |
+| STUDENT | SignatureVerifier | Quest checkpoint signature stored |
+| GUIDE | ReferralVerifier | At least 1 referral recorded |
+| EXPLORER | InteractionVerifier | `interactionCount >= 3` |
+| PREPARED | ApprovalVerifier | Required token approvals set |
+| REGULAR | SignatureVerifier | 3 separate day attestations |
+| RESOLUTE | SignatureVerifier | Commitment signature stored |
+| CHAPTER_COMPLETE | AggregateVerifier | `achievementCount >= 10` |
+
+### 10.5 Custom Verifier Extension
+
+To add a custom verifier for new achievement types:
+
+```solidity
+contract CustomVerifier is IAchievementVerifier {
+    function verify(
+        address wallet,
+        bytes32 achievementId,
+        bytes calldata data
+    ) external view returns (bool) {
+        // Custom verification logic
+        return _customCheck(wallet, achievementId, data);
+    }
+}
+```
+
+Register with achievement:
+
+```solidity
+registry.addAchievementWithVerifier(
+    chapterId,
+    "CUSTOM_ACHIEVEMENT",
+    prerequisites,
+    address(customVerifier)
+);
+```
+
+---
+
+## 11. Education System
+
+### 11.1 Overview
+
+The Chapter system integrates DeFi education through three pillars:
+1. **Theory** - Lessons, quizzes, and key points teaching DeFi concepts
+2. **Practice** - On-chain verified actions demonstrating understanding
+3. **Community** - Transparent progress and participation metrics
+
+### 11.2 Content Architecture
+
+Educational content is stored as static JSON in the frontend codebase:
+
+```
+apps/ascent/content/
+├── chapters/
+│   └── ch1/
+│       └── achievements/
+│           ├── trailhead.json
+│           ├── first_steps.json
+│           └── ... (13 files)
+└── shared/
+    ├── concepts.json      # DeFi concept definitions
+    └── glossary.json      # Term definitions
+```
+
+### 11.3 Achievement Content Schema
+
+Each achievement has associated educational content:
+
+```json
+{
+  "achievementId": "TRAILHEAD",
+  "week": 1,
+  "category": "Registration",
+  "defiConcept": "identity",
+  "lesson": {
+    "title": "Your On-Chain Identity",
+    "objective": "Understand wallet addresses and profiles",
+    "sections": [
+      { "type": "text", "content": "..." },
+      { "type": "keyPoints", "content": ["...", "..."] }
+    ]
+  },
+  "quiz": {
+    "questions": [
+      {
+        "question": "What is a wallet address?",
+        "options": ["...", "...", "..."],
+        "correct": 0
+      }
+    ],
+    "passingScore": 100
+  },
+  "unlockHint": "Create your on-chain profile",
+  "nextSteps": ["After creating your profile, link your ENS..."]
+}
+```
+
+### 11.4 Educational Mapping
+
+Chapter 1 maps achievements to DeFi foundations:
+
+| Week | Achievement | DeFi Concept | Learning Outcome |
+|------|-------------|--------------|------------------|
+| 1 | TRAILHEAD | Identity | Understand on-chain identity |
+| 2 | FIRST_STEPS | Commitment | Learn time-in-protocol value |
+| 3 | WALLET_WARMED | Transactions | Execute smart contract interactions |
+| 4 | IDENTIFIED | Social Recovery | Link verifiable identity |
+| 5 | STEADY_PACE | Yield Mechanics | Understand time-weighted rewards |
+| 6 | EXPLORER | Protocol Diversity | Interact with multiple contracts |
+| 7 | GUIDE | Network Effects | Understand referral mechanics |
+| 8 | PREPARED | Token Approvals | Master ERC-20 security |
+| 9 | REGULAR | Consistency | Learn compound participation benefits |
+| 10 | COMMITTED | Vesting | Understand lock mechanisms |
+| 11 | RESOLUTE | Attestations | Sign cryptographic commitments |
+| 12 | STUDENT | Meta-Learning | Demonstrate quiz-verified understanding |
+| 13 | CHAPTER_COMPLETE | Mastery | Comprehensive foundation mastery |
+
+### 11.5 STUDENT Achievement
+
+The STUDENT achievement verifies theory learning:
+
+**Verification Flow:**
+1. User reads lesson content for any achievement
+2. User completes in-app quiz (100% required to pass)
+3. Quiz result signed as EIP-712 attestation
+4. SignatureVerifier validates quiz completion
+5. STUDENT achievement unlocks
+
+**Purpose:** Ensures users internalize concepts, not just complete actions.
+
+### 11.6 Frontend Components
+
+| Component | Purpose |
+|-----------|---------|
+| `LessonViewer` | Renders lesson sections (text, key points, media) |
+| `QuizCard` | Interactive quiz with scoring and retry |
+| `UnlockGuide` | Shows how-to guidance for locked achievements |
+| `AchievementDetailModal` | Combines lesson, quiz, and next steps |
+| `TrackList` | Grid of available education tracks with progress |
+| `TrackProgress` | Individual track viewer with lesson/quiz flow |
+
+### 11.7 Two-Layer Education Architecture
+
+The education system separates into two distinct layers:
+
+#### Layer 1: Chapters (Cohort Identity + Achievement NFTs)
+- **Time-bound** (90-day windows aligned with calendar quarters)
+- **Thematic art/story/content** tied to shared cohort experience
+- **Achievement NFTs** reward valuable behaviors for that chapter period
+- **Visual prestige** from shared experience with cohort
+
+#### Layer 2: Education Tracks (Knowledge Building)
+- **Wallet-based progression** (not chapter-bound)
+- **Self-paced** - users advance at their own discretion
+- **Parallel tracks** spanning the full 1129 days
+- **Trust-maximizing** - strong truth, transparency, knowledge maximization
+
+**Key Distinction:** Completing a track lesson does NOT unlock a chapter achievement. Achievements require on-chain actions during the chapter window. Tracks provide the knowledge to perform those actions effectively.
+
+### 11.8 Education Tracks
+
+Six parallel tracks enable self-paced learning:
+
+| Track | Focus | Lessons | Graduation Standard |
+|-------|-------|---------|---------------------|
+| **Bitcoin Fundamentals** | BTC thesis, SMA research, market cycles | 6 | Explain 1129-day thesis |
+| **Protocol Mechanics** | Vault lifecycle, withdrawals, Zeno's paradox | 7 | Operate via explorer |
+| **DeFi Foundations** | AMM, LP, lending, yields | 7 | Evaluate positions |
+| **Advanced Protocol** | vestedBTC, delegation, dormancy | 6 | Full feature usage |
+| **Security & Risk** | Immutability, audit reading, risk assessment | 5 | Due diligence |
+| **Explorer Operations** | Direct contract interaction | 5 | Execute all functions |
+
+Track content stored in: `apps/ascent/content/tracks/{track-id}.json`
+
+### 11.9 Chapter Curriculum Roadmap
+
+| Chapter | Theme | Educational Focus |
+|---------|-------|-------------------|
+| 1 | Frozen Tundra | Foundations (wallets, transactions, approvals) |
+| 2 | Ice Caves | Trading (DEX swaps, slippage, price impact) |
+| 3 | Glacier Fields | Liquidity (AMMs, LP tokens, impermanent loss) |
+| 4 | Mountain Base | Lending (collateral, LTV, liquidation) |
+| 5 | Forest Trail | Yield (APY/APR, farming, compounding) |
+| 6 | Rocky Ascent | Risk (portfolio theory, diversification) |
+| 7 | Ridge Line | Governance (DAOs, voting, delegation) |
+| 8 | High Camp | Derivatives (options, perps, variance) |
+| 9 | Storm Zone | Protocol Design (tokenomics, incentives) |
+| 10 | Death Zone | Security (audits, rug detection, due diligence) |
+| 11 | Final Ascent | Integration (cross-chain, bridges, aggregators) |
+| 12 | Summit | Mastery (building, contributing, governance)

@@ -1,8 +1,8 @@
 # BTCNFT Protocol Glossary
 
-> **Version:** 1.3
+> **Version:** 1.7
 > **Status:** Final
-> **Last Updated:** 2025-12-31
+> **Last Updated:** 2026-01-03
 
 Standardized terminology for BTCNFT Protocol documentation.
 
@@ -53,6 +53,43 @@ Each collateral type has its own vestedBTC token to maintain risk isolation:
 | vTBTC | vestedBTC-tBTC | Threshold Bitcoin (decentralized threshold network) |
 
 **Note:** Each variant has independent pricing and risk profile based on its underlying collateral's custody model.
+
+### Hybrid Vault NFT (Protocol Layer)
+
+| Attribute | Value |
+|-----------|-------|
+| Standard | ERC-721 |
+| Layer | Protocol |
+| Contains | Primary (cbBTC) + Secondary (any ERC-20) |
+
+Immutable protocol-layer construct that accepts two ERC-20 tokens with asymmetric withdrawal models.
+
+**Key Properties:**
+- Primary: 1% monthly withdrawal (Zeno's paradox)
+- Secondary: 100% one-time at vesting
+- vestedBTC separation (primary only)
+- Dual match pools (primary + secondary)
+- Ratio-agnostic: caller determines split
+
+**See:** [Protocol HybridVaultNFT Specification](protocol/Hybrid_Vault_Specification.md)
+
+### Hybrid Vault NFT (Issuer Layer)
+
+| Attribute | Value |
+|-----------|-------|
+| Standard | ERC-721 |
+| Layer | Issuer |
+| Wraps | Protocol HybridVaultNFT |
+
+Issuer-layer wrapper that adds Curve LP integration, dynamic ratio formulas, and monthly configuration on top of the protocol-layer HybridVaultNFT.
+
+**Key Properties:**
+- Dynamic LP ratio (10-50% range, 30% default)
+- Curve pool integration (add_liquidity, get_dy)
+- Monthly issuer configuration (rate-limited)
+- Self-calibrating slippage signal
+
+**See:** [Issuer Hybrid Vault Specification](issuer/Hybrid_Vault_Specification.md)
 
 ---
 
@@ -172,6 +209,40 @@ Process by which vestedBTC holders claim collateral from abandoned (dormant) Vau
 
 ---
 
+## Delegation System
+
+### WalletDelegatePermission
+
+| Attribute | Value |
+|-----------|-------|
+| Scope | All vaults owned by wallet |
+| Fields | percentageBPS, grantedAt, active |
+
+Struct representing a wallet-level delegation grant that applies to all vaults owned by the granting wallet. Does not expire automatically.
+
+### VaultDelegatePermission
+
+| Attribute | Value |
+|-----------|-------|
+| Scope | Single specific vault |
+| Fields | percentageBPS, grantedAt, expiresAt, active |
+
+Struct representing a vault-specific delegation grant. Includes optional `expiresAt` timestamp for time-limited delegation. Takes precedence over wallet-level delegation.
+
+### DelegationType
+
+| Value | Description |
+|-------|-------------|
+| None | No delegation active |
+| WalletLevel | Using wallet-level delegation |
+| VaultSpecific | Using vault-specific delegation |
+
+Enum indicating which delegation type is effective for a vault/delegate pair. Returned by `canDelegateWithdraw()` and `getEffectiveDelegation()`.
+
+**Resolution Priority:** VaultSpecific > WalletLevel > None
+
+---
+
 ## Visual & Tier System
 
 ### Display Tier
@@ -197,6 +268,109 @@ Authorized address that periodically updates on-chain tier thresholds based on c
 Metadata update extension (EIP-4906). Defines `MetadataUpdate` and `BatchMetadataUpdate` events for signaling NFT metadata changes to marketplaces and indexers.
 
 **Usage:** Emitted when tier thresholds change, triggering marketplace cache invalidation.
+
+---
+
+## Hybrid Collateral Model
+
+### Hybrid Collateral Vault
+
+| Attribute | Value |
+|-----------|-------|
+| Primary Collateral | cbBTC (70% target) |
+| LP Component | vestedCBBTC/cbBTC Curve LP (30% target) |
+| Ratio Range | 50-90% cbBTC, 10-50% LP |
+
+A vault that combines direct BTC backing with protocol-owned liquidity. Automatically contributes to vestedBTC/cbBTC LP depth at minting while preserving simple withdrawal UX.
+
+**See:** [Hybrid Collateral Vault Specification](protocol/Dual_Collateral_Vault.md)
+
+### Dual Withdrawal Model
+
+| Component | Withdrawal Type |
+|-----------|----------------|
+| cbBTC | 1% monthly perpetual (Zeno's paradox) |
+| LP | 100% one-time at vesting |
+
+Withdrawal mechanism for hybrid vaults where cbBTC follows perpetual 1% monthly withdrawals while LP tokens are fully released at vesting completion.
+
+### Dynamic LP Ratio (v2.0)
+
+LP allocation percentage that adjusts based on market conditions via a self-calibrating formula. Parameters managed monthly by issuer with rate limits.
+
+| Signal | Effect |
+|--------|--------|
+| Slippage > target (0.5%) | ↑ More LP (pool needs depth) |
+| Slippage < target | ↓ Less LP (excess depth) |
+| vestedBTC Discount > threshold | ↑ More LP (absorb selling) |
+| Normal conditions | 30% base |
+
+**Self-Calibrating:** No arbitrary dollar thresholds. Scales to any protocol size.
+
+### Monthly Configuration
+
+```solidity
+struct MonthlyConfig {
+    uint256 baseLPRatioBPS;        // 30% default
+    uint256 targetSlippageBPS;     // 0.5% default
+    uint256 discountThresholdBPS;  // 10% default
+    // ... sensitivities and bounds
+}
+```
+
+Issuer updates parameters monthly via `updateMonthlyConfig()`. Changes take effect at the start of each month.
+
+### Rate Limits
+
+Maximum parameter change allowed per month to prevent sudden algorithm shifts.
+
+| Parameter | Max Delta/Month |
+|-----------|-----------------|
+| Base LP Ratio | ±5% |
+| Discount Threshold | ±3% |
+| Sensitivities | ±5 |
+
+**Protection:** Full migration from defaults to extremes requires ~10 months.
+
+### Slippage-Based Signal
+
+Self-calibrating measurement that replaces arbitrary TVL thresholds. Measures actual trading friction as percentage of a standardized swap (0.1% of protocol TVL).
+
+```
+High slippage (2%) → Pool shallow → Increase LP ratio
+Low slippage (0.1%) → Pool deep → Decrease LP ratio (slowly)
+```
+
+### Structural POL
+
+Protocol-Owned Liquidity automatically created at vault minting. Every new hybrid vault contributes 30% of collateral to the vestedBTC/cbBTC LP pool.
+
+**Flywheel Effect:**
+```
+New Vault → 30% to LP → Deeper Pool → Tighter Spread → More Minting → Repeat
+```
+
+### Zero Rent Extraction
+
+Design principle where protocol and issuer collect zero fees from vault operations.
+
+| Entity | Fee Collection |
+|--------|----------------|
+| Protocol | $0 |
+| Issuer | $0 |
+| Owner | 100% (withdrawals + LP fees) |
+
+LP swap fees accrue to the LP position and transfer to owner at vesting.
+
+### LP-as-Bond
+
+Treatment of LP tokens as a time-locked liquidity commitment that releases 100% at maturity, not as perpetually-draining collateral.
+
+| Property | Value |
+|----------|-------|
+| Release | 100% at vesting (Day 1129) |
+| Re-provision | Owner can add LP back to pool |
+| Fees | Accumulated fees included in release |
 
 ---
 
@@ -664,4 +838,122 @@ Visual representation of a chapter's achievements displayed as a skill tree over
 |-----------|---------|
 | Background image | Static website (`/chapters/ch{N}/{year}q{Q}/`) |
 | Skill tree config | Static website (`config.json`) |
-| Achievement NFT images | IPFS (high-resolution)
+| Achievement NFT images | IPFS (high-resolution) |
+
+### ProfileRegistry
+
+On-chain registry for wallet profiles used by chapter verifiers. Stores registration timestamp per wallet.
+
+| Field | Purpose |
+|-------|---------|
+| `registeredAt` | Timestamp of profile creation |
+| `hasProfile()` | Check if wallet has profile |
+| `getDaysRegistered()` | Calculate days since registration |
+
+### IAchievementVerifier
+
+Interface for pluggable achievement verification logic. Verifiers implement custom eligibility checks.
+
+```solidity
+interface IAchievementVerifier {
+    function verify(address wallet, bytes32 achievementId, bytes calldata data)
+        external view returns (bool);
+}
+```
+
+### Verifier Types
+
+| Verifier | Purpose | Used By |
+|----------|---------|---------|
+| ProfileVerifier | Profile registration check | TRAILHEAD |
+| PresenceVerifier | Days registered threshold | Milestone claims |
+| InteractionVerifier | Contract interaction count | EXPLORER |
+| ReferralVerifier | Referral tracking | GUIDE |
+| ApprovalVerifier | Token approval checks | PREPARED |
+| SignatureVerifier | EIP-712 signature storage | RESOLUTE |
+| IdentityVerifier | Social identity linking | IDENTIFIED |
+| AggregateVerifier | Multi-achievement check | CHAPTER_COMPLETE |
+
+---
+
+## Education System
+
+### Education Track
+
+A self-paced learning pathway covering a specific domain of protocol knowledge. Unlike chapters (time-bound cohort experiences), tracks are wallet-based and independent of calendar time.
+
+| Property | Description |
+|----------|-------------|
+| Progression | Self-paced, user-driven |
+| Persistence | localStorage (wallet-based) |
+| Completion | Graduation upon all lessons complete |
+
+**Tracks:**
+| ID | Focus | Lessons |
+|----|-------|---------|
+| bitcoin-fundamentals | BTC thesis, SMA research | 6 |
+| protocol-mechanics | Vault lifecycle, withdrawals | 7 |
+| defi-foundations | AMM, LP, lending basics | 7 |
+| advanced-protocol | vestedBTC, delegation | 6 |
+| security-risk | Immutability, audits | 5 |
+| explorer-operations | Direct contract interaction | 5 |
+
+### Track Lesson
+
+A discrete educational unit within a track containing content sections, a quiz, and optional practical exercises.
+
+| Component | Purpose |
+|-----------|---------|
+| Sections | Educational content (text, visuals) |
+| Quiz | Knowledge verification (100% required) |
+| Practical Exercise | On-chain or calculation verification |
+
+### Track Progress
+
+Wallet-scoped record of lesson completion within a track. Stored in localStorage.
+
+| Field | Description |
+|-------|-------------|
+| trackId | Track identifier |
+| completedLessons | Array of completed lesson IDs |
+| graduated | Boolean (all lessons complete) |
+
+### Track Graduation
+
+Completion status achieved when all lessons in a track are finished. Indicates mastery of that knowledge domain.
+
+| Requirement | Description |
+|-------------|-------------|
+| Quiz Pass | 100% correct on all lesson quizzes |
+| All Lessons | Every lesson in track completed |
+
+**Graduation Standards by Track:**
+| Track | Standard |
+|-------|----------|
+| Bitcoin Fundamentals | Articulate 1129-day thesis |
+| Protocol Mechanics | Execute withdrawal via explorer |
+| DeFi Foundations | Evaluate positions independently |
+| Advanced Protocol | Use all protocol features |
+| Security & Risk | Evaluate protocol risk profile |
+| Explorer Operations | Operate protocol without UI |
+
+### Practical Exercise
+
+Optional hands-on verification within a lesson requiring on-chain interaction or calculation.
+
+| Type | Description |
+|------|-------------|
+| onchain | Execute transaction, verify event |
+| explorer | Read contract state |
+| calculation | Perform manual calculation |
+
+### Two-Layer Education Architecture
+
+The separation of cohort identity (chapters) from knowledge building (tracks).
+
+| Layer | Purpose | Timing |
+|-------|---------|--------|
+| Chapters | Cohort identity, achievement NFTs | Time-bound (90 days) |
+| Tracks | Knowledge building, graduation | Self-paced |
+
+**Key distinction:** Completing a track lesson does NOT unlock an achievement. Achievements require on-chain actions during chapter windows. Tracks provide knowledge to perform those actions effectively.
