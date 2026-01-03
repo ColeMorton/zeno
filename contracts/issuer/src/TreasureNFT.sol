@@ -14,6 +14,9 @@ contract TreasureNFT is ERC721, Ownable {
 
     mapping(address => bool) public authorizedMinters;
 
+    /// @notice Achievement type for each token (bytes32(0) = generic treasure)
+    mapping(uint256 => bytes32) public achievementType;
+
     event MinterAuthorized(address indexed minter);
     event MinterRevoked(address indexed minter);
 
@@ -53,6 +56,16 @@ contract TreasureNFT is ERC721, Ownable {
     /// @return tokenId The minted token ID
     function mint(address to) external onlyAuthorizedMinter returns (uint256 tokenId) {
         tokenId = _nextTokenId++;
+        _mint(to, tokenId);
+    }
+
+    /// @notice Mint a new Treasure NFT with a specific achievement type
+    /// @param to Recipient address
+    /// @param achievementType_ The achievement type to associate with this treasure
+    /// @return tokenId The minted token ID
+    function mintWithAchievement(address to, bytes32 achievementType_) external onlyAuthorizedMinter returns (uint256 tokenId) {
+        tokenId = _nextTokenId++;
+        achievementType[tokenId] = achievementType_;
         _mint(to, tokenId);
     }
 
