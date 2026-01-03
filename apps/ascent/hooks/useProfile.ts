@@ -1,6 +1,7 @@
 'use client';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAccount, useChainId, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { getContractAddresses, PROFILE_REGISTRY_ABI } from '@/lib/contracts';
 
@@ -59,11 +60,12 @@ export function useProfile() {
     });
   };
 
-  // Invalidate queries on success
-  if (isSuccess) {
-    queryClient.invalidateQueries({ queryKey: ['profile'] });
-    queryClient.invalidateQueries({ queryKey: ['achievementStatus'] });
-  }
+  useEffect(() => {
+    if (isSuccess) {
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      queryClient.invalidateQueries({ queryKey: ['achievementStatus'] });
+    }
+  }, [isSuccess, queryClient]);
 
   return {
     hasProfile: hasProfile as boolean | undefined,

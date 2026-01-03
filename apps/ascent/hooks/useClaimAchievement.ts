@@ -1,6 +1,7 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { getContractAddresses, CHAPTER_MINTER_ABI } from '@/lib/contracts';
 
@@ -40,12 +41,13 @@ export function useClaimAchievement() {
     });
   };
 
-  // Invalidate queries on success
-  if (isSuccess) {
-    queryClient.invalidateQueries({ queryKey: ['chapterAchievements'] });
-    queryClient.invalidateQueries({ queryKey: ['achievementStatus'] });
-    queryClient.invalidateQueries({ queryKey: ['claimedChapterAchievements'] });
-  }
+  useEffect(() => {
+    if (isSuccess) {
+      queryClient.invalidateQueries({ queryKey: ['chapterAchievements'] });
+      queryClient.invalidateQueries({ queryKey: ['achievementStatus'] });
+      queryClient.invalidateQueries({ queryKey: ['claimedChapterAchievements'] });
+    }
+  }, [isSuccess, queryClient]);
 
   return {
     claim,

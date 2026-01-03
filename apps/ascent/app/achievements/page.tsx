@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useRouter } from 'next/navigation';
@@ -8,20 +9,8 @@ import { Footer } from '@/components/layout/Footer';
 import { CHAPTER_1_ACHIEVEMENTS, getCurrentQuarter, getChapterVersionId } from '@/lib/chapters';
 import { useChapterAchievements, type ChapterAchievement } from '@/hooks/useChapterAchievements';
 import { useTreasureNfts } from '@/hooks/useTreasureNfts';
-
-// Category icons for Chapter 1 achievements
-const CATEGORY_ICONS: Record<string, string> = {
-  Registration: '📝',
-  Milestone: '🎯',
-  Activity: '⚡',
-  Identity: '🔑',
-  Referral: '👥',
-  Preparation: '🛠️',
-  Consistency: '📊',
-  Commitment: '🤝',
-  Learning: '📚',
-  Completion: '🏆',
-};
+import { AchievementDetailModal } from '@/components/education';
+import { CATEGORY_ICONS } from '@/lib/education';
 
 type AchievementStatus = 'locked' | 'available' | 'minted';
 
@@ -29,10 +18,12 @@ function AchievementCard({
   achievement,
   onMintVault,
   hasTreasure,
+  onSelect,
 }: {
   achievement: ChapterAchievement;
   onMintVault?: () => void;
   hasTreasure: boolean;
+  onSelect: () => void;
 }) {
   const staticAch = CHAPTER_1_ACHIEVEMENTS.find(a => a.name === achievement.name);
   const category = staticAch?.category ?? 'Activity';
@@ -59,7 +50,10 @@ function AchievementCard({
   };
 
   return (
-    <div className={`rounded-xl p-6 border ${statusStyles[status]}`}>
+    <div
+      onClick={onSelect}
+      className={`rounded-xl p-6 border cursor-pointer transition-all hover:scale-[1.02] ${statusStyles[status]}`}
+    >
       <div className="flex items-center gap-4 mb-4">
         <span className="text-4xl">{icon}</span>
         <div className="flex-1">
@@ -77,10 +71,16 @@ function AchievementCard({
       <p className="text-sm text-gray-400 mb-4">{achievement.description}</p>
 
       <div className="flex items-center justify-between">
-        {statusLabel[status]}
+        <div className="flex items-center gap-2">
+          {statusLabel[status]}
+          <span className="text-xs text-blue-400">View Lesson →</span>
+        </div>
         {status === 'minted' && hasTreasure && onMintVault && (
           <button
-            onClick={onMintVault}
+            onClick={(e) => {
+              e.stopPropagation();
+              onMintVault();
+            }}
             className="px-4 py-2 bg-mountain-summit text-black text-sm font-medium rounded-lg hover:bg-yellow-400 transition-colors"
           >
             Create Vault
@@ -111,6 +111,7 @@ function AchievementCardSkeleton() {
 
 function Chapter1Achievements() {
   const router = useRouter();
+  const [selectedAchievement, setSelectedAchievement] = useState<ChapterAchievement | null>(null);
 
   // Get current chapter version ID
   const { year, quarter } = getCurrentQuarter();
@@ -125,6 +126,20 @@ function Chapter1Achievements() {
 
   const handleMintVault = () => {
     router.push('/mint');
+  };
+
+  const handleSelectAchievement = (achievement: ChapterAchievement) => {
+    setSelectedAchievement(achievement);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedAchievement(null);
+  };
+
+  const getAchievementStatus = (achievement: ChapterAchievement): 'locked' | 'available' | 'claimed' => {
+    if (achievement.isClaimed) return 'claimed';
+    if (achievement.canClaim) return 'available';
+    return 'locked';
   };
 
   if (isLoading) {
@@ -165,6 +180,11 @@ function Chapter1Achievements() {
   const claimedCount = mapConfig.achievements.filter(a => a.isClaimed).length;
   const totalCount = mapConfig.achievements.length;
 
+  // Get static achievement data for selected achievement
+  const selectedStaticAch = selectedAchievement
+    ? CHAPTER_1_ACHIEVEMENTS.find(a => a.name === selectedAchievement.name)
+    : null;
+
   return (
     <div className="space-y-8">
       <div>
@@ -189,6 +209,7 @@ function Chapter1Achievements() {
               achievement={achievement}
               onMintVault={handleMintVault}
               hasTreasure={hasTreasure}
+              onSelect={() => handleSelectAchievement(achievement)}
             />
           ))}
         </div>
@@ -208,6 +229,23 @@ function Chapter1Achievements() {
             Create Vault
           </button>
         </div>
+      )}
+
+      {/* Achievement Detail Modal */}
+      {selectedAchievement && selectedStaticAch && (
+        <AchievementDetailModal
+          achievementName={selectedAchievement.name}
+          category={selectedStaticAch.category}
+          status={getAchievementStatus(selectedAchievement)}
+          prerequisites={selectedAchievement.prerequisites}
+          onClose={handleCloseModal}
+          onQuizComplete={(passed) => {
+            if (passed) {
+              // Quiz passed - user can now claim STUDENT achievement
+              console.log('Quiz passed for', selectedAchievement.name);
+            }
+          }}
+        />
       )}
     </div>
   );
