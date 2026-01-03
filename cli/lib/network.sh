@@ -12,7 +12,7 @@ CURRENT_NETWORK="${DEFAULT_NETWORK}"
 # Get RPC URL for network
 _get_rpc_url() {
     case "$1" in
-        local)   echo "http://localhost:8545" ;;
+        local)   echo "http://127.0.0.1:8545" ;;
         sepolia) echo "https://rpc.sepolia.org" ;;
         holesky) echo "https://rpc.holesky.ethpandaops.io" ;;
         base)    echo "https://mainnet.base.org" ;;

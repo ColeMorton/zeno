@@ -10,11 +10,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLI_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_DIR="$(dirname "$CLI_DIR")"
 PROTOCOL_DIR="$PROJECT_DIR/contracts/protocol"
+ISSUER_DIR="$PROJECT_DIR/contracts/issuer"
 CLI_ENV_FILE="$CLI_DIR/.env"
 FRONTEND_DIR="$PROJECT_DIR/apps/ascent"
 FRONTEND_ENV_FILE="$FRONTEND_DIR/.env.local"
 
-RPC_URL="http://localhost:8545"
+# Use 127.0.0.1 (not localhost) to avoid IPv6 resolution issues on macOS
+RPC_URL="http://127.0.0.1:8545"
 DEPLOYER_ADDRESS="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 DEPLOYER_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
@@ -106,7 +108,34 @@ if [[ -z "$VAULT_WBTC" ]] || [[ -z "$VAULT_CBBTC" ]] || [[ -z "$TREASURE" ]]; th
     exit 1
 fi
 
-log_success "Contracts deployed"
+log_success "Protocol contracts deployed"
+
+# ============================================================
+# Step 3b: Deploy Issuer Contracts (VaultMintController)
+# ============================================================
+log_section "Deploying Issuer Contracts"
+
+cd "$ISSUER_DIR"
+
+log_info "Deploying VaultMintController..."
+# SKIP_AUTHORIZE=true because local dev uses MockTreasure (permissionless minting)
+ISSUER_OUTPUT=$(PRIVATE_KEY="$DEPLOYER_PRIVATE_KEY" \
+    TREASURE_NFT="$TREASURE" \
+    VAULT_NFT="$VAULT_CBBTC" \
+    COLLATERAL_TOKEN="$CBBTC" \
+    SKIP_AUTHORIZE=true \
+    forge script script/DeployVaultMintController.s.sol --rpc-url "$RPC_URL" --broadcast 2>&1)
+
+# Parse VaultMintController address
+VAULT_MINT_CONTROLLER=$(echo "$ISSUER_OUTPUT" | grep -E "VaultMintController deployed at:" | awk '{print $NF}')
+
+if [[ -z "$VAULT_MINT_CONTROLLER" ]]; then
+    log_error "Failed to parse VaultMintController address"
+    echo "$ISSUER_OUTPUT" >&2
+    exit 1
+fi
+
+log_success "VaultMintController deployed at: $VAULT_MINT_CONTROLLER"
 
 # ============================================================
 # Step 4: Write CLI Environment
@@ -133,6 +162,9 @@ VAULT_WBTC=$VAULT_WBTC
 CBBTC=$CBBTC
 BTC_TOKEN_CBBTC=$BTC_TOKEN_CBBTC
 VAULT_CBBTC=$VAULT_CBBTC
+
+# Issuer Contracts
+VAULT_MINT_CONTROLLER=$VAULT_MINT_CONTROLLER
 
 # Legacy aliases (for existing CLI commands)
 BTC_TOKEN=$BTC_TOKEN_WBTC
@@ -184,6 +216,9 @@ NEXT_PUBLIC_ANVIL_RPC=$RPC_URL
 NEXT_PUBLIC_VAULT_NFT_ANVIL=$VAULT_CBBTC
 NEXT_PUBLIC_BTC_TOKEN_ANVIL=$BTC_TOKEN_CBBTC
 NEXT_PUBLIC_CBBTC_ANVIL=$CBBTC
+
+# Issuer contracts
+NEXT_PUBLIC_VAULT_MINT_CONTROLLER_ANVIL=$VAULT_MINT_CONTROLLER
 
 # Shared contracts
 # Note: TreasureNFT is the NFT that gets locked inside vaults
@@ -368,6 +403,9 @@ echo "cbBTC Stack:"
 echo "  CBBTC:         $CBBTC"
 echo "  BTC_TOKEN:     $BTC_TOKEN_CBBTC"
 echo "  VAULT:         $VAULT_CBBTC"
+echo ""
+echo "Issuer:"
+echo "  VAULT_MINT_CONTROLLER: $VAULT_MINT_CONTROLLER"
 echo ""
 # Get final vault count
 FINAL_VAULT_BALANCE_RAW=$(cast call "$VAULT_CBBTC" "balanceOf(address)" "$DEPLOYER_ADDRESS" --rpc-url "$RPC_URL" 2>/dev/null || echo "0x0")
