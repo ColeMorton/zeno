@@ -136,7 +136,7 @@ contract AchievementMinter is Ownable {
         }
 
         // 3. Mint achievement (AchievementNFT handles duplicate prevention)
-        achievements.mint(msg.sender, MINTER);
+        achievements.mint(msg.sender, MINTER, bytes32(0), false);
 
         emit MinterAchievementClaimed(msg.sender, vaultId);
     }
@@ -178,7 +178,7 @@ contract AchievementMinter is Ownable {
         }
 
         // 6. Mint achievement (AchievementNFT handles duplicate prevention)
-        achievements.mint(msg.sender, MATURED);
+        achievements.mint(msg.sender, MATURED, bytes32(0), false);
 
         emit MaturedAchievementClaimed(msg.sender, vaultId);
     }
@@ -219,7 +219,7 @@ contract AchievementMinter is Ownable {
         }
 
         // 4. Mint achievement (AchievementNFT handles duplicate prevention)
-        achievements.mint(msg.sender, achievementType);
+        achievements.mint(msg.sender, achievementType, bytes32(0), false);
 
         emit DurationAchievementClaimed(msg.sender, vaultId, achievementType);
     }
@@ -255,7 +255,7 @@ contract AchievementMinter is Ownable {
         }
 
         // 3. Mint HODLER_SUPREME achievement
-        achievements.mint(msg.sender, HODLER_SUPREME);
+        achievements.mint(msg.sender, HODLER_SUPREME, bytes32(0), false);
 
         // 4. Mint Hodler Supreme Treasure
         uint256 treasureId = treasureNFT.mint(address(this));
