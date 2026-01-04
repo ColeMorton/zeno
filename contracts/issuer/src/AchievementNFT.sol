@@ -2,16 +2,18 @@
 pragma solidity ^0.8.24;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {IAchievementNFT} from "./interfaces/IAchievementNFT.sol";
 import {AchievementSVG} from "./AchievementSVG.sol";
 
-/// @title AchievementNFT - Soulbound achievement attestations
-/// @notice ERC-5192 compliant non-transferable NFT representing wallet achievements
-/// @dev Achievements are earned by verifying on-chain protocol state, not granted as entry tickets
-///      Uses bytes32 identifiers for extensibility without contract redeployment
-contract AchievementNFT is ERC721, Ownable {
-    /// @notice Achievement type constants
+/// @title AchievementNFT - Unified soulbound achievement tokens
+/// @notice ERC-5192 compliant non-transferable NFT for all achievement types
+/// @dev Handles both regular (personal journey) and chapter (calendar-based) achievements
+///      Regular achievements use chapterId = bytes32(0)
+contract AchievementNFT is ERC721, Ownable, IAchievementNFT {
+    // ==================== Achievement Type Constants ====================
+
     bytes32 public constant MINTER = keccak256("MINTER");
     bytes32 public constant MATURED = keccak256("MATURED");
     bytes32 public constant HODLER_SUPREME = keccak256("HODLER_SUPREME");
@@ -20,6 +22,8 @@ contract AchievementNFT is ERC721, Ownable {
     bytes32 public constant HALF_YEAR = keccak256("HALF_YEAR");
     bytes32 public constant ANNUAL = keccak256("ANNUAL");
     bytes32 public constant DIAMOND_HANDS = keccak256("DIAMOND_HANDS");
+
+    // ==================== State Variables ====================
 
     uint256 private _nextTokenId;
 
@@ -30,25 +34,19 @@ contract AchievementNFT is ERC721, Ownable {
     /// @notice Maps tokenId to its achievement type
     mapping(uint256 => bytes32) public achievementType;
 
+    /// @notice Maps tokenId to its chapter (bytes32(0) for regular achievements)
+    mapping(uint256 => bytes32) public tokenChapter;
+
     /// @notice Tracks which achievements a wallet has earned
-    /// @dev O(1) lookup for achievement eligibility checks
-    mapping(address => mapping(bytes32 => bool)) public hasAchievement;
+    mapping(address => mapping(bytes32 => bool)) private _hasAchievement;
+
+    /// @notice Tracks how many times a wallet has earned each achievement
+    mapping(address => mapping(bytes32 => uint256)) private _achievementCount;
 
     /// @notice Addresses authorized to mint achievements
     mapping(address => bool) public authorizedMinters;
 
-    event Locked(uint256 indexed tokenId);
-    event AchievementEarned(
-        address indexed wallet,
-        uint256 indexed tokenId,
-        bytes32 indexed achievementType
-    );
-    event MinterAuthorized(address indexed minter);
-    event MinterRevoked(address indexed minter);
-
-    error SoulboundTransferNotAllowed();
-    error NotAuthorizedMinter(address caller);
-    error AchievementAlreadyEarned(address wallet, bytes32 achievementType);
+    // ==================== Modifiers ====================
 
     modifier onlyAuthorizedMinter() {
         if (!authorizedMinters[msg.sender]) {
@@ -56,6 +54,8 @@ contract AchievementNFT is ERC721, Ownable {
         }
         _;
     }
+
+    // ==================== Constructor ====================
 
     constructor(
         string memory name_,
@@ -67,62 +67,99 @@ contract AchievementNFT is ERC721, Ownable {
         useOnChainSVG = useOnChainSVG_;
     }
 
-    /// @notice Authorize an address to mint achievements
-    /// @param minter Address to authorize (typically AchievementMinter contract)
+    // ==================== Admin Functions ====================
+
+    /// @inheritdoc IAchievementNFT
     function authorizeMinter(address minter) external onlyOwner {
         authorizedMinters[minter] = true;
         emit MinterAuthorized(minter);
     }
 
-    /// @notice Revoke minting authorization
-    /// @param minter Address to revoke
+    /// @inheritdoc IAchievementNFT
     function revokeMinter(address minter) external onlyOwner {
         authorizedMinters[minter] = false;
         emit MinterRevoked(minter);
     }
 
-    /// @notice Mint an achievement to a wallet
-    /// @dev Can only be called by authorized minters (AchievementMinter contract)
-    /// @param to Wallet earning the achievement
-    /// @param type_ Type of achievement being earned (bytes32 identifier)
-    /// @return tokenId The minted token ID
-    function mint(address to, bytes32 type_) external onlyAuthorizedMinter returns (uint256 tokenId) {
-        if (hasAchievement[to][type_]) {
-            revert AchievementAlreadyEarned(to, type_);
+    /// @notice Update the base URI for token metadata
+    /// @param baseURI_ New base URI
+    function setBaseURI(string calldata baseURI_) external onlyOwner {
+        _baseTokenURI = baseURI_;
+    }
+
+    /// @inheritdoc IAchievementNFT
+    function setUseOnChainSVG(bool useOnChain) external onlyOwner {
+        useOnChainSVG = useOnChain;
+    }
+
+    // ==================== Core Functions ====================
+
+    /// @inheritdoc IAchievementNFT
+    function mint(
+        address to,
+        bytes32 achievementId,
+        bytes32 chapterId,
+        bool isStackable
+    ) external onlyAuthorizedMinter returns (uint256 tokenId) {
+        // For non-stackable: revert if already earned
+        if (!isStackable && _hasAchievement[to][achievementId]) {
+            revert AchievementAlreadyEarned(to, achievementId);
         }
 
         tokenId = _nextTokenId++;
-        achievementType[tokenId] = type_;
-        hasAchievement[to][type_] = true;
+        achievementType[tokenId] = achievementId;
+        tokenChapter[tokenId] = chapterId;
+
+        _hasAchievement[to][achievementId] = true;
+        _achievementCount[to][achievementId]++;
 
         _mint(to, tokenId);
 
         emit Locked(tokenId);
-        emit AchievementEarned(to, tokenId, type_);
+        emit AchievementEarned(to, tokenId, achievementId, chapterId);
     }
 
-    /// @notice ERC-5192: Check if a token is locked (soulbound)
-    /// @dev All tokens are locked - this is a soulbound implementation
-    /// @param tokenId The token to check
-    /// @return True (always locked)
+    // ==================== View Functions ====================
+
+    /// @inheritdoc IAchievementNFT
+    function hasAchievement(address wallet, bytes32 achievementId) external view returns (bool) {
+        return _hasAchievement[wallet][achievementId];
+    }
+
+    /// @inheritdoc IAchievementNFT
+    function achievementCount(address wallet, bytes32 achievementId) external view returns (uint256) {
+        return _achievementCount[wallet][achievementId];
+    }
+
+    /// @inheritdoc IAchievementNFT
     function locked(uint256 tokenId) external view returns (bool) {
         _requireOwned(tokenId);
         return true;
     }
 
-    /// @notice Get the total number of achievements minted
-    /// @return Total supply
+    /// @inheritdoc IAchievementNFT
     function totalSupply() external view returns (uint256) {
         return _nextTokenId;
     }
 
-    /// @notice Check if a wallet has a specific achievement
-    /// @param wallet Address to check
-    /// @param type_ Achievement type to query
-    /// @return Whether the wallet has this achievement
-    function hasAchievementOfType(address wallet, bytes32 type_) external view returns (bool) {
-        return hasAchievement[wallet][type_];
+    /// @notice Override tokenURI to return on-chain SVG if enabled
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _requireOwned(tokenId);
+
+        if (useOnChainSVG) {
+            bytes32 achType = achievementType[tokenId];
+            bytes32 chapId = tokenChapter[tokenId];
+            return AchievementSVG.getSVG(achType, chapId);
+        } else {
+            return super.tokenURI(tokenId);
+        }
     }
+
+    function _baseURI() internal view override returns (string memory) {
+        return _baseTokenURI;
+    }
+
+    // ==================== Soulbound Implementation ====================
 
     /// @dev Override to prevent transfers (soulbound)
     function _update(
@@ -138,39 +175,9 @@ contract AchievementNFT is ERC721, Ownable {
         return super._update(to, tokenId, auth);
     }
 
-    /// @notice Override tokenURI to return on-chain SVG if enabled
-    /// @param tokenId The token ID
-    /// @return The token URI (either on-chain SVG or external URI)
-    function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        _requireOwned(tokenId);
-        
-        if (useOnChainSVG) {
-            bytes32 achType = achievementType[tokenId];
-            return AchievementSVG.getSVG(achType);
-        } else {
-            return super.tokenURI(tokenId);
-        }
-    }
-
-    function _baseURI() internal view override returns (string memory) {
-        return _baseTokenURI;
-    }
-
-    /// @notice Update the base URI for token metadata
-    /// @param baseURI_ New base URI
-    function setBaseURI(string calldata baseURI_) external onlyOwner {
-        _baseTokenURI = baseURI_;
-    }
-
-    /// @notice Toggle between on-chain SVG and external URI
-    /// @param useOnChain Whether to use on-chain SVG
-    function setUseOnChainSVG(bool useOnChain) external onlyOwner {
-        useOnChainSVG = useOnChain;
-    }
-
     /// @notice ERC-165 interface support
     /// @dev Includes ERC-5192 interface ID (0xb45a3c0e)
-    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, IERC165) returns (bool) {
         // ERC-5192 interface ID: 0xb45a3c0e
         return interfaceId == 0xb45a3c0e || super.supportsInterface(interfaceId);
     }

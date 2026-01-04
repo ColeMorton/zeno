@@ -34,11 +34,13 @@ interface IChapterRegistry {
     /// @param name Display name
     /// @param prerequisites Required achievements (skill-tree dependencies)
     /// @param verifier Optional verifier contract for achievement-specific validation
+    /// @param isStackable Whether achievement can be earned multiple times
     struct ChapterAchievement {
         bytes32 achievementId;
         string name;
         bytes32[] prerequisites;
         address verifier;
+        bool isStackable;
     }
 
     // ==================== Events ====================
@@ -134,6 +136,19 @@ interface IChapterRegistry {
         address verifier
     ) external returns (bytes32 achievementId);
 
+    /// @notice Add a stackable achievement (can be earned multiple times)
+    /// @param chapterId The chapter to add the achievement to
+    /// @param name Achievement display name
+    /// @param prerequisites Required achievements (bytes32 IDs)
+    /// @param verifier Custom verifier contract (address(0) for no verification)
+    /// @return achievementId The generated achievement ID
+    function addStackableAchievement(
+        bytes32 chapterId,
+        string calldata name,
+        bytes32[] calldata prerequisites,
+        address verifier
+    ) external returns (bytes32 achievementId);
+
     /// @notice Set chapter active status
     /// @param chapterId Chapter to update
     /// @param active New active status
@@ -176,6 +191,11 @@ interface IChapterRegistry {
     /// @param achievementId Achievement to check
     /// @return exists Whether achievement exists
     function achievementExists(bytes32 achievementId) external view returns (bool exists);
+
+    /// @notice Check if achievement is stackable (can be earned multiple times)
+    /// @param achievementId Achievement to check
+    /// @return stackable Whether achievement can be stacked
+    function isStackable(bytes32 achievementId) external view returns (bool stackable);
 
     /// @notice Generate chapter ID from number, year, and quarter
     /// @param chapterNumber Chapter number (1-12)

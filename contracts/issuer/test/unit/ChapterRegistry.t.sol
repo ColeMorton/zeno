@@ -408,6 +408,52 @@ contract ChapterRegistryTest is Test {
         assertEq(achievements[2].name, "Third");
     }
 
+    // ==================== isStackable Tests ====================
+
+    function test_AddAchievement_NotStackable() public {
+        bytes32 chapterId = registry.createChapter(
+            CHAPTER_NUMBER,
+            YEAR,
+            QUARTER,
+            startTimestamp,
+            endTimestamp,
+            MIN_DAYS_HELD,
+            MAX_DAYS_HELD,
+            ACHIEVEMENT_BASE_URI
+        );
+
+        bytes32 achievementId = registry.addAchievement(chapterId, "First Steps", new bytes32[](0));
+        assertFalse(registry.isStackable(achievementId));
+    }
+
+    function test_AddStackableAchievement() public {
+        bytes32 chapterId = registry.createChapter(
+            CHAPTER_NUMBER,
+            YEAR,
+            QUARTER,
+            startTimestamp,
+            endTimestamp,
+            MIN_DAYS_HELD,
+            MAX_DAYS_HELD,
+            ACHIEVEMENT_BASE_URI
+        );
+
+        bytes32 achievementId = registry.addStackableAchievement(chapterId, "Mint 5 NFTs", new bytes32[](0), address(0));
+
+        assertTrue(registry.isStackable(achievementId));
+        assertTrue(registry.achievementExists(achievementId));
+
+        IChapterRegistry.ChapterAchievement memory ach = registry.getAchievement(achievementId);
+        assertEq(ach.name, "Mint 5 NFTs");
+        assertTrue(ach.isStackable);
+    }
+
+    function test_IsStackable_RevertIf_AchievementNotFound() public {
+        bytes32 fakeId = keccak256("fake");
+        vm.expectRevert(abi.encodeWithSelector(IChapterRegistry.AchievementNotFound.selector, fakeId));
+        registry.isStackable(fakeId);
+    }
+
     // ==================== ID Generation Tests ====================
 
     function test_GetChapterId_Deterministic() public view {

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {Script, console} from "forge-std/Script.sol";
 import {ChapterRegistry} from "../src/ChapterRegistry.sol";
 import {ChapterMinter} from "../src/ChapterMinter.sol";
-import {ChapterAchievementNFT} from "../src/ChapterAchievementNFT.sol";
+import {AchievementNFT} from "../src/AchievementNFT.sol";
 import {ProfileRegistry} from "../src/ProfileRegistry.sol";
 import {ProfileVerifier} from "../src/verifiers/ProfileVerifier.sol";
 import {PresenceVerifier} from "../src/verifiers/PresenceVerifier.sol";
@@ -30,7 +30,7 @@ contract DeployChapterSystem is Script {
     // Core chapter contracts
     ChapterRegistry public registry;
     ChapterMinter public minter;
-    ChapterAchievementNFT public achievementNFT;
+    AchievementNFT public achievementNFT;
 
     // Verifiers
     address public profileRegistryAddr;
@@ -67,14 +67,14 @@ contract DeployChapterSystem is Script {
         registry = new ChapterRegistry();
         console.log("ChapterRegistry deployed");
 
-        // Deploy ChapterAchievementNFT
-        achievementNFT = new ChapterAchievementNFT(
+        // Deploy AchievementNFT (unified)
+        achievementNFT = new AchievementNFT(
             "The Ascent Achievements",
             "ASCENT",
             "ipfs://achievements/",
             true // useOnChainSVG
         );
-        console.log("ChapterAchievementNFT deployed");
+        console.log("AchievementNFT deployed");
 
         // Prepare collateral arrays
         address[] memory collaterals = new address[](1);

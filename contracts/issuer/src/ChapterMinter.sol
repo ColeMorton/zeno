@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IChapterMinter} from "./interfaces/IChapterMinter.sol";
 import {IChapterRegistry} from "./interfaces/IChapterRegistry.sol";
-import {IChapterAchievementNFT} from "./interfaces/IChapterAchievementNFT.sol";
+import {IAchievementNFT} from "./interfaces/IAchievementNFT.sol";
 import {ITreasureNFT} from "./interfaces/ITreasureNFT.sol";
 import {IAchievementVerifier} from "./interfaces/IAchievementVerifier.sol";
 
@@ -21,7 +21,7 @@ interface IVaultState {
 contract ChapterMinter is IChapterMinter, Ownable {
     // ==================== State Variables ====================
 
-    IChapterAchievementNFT public immutable achievements;
+    IAchievementNFT public immutable achievements;
     IChapterRegistry public immutable registry;
     ITreasureNFT public immutable treasureNFT;
 
@@ -37,7 +37,7 @@ contract ChapterMinter is IChapterMinter, Ownable {
         address[] memory collateralTokens_,
         address[] memory protocols_
     ) Ownable(msg.sender) {
-        achievements = IChapterAchievementNFT(achievements_);
+        achievements = IAchievementNFT(achievements_);
         registry = IChapterRegistry(registry_);
         treasureNFT = ITreasureNFT(treasureNFT_);
 
@@ -116,8 +116,8 @@ contract ChapterMinter is IChapterMinter, Ownable {
             }
         }
 
-        // 8. Mint
-        achievements.mint(msg.sender, achievementId, chapterId);
+        // 8. Mint (pass isStackable flag from registry)
+        achievements.mint(msg.sender, achievementId, chapterId, ach.isStackable);
 
         emit ChapterAchievementClaimed(msg.sender, achievementId, chapterId, vaultId);
     }
@@ -138,8 +138,15 @@ contract ChapterMinter is IChapterMinter, Ownable {
             return (false, "Unsupported collateral");
         }
 
-        // Check if already earned
-        if (achievements.hasAchievement(wallet, achievementId)) {
+        // Check if already earned (only for non-stackable)
+        IChapterRegistry.ChapterAchievement memory ach;
+        try registry.getAchievement(achievementId) returns (IChapterRegistry.ChapterAchievement memory a) {
+            ach = a;
+        } catch {
+            return (false, "Achievement not found");
+        }
+
+        if (!ach.isStackable && achievements.hasAchievement(wallet, achievementId)) {
             return (false, "Already has this achievement");
         }
 
@@ -190,8 +197,7 @@ contract ChapterMinter is IChapterMinter, Ownable {
             return (false, "Achievement not found");
         }
 
-        // Prerequisites
-        IChapterRegistry.ChapterAchievement memory ach = registry.getAchievement(achievementId);
+        // Prerequisites (ach already fetched at start of function)
         for (uint256 i = 0; i < ach.prerequisites.length; i++) {
             if (!achievements.hasAchievement(wallet, ach.prerequisites[i])) {
                 return (false, "Prerequisite not met");

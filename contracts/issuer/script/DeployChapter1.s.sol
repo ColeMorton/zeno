@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {Script, console} from "forge-std/Script.sol";
 import {ChapterRegistry} from "../src/ChapterRegistry.sol";
 import {ChapterMinter} from "../src/ChapterMinter.sol";
-import {ChapterAchievementNFT} from "../src/ChapterAchievementNFT.sol";
 import {ProfileRegistry} from "../src/ProfileRegistry.sol";
 import {ProfileVerifier} from "../src/verifiers/ProfileVerifier.sol";
 import {PresenceVerifier} from "../src/verifiers/PresenceVerifier.sol";

@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {AchievementNFT} from "../../src/AchievementNFT.sol";
+import {IAchievementNFT} from "../../src/interfaces/IAchievementNFT.sol";
 
 contract AchievementNFTTest is Test {
     AchievementNFT public achievement;
@@ -16,6 +17,9 @@ contract AchievementNFTTest is Test {
     bytes32 public MATURED;
     bytes32 public HODLER_SUPREME;
     bytes32 public FIRST_MONTH;
+
+    // Chapter ID for regular (non-chapter) achievements
+    bytes32 public constant NO_CHAPTER = bytes32(0);
 
     function setUp() public {
         owner = makeAddr("owner");
@@ -60,7 +64,7 @@ contract AchievementNFTTest is Test {
     function test_AuthorizeMinter_EmitsEvent() public {
         vm.prank(owner);
         vm.expectEmit(true, false, false, false);
-        emit AchievementNFT.MinterAuthorized(minter);
+        emit IAchievementNFT.MinterAuthorized(minter);
         achievement.authorizeMinter(minter);
     }
 
@@ -86,7 +90,7 @@ contract AchievementNFTTest is Test {
 
         vm.prank(owner);
         vm.expectEmit(true, false, false, false);
-        emit AchievementNFT.MinterRevoked(minter);
+        emit IAchievementNFT.MinterRevoked(minter);
         achievement.revokeMinter(minter);
     }
 
@@ -95,38 +99,39 @@ contract AchievementNFTTest is Test {
         achievement.authorizeMinter(minter);
 
         vm.prank(minter);
-        uint256 tokenId = achievement.mint(alice, MINTER);
+        uint256 tokenId = achievement.mint(alice, MINTER, NO_CHAPTER, false);
 
         assertEq(achievement.ownerOf(tokenId), alice);
         assertEq(achievement.totalSupply(), 1);
         assertEq(achievement.achievementType(tokenId), MINTER);
+        assertEq(achievement.tokenChapter(tokenId), NO_CHAPTER);
         assertTrue(achievement.hasAchievement(alice, MINTER));
     }
 
     function test_Mint_RevertIf_NotAuthorized() public {
         vm.prank(alice);
         vm.expectRevert(
-            abi.encodeWithSelector(AchievementNFT.NotAuthorizedMinter.selector, alice)
+            abi.encodeWithSelector(IAchievementNFT.NotAuthorizedMinter.selector, alice)
         );
-        achievement.mint(alice, MINTER);
+        achievement.mint(alice, MINTER, NO_CHAPTER, false);
     }
 
-    function test_Mint_RevertIf_AlreadyEarned() public {
+    function test_Mint_RevertIf_AlreadyEarned_NonStackable() public {
         vm.prank(owner);
         achievement.authorizeMinter(minter);
 
         vm.prank(minter);
-        achievement.mint(alice, MINTER);
+        achievement.mint(alice, MINTER, NO_CHAPTER, false);
 
         vm.prank(minter);
         vm.expectRevert(
             abi.encodeWithSelector(
-                AchievementNFT.AchievementAlreadyEarned.selector,
+                IAchievementNFT.AchievementAlreadyEarned.selector,
                 alice,
                 MINTER
             )
         );
-        achievement.mint(alice, MINTER);
+        achievement.mint(alice, MINTER, NO_CHAPTER, false);
     }
 
     function test_Mint_DifferentAchievementTypes() public {
@@ -134,9 +139,9 @@ contract AchievementNFTTest is Test {
         achievement.authorizeMinter(minter);
 
         vm.startPrank(minter);
-        uint256 tokenId1 = achievement.mint(alice, MINTER);
-        uint256 tokenId2 = achievement.mint(alice, MATURED);
-        uint256 tokenId3 = achievement.mint(alice, HODLER_SUPREME);
+        uint256 tokenId1 = achievement.mint(alice, MINTER, NO_CHAPTER, false);
+        uint256 tokenId2 = achievement.mint(alice, MATURED, NO_CHAPTER, false);
+        uint256 tokenId3 = achievement.mint(alice, HODLER_SUPREME, NO_CHAPTER, false);
         vm.stopPrank();
 
         assertEq(tokenId1, 0);
@@ -155,10 +160,10 @@ contract AchievementNFTTest is Test {
 
         vm.prank(minter);
         vm.expectEmit(true, false, false, false);
-        emit AchievementNFT.Locked(0);
-        vm.expectEmit(true, true, true, false);
-        emit AchievementNFT.AchievementEarned(alice, 0, MINTER);
-        achievement.mint(alice, MINTER);
+        emit IAchievementNFT.Locked(0);
+        vm.expectEmit(true, true, true, true);
+        emit IAchievementNFT.AchievementEarned(alice, 0, MINTER, NO_CHAPTER);
+        achievement.mint(alice, MINTER, NO_CHAPTER, false);
     }
 
     function test_Locked_AlwaysTrue() public {
@@ -166,7 +171,7 @@ contract AchievementNFTTest is Test {
         achievement.authorizeMinter(minter);
 
         vm.prank(minter);
-        uint256 tokenId = achievement.mint(alice, MINTER);
+        uint256 tokenId = achievement.mint(alice, MINTER, NO_CHAPTER, false);
 
         assertTrue(achievement.locked(tokenId));
     }
@@ -181,10 +186,10 @@ contract AchievementNFTTest is Test {
         achievement.authorizeMinter(minter);
 
         vm.prank(minter);
-        uint256 tokenId = achievement.mint(alice, MINTER);
+        uint256 tokenId = achievement.mint(alice, MINTER, NO_CHAPTER, false);
 
         vm.prank(alice);
-        vm.expectRevert(AchievementNFT.SoulboundTransferNotAllowed.selector);
+        vm.expectRevert(IAchievementNFT.SoulboundTransferNotAllowed.selector);
         achievement.transferFrom(alice, bob, tokenId);
     }
 
@@ -193,32 +198,35 @@ contract AchievementNFTTest is Test {
         achievement.authorizeMinter(minter);
 
         vm.prank(minter);
-        uint256 tokenId = achievement.mint(alice, MINTER);
+        uint256 tokenId = achievement.mint(alice, MINTER, NO_CHAPTER, false);
 
         vm.prank(alice);
-        vm.expectRevert(AchievementNFT.SoulboundTransferNotAllowed.selector);
+        vm.expectRevert(IAchievementNFT.SoulboundTransferNotAllowed.selector);
         achievement.safeTransferFrom(alice, bob, tokenId);
     }
 
-    function test_HasAchievementOfType() public {
+    function test_HasAchievement() public {
         vm.prank(owner);
         achievement.authorizeMinter(minter);
 
-        assertFalse(achievement.hasAchievementOfType(alice, MINTER));
+        assertFalse(achievement.hasAchievement(alice, MINTER));
 
         vm.prank(minter);
-        achievement.mint(alice, MINTER);
+        achievement.mint(alice, MINTER, NO_CHAPTER, false);
 
-        assertTrue(achievement.hasAchievementOfType(alice, MINTER));
-        assertFalse(achievement.hasAchievementOfType(alice, MATURED));
+        assertTrue(achievement.hasAchievement(alice, MINTER));
+        assertFalse(achievement.hasAchievement(alice, MATURED));
     }
 
     function test_SetBaseURI() public {
         vm.prank(owner);
+        achievement.setUseOnChainSVG(false);
+
+        vm.prank(owner);
         achievement.authorizeMinter(minter);
 
         vm.prank(minter);
-        achievement.mint(alice, MINTER);
+        achievement.mint(alice, MINTER, NO_CHAPTER, false);
 
         vm.prank(owner);
         achievement.setBaseURI("https://newuri.com/");
@@ -255,7 +263,7 @@ contract AchievementNFTTest is Test {
         bytes32 customType = keccak256("CUSTOM_ACHIEVEMENT");
 
         vm.prank(minter);
-        uint256 tokenId = achievement.mint(alice, customType);
+        uint256 tokenId = achievement.mint(alice, customType, NO_CHAPTER, false);
 
         assertEq(achievement.achievementType(tokenId), customType);
         assertTrue(achievement.hasAchievement(alice, customType));
@@ -270,10 +278,90 @@ contract AchievementNFTTest is Test {
         for (uint8 i = 0; i < count; i++) {
             address wallet = makeAddr(string(abi.encodePacked("wallet", i)));
             vm.prank(minter);
-            uint256 tokenId = achievement.mint(wallet, MINTER);
+            uint256 tokenId = achievement.mint(wallet, MINTER, NO_CHAPTER, false);
             assertEq(tokenId, i);
         }
 
         assertEq(achievement.totalSupply(), count);
+    }
+
+    // ==================== Chapter Achievement Tests ====================
+
+    function test_Mint_WithChapterId() public {
+        vm.prank(owner);
+        achievement.authorizeMinter(minter);
+
+        bytes32 chapterId = keccak256("CHAPTER_1");
+        bytes32 achievementId = keccak256("FIRST_STEPS");
+
+        vm.prank(minter);
+        uint256 tokenId = achievement.mint(alice, achievementId, chapterId, false);
+
+        assertEq(achievement.tokenChapter(tokenId), chapterId);
+        assertEq(achievement.achievementType(tokenId), achievementId);
+        assertTrue(achievement.hasAchievement(alice, achievementId));
+    }
+
+    // ==================== Stackable Achievement Tests ====================
+
+    function test_Mint_Stackable_MultipleTimes() public {
+        vm.prank(owner);
+        achievement.authorizeMinter(minter);
+
+        bytes32 stackableAchievement = keccak256("STACKABLE");
+
+        // First mint
+        vm.prank(minter);
+        uint256 tokenId1 = achievement.mint(alice, stackableAchievement, NO_CHAPTER, true);
+
+        // Second mint - should succeed for stackable
+        vm.prank(minter);
+        uint256 tokenId2 = achievement.mint(alice, stackableAchievement, NO_CHAPTER, true);
+
+        // Third mint
+        vm.prank(minter);
+        uint256 tokenId3 = achievement.mint(alice, stackableAchievement, NO_CHAPTER, true);
+
+        assertEq(tokenId1, 0);
+        assertEq(tokenId2, 1);
+        assertEq(tokenId3, 2);
+        assertEq(achievement.achievementCount(alice, stackableAchievement), 3);
+        assertTrue(achievement.hasAchievement(alice, stackableAchievement));
+    }
+
+    function test_AchievementCount_NonStackable() public {
+        vm.prank(owner);
+        achievement.authorizeMinter(minter);
+
+        vm.prank(minter);
+        achievement.mint(alice, MINTER, NO_CHAPTER, false);
+
+        assertEq(achievement.achievementCount(alice, MINTER), 1);
+    }
+
+    function test_AchievementCount_Zero_WhenNotEarned() public view {
+        assertEq(achievement.achievementCount(alice, MINTER), 0);
+    }
+
+    // ==================== Chapter + Stackable Combined Tests ====================
+
+    function test_Mint_ChapterStackable() public {
+        vm.prank(owner);
+        achievement.authorizeMinter(minter);
+
+        bytes32 chapterId = keccak256("CHAPTER_1");
+        bytes32 achievementId = keccak256("REPEATABLE_LESSON");
+
+        // First claim
+        vm.prank(minter);
+        uint256 tokenId1 = achievement.mint(alice, achievementId, chapterId, true);
+
+        // Second claim - stackable
+        vm.prank(minter);
+        uint256 tokenId2 = achievement.mint(alice, achievementId, chapterId, true);
+
+        assertEq(achievement.tokenChapter(tokenId1), chapterId);
+        assertEq(achievement.tokenChapter(tokenId2), chapterId);
+        assertEq(achievement.achievementCount(alice, achievementId), 2);
     }
 }

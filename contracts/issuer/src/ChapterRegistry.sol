@@ -89,7 +89,7 @@ contract ChapterRegistry is IChapterRegistry, Ownable {
         string calldata name,
         bytes32[] calldata prerequisites
     ) external onlyOwner returns (bytes32 achievementId) {
-        return _addAchievement(chapterId, name, prerequisites, address(0));
+        return _addAchievement(chapterId, name, prerequisites, address(0), false);
     }
 
     /// @inheritdoc IChapterRegistry
@@ -99,7 +99,17 @@ contract ChapterRegistry is IChapterRegistry, Ownable {
         bytes32[] calldata prerequisites,
         address verifier
     ) external onlyOwner returns (bytes32 achievementId) {
-        return _addAchievement(chapterId, name, prerequisites, verifier);
+        return _addAchievement(chapterId, name, prerequisites, verifier, false);
+    }
+
+    /// @inheritdoc IChapterRegistry
+    function addStackableAchievement(
+        bytes32 chapterId,
+        string calldata name,
+        bytes32[] calldata prerequisites,
+        address verifier
+    ) external onlyOwner returns (bytes32 achievementId) {
+        return _addAchievement(chapterId, name, prerequisites, verifier, true);
     }
 
     /// @dev Internal function to add an achievement
@@ -107,7 +117,8 @@ contract ChapterRegistry is IChapterRegistry, Ownable {
         bytes32 chapterId,
         string calldata name,
         bytes32[] calldata prerequisites,
-        address verifier
+        address verifier,
+        bool isStackable_
     ) internal returns (bytes32 achievementId) {
         if (!_chapterExists[chapterId]) {
             revert ChapterNotFound(chapterId);
@@ -123,7 +134,8 @@ contract ChapterRegistry is IChapterRegistry, Ownable {
             achievementId: achievementId,
             name: name,
             prerequisites: prerequisites,
-            verifier: verifier
+            verifier: verifier,
+            isStackable: isStackable_
         });
 
         _achievements[achievementId] = achievement;
@@ -202,6 +214,14 @@ contract ChapterRegistry is IChapterRegistry, Ownable {
     /// @inheritdoc IChapterRegistry
     function achievementExists(bytes32 achievementId) external view returns (bool exists) {
         return _achievementExists[achievementId];
+    }
+
+    /// @inheritdoc IChapterRegistry
+    function isStackable(bytes32 achievementId) external view returns (bool stackable) {
+        if (!_achievementExists[achievementId]) {
+            revert AchievementNotFound(achievementId);
+        }
+        return _achievements[achievementId].isStackable;
     }
 
     /// @inheritdoc IChapterRegistry

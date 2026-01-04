@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {AchievementNFT} from "../../src/AchievementNFT.sol";
+import {IAchievementNFT} from "../../src/interfaces/IAchievementNFT.sol";
 import {AchievementMinter} from "../../src/AchievementMinter.sol";
 import {TreasureNFT} from "../../src/TreasureNFT.sol";
 import {MockVaultNFT} from "../mocks/MockVaultNFT.sol";
@@ -208,7 +209,7 @@ contract AchievementMinterTest is Test {
         vm.prank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                AchievementNFT.AchievementAlreadyEarned.selector,
+                IAchievementNFT.AchievementAlreadyEarned.selector,
                 alice,
                 MINTER
             )

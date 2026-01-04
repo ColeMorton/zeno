@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {ChapterMinter} from "../../src/ChapterMinter.sol";
 import {ChapterRegistry} from "../../src/ChapterRegistry.sol";
-import {ChapterAchievementNFT} from "../../src/ChapterAchievementNFT.sol";
+import {AchievementNFT} from "../../src/AchievementNFT.sol";
 import {IChapterMinter} from "../../src/interfaces/IChapterMinter.sol";
 import {IChapterRegistry} from "../../src/interfaces/IChapterRegistry.sol";
 import {MockTreasureNFT} from "../mocks/MockTreasureNFT.sol";
@@ -13,7 +13,7 @@ import {MockVaultNFT} from "../mocks/MockVaultNFT.sol";
 contract ChapterMinterTest is Test {
     ChapterMinter public minter;
     ChapterRegistry public registry;
-    ChapterAchievementNFT public achievementNFT;
+    AchievementNFT public achievementNFT;
     MockTreasureNFT public treasureNFT;
     MockVaultNFT public vaultNFT;
 
@@ -36,7 +36,7 @@ contract ChapterMinterTest is Test {
     function setUp() public {
         // Deploy contracts
         registry = new ChapterRegistry();
-        achievementNFT = new ChapterAchievementNFT(
+        achievementNFT = new AchievementNFT(
             "Chapter Achievements",
             "CHACH",
             "https://example.com/",
@@ -299,6 +299,63 @@ contract ChapterMinterTest is Test {
 
         // Only second should be claimable
         assertEq(claimable.length, 1);
+    }
+
+    // ==================== Stackable Achievement Tests ====================
+
+    function test_ClaimStackableAchievement_MultipleTimes() public {
+        // Add stackable achievement
+        bytes32 stackableId = registry.addStackableAchievement(chapterId, "Mint 5 NFTs", new bytes32[](0), address(0));
+
+        // Claim first time
+        vm.prank(user);
+        minter.claimChapterAchievement(chapterId, stackableId, vaultId, collateralToken, "");
+
+        assertTrue(achievementNFT.hasAchievement(user, stackableId));
+        assertEq(achievementNFT.achievementCount(user, stackableId), 1);
+
+        // Claim second time - should succeed for stackable
+        vm.prank(user);
+        minter.claimChapterAchievement(chapterId, stackableId, vaultId, collateralToken, "");
+
+        assertEq(achievementNFT.achievementCount(user, stackableId), 2);
+        assertEq(achievementNFT.balanceOf(user), 2);
+    }
+
+    function test_CanClaimStackableAchievement_AfterFirstClaim() public {
+        // Add stackable achievement
+        bytes32 stackableId = registry.addStackableAchievement(chapterId, "Mint 5 NFTs", new bytes32[](0), address(0));
+
+        // Claim first time
+        vm.prank(user);
+        minter.claimChapterAchievement(chapterId, stackableId, vaultId, collateralToken, "");
+
+        // Check canClaim - should still be true for stackable
+        (bool canClaim, string memory reason) = minter.canClaimChapterAchievement(
+            user,
+            chapterId,
+            stackableId,
+            vaultId,
+            collateralToken,
+            ""
+        );
+
+        assertTrue(canClaim);
+        assertEq(reason, "");
+    }
+
+    function test_GetClaimableAchievements_IncludesStackable() public {
+        // Add stackable achievement
+        bytes32 stackableId = registry.addStackableAchievement(chapterId, "Mint 5 NFTs", new bytes32[](0), address(0));
+
+        // Claim it
+        vm.prank(user);
+        minter.claimChapterAchievement(chapterId, stackableId, vaultId, collateralToken, "");
+
+        bytes32[] memory claimable = minter.getClaimableAchievements(user, chapterId, vaultId, collateralToken);
+
+        // Should include both: original achievementId (not claimed yet) and stackable (can be claimed again)
+        assertEq(claimable.length, 2);
     }
 
     // ==================== Admin Tests ====================
