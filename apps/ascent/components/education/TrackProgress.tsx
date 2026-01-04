@@ -5,7 +5,7 @@ import { useTrack } from '@/hooks/useTracks';
 import { useCompleteLesson, useLessonStatus } from '@/hooks/useTrackProgress';
 import { LessonViewer, LessonViewerSkeleton } from './LessonViewer';
 import { QuizCard } from './QuizCard';
-import { type TrackId, type TrackLesson, calculateQuizScore } from '@/lib/education';
+import { type TrackId, type TrackLesson } from '@/lib/education';
 
 interface LessonItemProps {
   lesson: TrackLesson;
@@ -56,7 +56,7 @@ interface TrackProgressProps {
 
 export function TrackProgress({ trackId, onBack }: TrackProgressProps) {
   const { data: trackWithProgress, isLoading, error, refetch } = useTrack(trackId);
-  const { completeLesson, isLoading: isCompleting } = useCompleteLesson();
+  const { completeLesson } = useCompleteLesson();
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
 
@@ -90,7 +90,7 @@ export function TrackProgress({ trackId, onBack }: TrackProgressProps) {
     ? track.lessons.find((l) => l.id === selectedLessonId)
     : track.lessons[0];
 
-  const handleQuizComplete = async (answers: number[], passed: boolean) => {
+  const handleQuizComplete = async (passed: boolean) => {
     if (passed && selectedLesson) {
       await completeLesson(trackId, selectedLesson.id);
       setShowQuiz(false);
@@ -167,7 +167,7 @@ export function TrackProgress({ trackId, onBack }: TrackProgressProps) {
                       objective: selectedLesson.objective,
                       sections: selectedLesson.sections,
                     }}
-                    conceptColor="#4A90A4"
+                    defiConcept="identity"
                   />
 
                   {selectedLesson.practicalExercise && (
@@ -207,7 +207,8 @@ export function TrackProgress({ trackId, onBack }: TrackProgressProps) {
                   </button>
                   <QuizCard
                     quiz={selectedLesson.quiz}
-                    onComplete={handleQuizComplete}
+                    achievementName={selectedLesson.title}
+                    onComplete={(passed) => handleQuizComplete(passed)}
                   />
                 </div>
               )}

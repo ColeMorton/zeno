@@ -49,6 +49,18 @@ export function useCbBtcApproval(amount: bigint) {
     confirmations: 1,
   });
 
+  // Debug: trace transaction state changes
+  useEffect(() => {
+    console.log('[cbBTC] State:', {
+      txHash,
+      isWritePending,
+      isConfirming,
+      isSuccess,
+      writeError: writeError?.message,
+      receiptError,
+    });
+  }, [txHash, isWritePending, isConfirming, isSuccess, writeError, receiptError]);
+
   useEffect(() => {
     if (isSuccess) {
       queryClient.invalidateQueries({
@@ -58,6 +70,12 @@ export function useCbBtcApproval(amount: bigint) {
   }, [isSuccess, queryClient, address, chainId]);
 
   const approve = () => {
+    console.log('[cbBTC] approve() called:', {
+      cbBTC: contracts.cbBTC,
+      spender: contracts.vaultMintController,
+      amount: amount.toString(),
+      chainId,
+    });
     writeContract({
       address: contracts.cbBTC,
       abi: ERC20_ABI,
@@ -69,7 +87,7 @@ export function useCbBtcApproval(amount: bigint) {
   };
 
   const isApproved =
-    allowanceQuery.data !== undefined && allowanceQuery.data >= amount;
+    isSuccess || (allowanceQuery.data !== undefined && allowanceQuery.data >= amount);
 
   return {
     allowance: allowanceQuery.data,

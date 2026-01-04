@@ -33,7 +33,7 @@ export function useChapterEligibility() {
   const { chainTime } = useChainTime();
 
   return useQuery({
-    queryKey: ['chapterEligibility', address, chainId, vaults?.length],
+    queryKey: ['chapterEligibility', address, chainId, vaults?.length, chainTime],
     queryFn: async (): Promise<ChapterEligibility[]> => {
       if (!address || !chapters) {
         throw new Error('Data not available');

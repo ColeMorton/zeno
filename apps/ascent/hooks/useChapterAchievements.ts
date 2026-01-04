@@ -2,8 +2,11 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useAccount, useChainId, usePublicClient } from 'wagmi';
-import { getContractAddresses, CHAPTER_REGISTRY_ABI, CHAPTER_ACHIEVEMENT_NFT_ABI, CHAPTER_MINTER_ABI } from '@/lib/contracts';
+import type { Address, PublicClient } from 'viem';
+import { getContractAddresses, CHAPTER_REGISTRY_ABI, CHAPTER_ACHIEVEMENT_NFT_ABI, CHAPTER_MINTER_ABI, TREASURE_NFT_ABI, ERC721_ABI } from '@/lib/contracts';
 import { CHAPTER_1_ACHIEVEMENTS } from '@/lib/chapters';
+import { ACHIEVEMENT_TYPES } from '@/lib/achievements';
+import { useChainTime } from './useChainTime';
 
 export interface ChapterAchievement {
   id: string;
@@ -34,9 +37,10 @@ export function useChapterAchievements(chapterId: string | undefined) {
   const { address } = useAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient();
+  const { chainTime } = useChainTime();
 
   return useQuery({
-    queryKey: ['chapterAchievements', chapterId, address, chainId],
+    queryKey: ['chapterAchievements', chapterId, address, chainId, chainTime],
     queryFn: async (): Promise<ChapterMapConfig | null> => {
       if (!chapterId) return null;
 
@@ -49,13 +53,34 @@ export function useChapterAchievements(chapterId: string | undefined) {
       try {
         contracts = getContractAddresses(chainId);
       } catch {
-        // Chain not configured, use mock data
-        return getMockChapterConfig(chapterNumber, chapterId);
+        // Chain not configured, use mock data with empty claimed set
+        return getMockChapterConfig(chapterNumber, chapterId, new Set());
       }
 
-      // If chapter contracts not deployed, use mock data
-      if (!contracts.chapterRegistry || !contracts.chapterAchievementNFT || !publicClient) {
-        return getMockChapterConfig(chapterNumber, chapterId);
+      // If chapter contracts not deployed, use mock data but query vaults for claimed status
+      if (!contracts.chapterRegistry || !contracts.chapterAchievementNFT) {
+        let claimedTypes = new Set<`0x${string}`>();
+        let maxDaysHeld = 0;
+        if (publicClient && address && contracts.vaultNFT && contracts.treasureNFT) {
+          try {
+            const result = await getUserVaultData(
+              publicClient,
+              contracts.vaultNFT,
+              contracts.treasureNFT,
+              address,
+              chainTime ?? Math.floor(Date.now() / 1000)
+            );
+            claimedTypes = result.claimedTypes;
+            maxDaysHeld = result.maxDaysHeld;
+          } catch {
+            // Vault query failed, use defaults
+          }
+        }
+        return getMockChapterConfig(chapterNumber, chapterId, claimedTypes, maxDaysHeld);
+      }
+
+      if (!publicClient) {
+        return getMockChapterConfig(chapterNumber, chapterId, new Set());
       }
 
       // Convert chapter ID string to bytes32
@@ -135,8 +160,110 @@ export function useChapterAchievements(chapterId: string | undefined) {
   });
 }
 
-function getMockChapterConfig(chapterNumber: number, chapterId: string): ChapterMapConfig {
-  const mockAchievements = generateMockAchievements(chapterNumber, chapterId);
+const VAULT_NFT_QUERY_ABI = [
+  {
+    name: 'ownerOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ type: 'address' }],
+  },
+  {
+    name: 'getVaultInfo',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [
+      { name: 'treasureContract', type: 'address' },
+      { name: 'treasureTokenId', type: 'uint256' },
+      { name: 'collateralToken', type: 'address' },
+      { name: 'collateralAmount', type: 'uint256' },
+      { name: 'mintTimestamp', type: 'uint256' },
+      { name: 'lastWithdrawal', type: 'uint256' },
+      { name: 'lastActivity', type: 'uint256' },
+      { name: 'btcTokenAmount', type: 'uint256' },
+      { name: 'originalMintedAmount', type: 'uint256' },
+    ],
+  },
+] as const;
+
+interface UserVaultData {
+  claimedTypes: Set<`0x${string}`>;
+  maxDaysHeld: number;
+}
+
+/**
+ * Query user's vaults to find achievement types and calculate max days held
+ * Iterates through vault IDs since VaultNFT doesn't implement ERC721Enumerable
+ */
+async function getUserVaultData(
+  publicClient: PublicClient,
+  vaultNFT: Address,
+  treasureNFT: Address,
+  userAddress: Address,
+  currentTime: number
+): Promise<UserVaultData> {
+  const claimedTypes = new Set<`0x${string}`>();
+  const normalizedUser = userAddress.toLowerCase();
+  let maxDaysHeld = 0;
+
+  // Iterate through vault IDs until we hit a non-existent token
+  let tokenId = 0n;
+  while (true) {
+    try {
+      const owner = await publicClient.readContract({
+        address: vaultNFT,
+        abi: VAULT_NFT_QUERY_ABI,
+        functionName: 'ownerOf',
+        args: [tokenId],
+      }) as Address;
+
+      // If this vault belongs to the user, get its info
+      if (owner.toLowerCase() === normalizedUser) {
+        const vaultInfo = await publicClient.readContract({
+          address: vaultNFT,
+          abi: VAULT_NFT_QUERY_ABI,
+          functionName: 'getVaultInfo',
+          args: [tokenId],
+        }) as [Address, bigint, Address, bigint, bigint, bigint, bigint, bigint, bigint];
+
+        const treasureTokenId = vaultInfo[1];
+        const mintTimestamp = Number(vaultInfo[4]);
+
+        // Calculate days held for this vault
+        const daysHeld = Math.floor((currentTime - mintTimestamp) / 86400);
+        maxDaysHeld = Math.max(maxDaysHeld, daysHeld);
+
+        const achievementType = await publicClient.readContract({
+          address: treasureNFT,
+          abi: TREASURE_NFT_ABI,
+          functionName: 'achievementType',
+          args: [treasureTokenId],
+        }) as `0x${string}`;
+
+        // Skip zero bytes32 (no achievement type)
+        if (achievementType !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+          claimedTypes.add(achievementType);
+        }
+      }
+
+      tokenId++;
+    } catch {
+      // Token doesn't exist - we've enumerated all vaults
+      break;
+    }
+  }
+
+  return { claimedTypes, maxDaysHeld };
+}
+
+function getMockChapterConfig(
+  chapterNumber: number,
+  chapterId: string,
+  claimedAchievementTypes: Set<`0x${string}`>,
+  daysHeld: number = 0
+): ChapterMapConfig {
+  const mockAchievements = generateMockAchievements(chapterNumber, chapterId, claimedAchievementTypes, daysHeld);
   return {
     chapterId,
     chapterIdBytes: stringToBytes32(chapterId),
@@ -192,21 +319,34 @@ function getChapterTheme(chapterNumber: number): string {
 
 function generateMockAchievements(
   chapterNumber: number,
-  chapterId: string
+  chapterId: string,
+  claimedAchievementTypes: Set<`0x${string}`>,
+  daysHeld: number = 0
 ): ChapterAchievement[] {
   // For Chapter 1, use the defined achievements
   if (chapterNumber === 1) {
-    return CHAPTER_1_ACHIEVEMENTS.map((ach, index) => ({
-      id: `${chapterId}_${ach.name}`,
-      achievementId: stringToBytes32(`${chapterId}_${ach.name}`),
-      name: ach.name,
-      description: ach.description,
-      prerequisites: [],
-      position: getAchievementPosition(index, CHAPTER_1_ACHIEVEMENTS.length),
-      isClaimed: false,
-      canClaim: index === 0, // Only first achievement claimable without prerequisites
-      week: ach.week,
-    }));
+    return CHAPTER_1_ACHIEVEMENTS.map((ach, index) => {
+      // Check if user has claimed this achievement by checking TreasureNFT ownership
+      const achievementTypeHash = ACHIEVEMENT_TYPES[ach.name as keyof typeof ACHIEVEMENT_TYPES];
+      const isClaimed = achievementTypeHash ? claimedAchievementTypes.has(achievementTypeHash) : false;
+
+      // Determine if user can claim based on time requirements
+      const requiredDays = ach.requiredDays ?? 0;
+      const meetsTimeRequirement = daysHeld >= requiredDays;
+      const canClaim = !isClaimed && meetsTimeRequirement;
+
+      return {
+        id: `${chapterId}_${ach.name}`,
+        achievementId: stringToBytes32(`${chapterId}_${ach.name}`),
+        name: ach.name,
+        description: ach.description,
+        prerequisites: [],
+        position: getAchievementPosition(index, CHAPTER_1_ACHIEVEMENTS.length),
+        isClaimed,
+        canClaim,
+        week: ach.week,
+      };
+    });
   }
 
   // Generic achievements for other chapters

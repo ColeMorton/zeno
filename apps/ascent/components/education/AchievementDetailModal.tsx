@@ -52,7 +52,7 @@ export function AchievementDetailModal({
     setActiveTab('quiz');
   };
 
-  const handleQuizComplete = (passed: boolean, _score: number) => {
+  const handleQuizComplete = (passed: boolean) => {
     if (passed) {
       setQuizPassed(true);
       onQuizComplete?.(passed);

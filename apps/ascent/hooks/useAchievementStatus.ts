@@ -44,7 +44,7 @@ export function useAchievementStatus() {
   const { chainTime } = useChainTime();
 
   return useQuery({
-    queryKey: ['achievementStatus', address, chainId, vaults?.length],
+    queryKey: ['achievementStatus', address, chainId, vaults?.length, chainTime],
     queryFn: async (): Promise<Record<string, AchievementState>> => {
       if (!address) {
         throw new Error('Wallet not connected');

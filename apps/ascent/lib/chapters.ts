@@ -112,6 +112,7 @@ export interface Chapter1Achievement {
   defiConcept: string;
   learningOutcome: string;
   contentFile: string;
+  requiredDays?: number; // Days held required to unlock (0 = no time requirement)
 }
 
 export const CHAPTER_1_ACHIEVEMENTS: Chapter1Achievement[] = [
@@ -132,6 +133,7 @@ export const CHAPTER_1_ACHIEVEMENTS: Chapter1Achievement[] = [
     defiConcept: 'commitment',
     learningOutcome: 'Learn why time-in-protocol matters for DeFi',
     contentFile: 'first_steps',
+    requiredDays: 15,
   },
   {
     name: 'WALLET_WARMED',
@@ -159,6 +161,7 @@ export const CHAPTER_1_ACHIEVEMENTS: Chapter1Achievement[] = [
     defiConcept: 'yieldMechanics',
     learningOutcome: 'Understand time-weighted rewards',
     contentFile: 'steady_pace',
+    requiredDays: 30,
   },
   {
     name: 'EXPLORER',
@@ -204,6 +207,7 @@ export const CHAPTER_1_ACHIEVEMENTS: Chapter1Achievement[] = [
     defiConcept: 'vesting',
     learningOutcome: 'Understand vesting and lock mechanisms',
     contentFile: 'committed',
+    requiredDays: 60,
   },
   {
     name: 'RESOLUTE',

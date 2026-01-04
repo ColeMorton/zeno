@@ -108,16 +108,14 @@ function DashboardContent() {
       <ActiveChapterCard />
 
       {/* All vaults */}
-      {vaults.length > 1 && (
-        <div>
-          <h2 className="text-xl font-semibold text-white mb-4">Your Vaults</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {vaults.map((vault) => (
-              <VaultCard key={vault.tokenId.toString()} vault={vault} />
-            ))}
-          </div>
+      <div>
+        <h2 className="text-xl font-semibold text-white mb-4">Your Vaults</h2>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {vaults.map((vault) => (
+            <VaultCard key={vault.tokenId.toString()} vault={vault} />
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }

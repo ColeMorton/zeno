@@ -64,7 +64,7 @@ export function useTracks() {
     queryKey: ['tracks', address],
     queryFn: async (): Promise<TrackWithProgress[]> => {
       const tracks = await getAllTracks();
-      const storedProgress = address ? getStoredTrackProgress(address) : {};
+      const storedProgress = address ? getStoredTrackProgress(address) : {} as Record<TrackId, string[]>;
 
       return tracks.map((track) => {
         const trackId = track.id as TrackId;

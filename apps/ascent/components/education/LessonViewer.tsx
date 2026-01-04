@@ -90,7 +90,7 @@ export function LessonViewer({ lesson, defiConcept, onComplete }: LessonViewerPr
           onClick={onComplete}
           className="w-full py-3 rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold transition-colors"
         >
-          I've read this lesson
+          I&apos;ve read this lesson
         </button>
       )}
     </div>

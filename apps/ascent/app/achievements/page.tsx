@@ -16,13 +16,9 @@ type AchievementStatus = 'locked' | 'available' | 'minted';
 
 function AchievementCard({
   achievement,
-  onMintVault,
-  hasTreasure,
   onSelect,
 }: {
   achievement: ChapterAchievement;
-  onMintVault?: () => void;
-  hasTreasure: boolean;
   onSelect: () => void;
 }) {
   const staticAch = CHAPTER_1_ACHIEVEMENTS.find(a => a.name === achievement.name);
@@ -75,17 +71,6 @@ function AchievementCard({
           {statusLabel[status]}
           <span className="text-xs text-blue-400">View Lesson →</span>
         </div>
-        {status === 'minted' && hasTreasure && onMintVault && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onMintVault();
-            }}
-            className="px-4 py-2 bg-mountain-summit text-black text-sm font-medium rounded-lg hover:bg-yellow-400 transition-colors"
-          >
-            Create Vault
-          </button>
-        )}
       </div>
     </div>
   );
@@ -207,8 +192,6 @@ function Chapter1Achievements() {
             <AchievementCard
               key={achievement.id}
               achievement={achievement}
-              onMintVault={handleMintVault}
-              hasTreasure={hasTreasure}
               onSelect={() => handleSelectAchievement(achievement)}
             />
           ))}

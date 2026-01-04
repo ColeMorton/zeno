@@ -55,6 +55,9 @@ export function useDevTime() {
         await queryClient.invalidateQueries({ queryKey: ['vaults'] });
         await queryClient.invalidateQueries({ queryKey: ['vault'] });
         await queryClient.invalidateQueries({ queryKey: ['vaultRanking'] });
+        await queryClient.invalidateQueries({ queryKey: ['chapterAchievements'] });
+        await queryClient.invalidateQueries({ queryKey: ['chapterEligibility'] });
+        await queryClient.invalidateQueries({ queryKey: ['achievementStatus'] });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to advance time';
         setError(message);
