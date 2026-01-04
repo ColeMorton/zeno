@@ -735,3 +735,245 @@ Track content stored in: `apps/ascent/content/tracks/{track-id}.json`
 | 10 | Death Zone | Security (audits, rug detection, due diligence) |
 | 11 | Final Ascent | Integration (cross-chain, bridges, aggregators) |
 | 12 | Summit | Mastery (building, contributing, governance)
+
+---
+
+## 12. Frontend Integration
+
+### 12.1 Library Modules
+
+Chapter system frontend implementation is in `apps/ascent/lib/chapters.ts`:
+
+```typescript
+// Types
+interface ChapterConfig {
+  number: number;
+  minDaysHeld: number;
+  maxDaysHeld: number;
+  theme: string;
+  description: string;
+}
+
+type ChapterStatus = 'locked' | 'active' | 'completed' | 'missed';
+
+// Static chapter definitions (CHAPTERS array)
+const CHAPTERS: ChapterConfig[] = [
+  { number: 1, minDaysHeld: 0, maxDaysHeld: 90, theme: 'Frozen Tundra', ... },
+  // ... 12 chapters
+];
+```
+
+#### Helper Functions
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| `getCurrentQuarter()` | Get current year/quarter | `{ year: 2025, quarter: 1 }` |
+| `getChapterVersionId(num, year, quarter)` | Generate chapter ID | `"CH1_2025Q1"` |
+| `getQuarterStart(year, quarter)` | Get quarter start timestamp | Unix timestamp |
+| `getQuarterEnd(year, quarter)` | Get quarter end timestamp | Unix timestamp |
+| `getEligibleChapter(daysHeld)` | Find chapter for days held | `ChapterConfig \| null` |
+| `getChapterProgress(daysHeld, chapter)` | Calculate progress % | `0-100` |
+| `isWithinWindow(start, end, now?)` | Check if in time window | `boolean` |
+| `formatTimeRemaining(seconds)` | Format countdown | `"5d 12h"` |
+
+### 12.2 React Hooks
+
+#### `useChapters()`
+
+Fetches all chapter configurations with current quarter status.
+
+```typescript
+const { data: chapters, isLoading, error } = useChapters();
+
+// Returns: ChapterVersion[]
+interface ChapterVersion {
+  chapterId: string;      // "CH1_2025Q1"
+  chapter: ChapterConfig; // Static chapter definition
+  year: number;
+  quarter: number;
+  windowStart: number;    // Unix timestamp
+  windowEnd: number;
+  isActive: boolean;
+  isWithinWindow: boolean;
+}
+```
+
+#### `useChapter(chapterId)`
+
+Get a specific chapter by version ID.
+
+```typescript
+const { data: chapter } = useChapter('CH1_2025Q1');
+```
+
+#### `useActiveChapter(daysHeld)`
+
+Get the chapter matching current journey progress.
+
+```typescript
+const { data: activeChapter } = useActiveChapter(daysHeld);
+```
+
+#### `useChapterEligibility()`
+
+Determines eligibility for all chapters based on vault ownership and journey progress.
+
+```typescript
+const { data: eligibilities } = useChapterEligibility();
+
+// Returns: ChapterEligibility[]
+interface ChapterEligibility {
+  chapter: ChapterVersion;
+  status: ChapterStatus;    // 'locked' | 'active' | 'completed' | 'missed'
+  daysHeld: number;
+  progress: number;         // 0-100
+  canParticipate: boolean;
+  reason: string | null;    // Why can't participate
+}
+```
+
+**Eligibility Logic:**
+
+| Condition | Status | Reason |
+|-----------|--------|--------|
+| No vault owned | `locked` | "No vault owned" |
+| Before window start | `locked` | "Chapter window not open yet" |
+| After window end | `missed` | "Chapter window has closed" |
+| Days held < minDaysHeld | `locked` | "Need X more days held" |
+| Days held > maxDaysHeld | `completed` | "Journey has progressed past this chapter" |
+| All conditions met | `active` | null |
+
+#### `useChapterEligibilityById(chapterId)`
+
+Get eligibility for a specific chapter.
+
+```typescript
+const { data: eligibility } = useChapterEligibilityById('CH1_2025Q1');
+if (eligibility?.canParticipate) {
+  // Show achievement claiming UI
+}
+```
+
+#### `useCurrentChapter()`
+
+Get the currently active/participatable chapter.
+
+```typescript
+const { data: currentChapter } = useCurrentChapter();
+```
+
+### 12.3 Achievement Hooks
+
+#### `useChapterAchievements(chapterNumber)`
+
+Fetches achievements for a specific chapter.
+
+```typescript
+const { data: achievements } = useChapterAchievements(1);
+
+// Returns chapter achievements from CHAPTER_ACHIEVEMENTS[chapterNumber]
+```
+
+#### `useAchievementStatus(achievementId)`
+
+Tracks claimed/eligible status for an achievement.
+
+```typescript
+const { data: status } = useAchievementStatus('TRAILHEAD');
+// { claimed: boolean, eligible: boolean, reason: string | null }
+```
+
+#### `useClaimAchievement()`
+
+Executes achievement claiming transaction.
+
+```typescript
+const { mutate: claim, isPending } = useClaimAchievement();
+
+claim({
+  chapterId: 'CH1_2025Q1',
+  achievementId: 'TRAILHEAD',
+  vaultId: 1n,
+  collateralToken: '0x...'
+});
+```
+
+### 12.4 Data Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  useVaults() → vault ownership & mintTimestamp              │
+│       ↓                                                     │
+│  Calculate daysHeld = (now - mintTimestamp) / 86400        │
+│       ↓                                                     │
+│  useChapters() → current quarter chapters                   │
+│       ↓                                                     │
+│  useChapterEligibility() → combine journey + calendar       │
+│       ↓                                                     │
+│  useChapterAchievements() → load achievement definitions    │
+│       ↓                                                     │
+│  useAchievementStatus() → check claimed/eligible per NFT    │
+│       ↓                                                     │
+│  useClaimAchievement() → execute on-chain claim             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 12.5 Component Integration
+
+| Component | Hook | Purpose |
+|-----------|------|---------|
+| `ChapterCard` | `useChapterEligibility` | Display chapter status/progress |
+| `ChapterProgress` | `useChapterEligibility` | Progress bar through day range |
+| `ChapterCountdown` | `useChapters` | Time remaining in window |
+| `ActiveChapterCard` | `useCurrentChapter` | Highlight current chapter |
+| `AchievementDetailModal` | `useAchievementStatus` | Claim UI for single achievement |
+
+### 12.6 Achievement Content Files
+
+Static content in `apps/ascent/lib/chapters.ts`:
+
+```typescript
+interface Chapter1Achievement {
+  name: string;
+  description: string;
+  week: number;
+  category: string;
+  defiConcept: string;
+  learningOutcome: string;
+  contentFile: string;
+  requiredDays?: number;
+}
+
+// CHAPTER_1_ACHIEVEMENTS, CHAPTER_2_ACHIEVEMENTS, CHAPTER_3_ACHIEVEMENTS
+// Exported as CHAPTER_ACHIEVEMENTS[chapterNumber]
+```
+
+### 12.7 Theme Colors
+
+Chapter visual theming in `CHAPTER_COLORS`:
+
+```typescript
+CHAPTER_COLORS[1] = {
+  primary: '#4A90A4',   // Main accent
+  secondary: '#E8F4F8', // Light background
+  bg: 'from-sky-900/30' // Gradient overlay
+};
+```
+
+---
+
+## Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| [The Ascent Design](./The_Ascent_Design.md) | Visual and conceptual framework |
+| [Achievements Specification](./Achievements_Specification.md) | Perpetual journey achievements |
+| [Integration Guide](./Integration_Guide.md) | Complete issuer integration |
+| [SDK Integration Guide](../sdk/Integration_Guide.md) | TypeScript SDK usage |
+| [Glossary](../GLOSSARY.md) | Terminology definitions |
+
+---
+
+## Navigation
+
+[Issuer Documentation](./README.md) | [Documentation Home](../README.md)

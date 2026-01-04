@@ -1,8 +1,8 @@
 # BTCNFT Protocol Documentation
 
-> **Version:** 1.0
+> **Version:** 1.1
 > **Status:** Final
-> **Last Updated:** 2025-12-28
+> **Last Updated:** 2026-01-04
 
 ---
 
@@ -16,6 +16,7 @@
 | **Auditors** | [Technical Specification](./protocol/Technical_Specification.md) | Security model, immutability guarantees |
 | **Issuers** | [Integration Guide](./issuer/Integration_Guide.md) | How to build on the protocol |
 | **End Users** | [Holder Experience](./issuer/Holder_Experience.md) | User journey, FAQ |
+| **CLI Users** | [User Manual](./USER_MANUAL.md) | CLI command reference |
 
 ---
 
@@ -65,6 +66,7 @@ Developer tools and integration libraries.
 | Document | Purpose |
 |----------|---------|
 | [SDK Overview](./sdk/README.md) | Package index and integration patterns |
+| [Integration Guide](./sdk/Integration_Guide.md) | VaultClient, AchievementClient usage |
 | [vault-analytics](../packages/vault-analytics/README.md) | Vault ranking and percentile analytics |
 
 ---
@@ -85,6 +87,7 @@ See [GLOSSARY.md](./GLOSSARY.md) for standardized terminology.
 
 | Document | Purpose |
 |----------|---------|
+| [User Manual](./USER_MANUAL.md) | CLI commands for vault operations, auctions, delegation |
 | [Testing Stack](./Testing_Stack.md) | Smart contract testing methodology |
 
 ---
