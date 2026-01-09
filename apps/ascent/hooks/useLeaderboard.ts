@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useChainId, usePublicClient } from 'wagmi';
+import { bigintStructuralSharing } from '@/lib/queryUtils';
 import { ANVIL_CHAIN_ID } from '@/lib/wagmi';
 
 export type LeaderboardTier = 'DIAMOND' | 'PLATINUM' | 'GOLD' | 'SILVER' | 'BRONZE';
@@ -100,9 +101,6 @@ export function useLeaderboard() {
     },
     enabled: isAnvil && !!publicClient,
     staleTime: 60 * 1000,
-    structuralSharing: (oldData, newData) => {
-      if (!oldData || !newData) return newData;
-      return JSON.stringify(oldData) === JSON.stringify(newData) ? oldData : newData;
-    },
+    structuralSharing: bigintStructuralSharing,
   });
 }

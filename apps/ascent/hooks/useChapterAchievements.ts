@@ -40,7 +40,7 @@ export function useChapterAchievements(chapterId: string | undefined) {
   const { chainTime } = useChainTime();
 
   return useQuery({
-    queryKey: ['chapterAchievements', chapterId, address, chainId, chainTime],
+    queryKey: ['chapterAchievements', chapterId, address, chainId],
     queryFn: async (): Promise<ChapterMapConfig | null> => {
       if (!chapterId) return null;
 

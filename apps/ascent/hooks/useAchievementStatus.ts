@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useAccount, useChainId } from 'wagmi';
+import { bigintStructuralSharing } from '@/lib/queryUtils';
 import { useVaults } from './useVaults';
 import { useChainTime } from './useChainTime';
 import { ALTITUDE_ZONES, ZONES_ORDERED, type ZoneName } from '@/lib/altitude';
@@ -93,9 +94,6 @@ export function useAchievementStatus() {
     },
     enabled: !!address && !vaultsLoading,
     staleTime: 30 * 1000,
-    structuralSharing: (oldData, newData) => {
-      if (!oldData || !newData) return newData;
-      return JSON.stringify(oldData) === JSON.stringify(newData) ? oldData : newData;
-    },
+    structuralSharing: bigintStructuralSharing,
   });
 }

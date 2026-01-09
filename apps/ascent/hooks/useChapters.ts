@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useChainId } from 'wagmi';
+import { bigintStructuralSharing } from '@/lib/queryUtils';
 import {
   CHAPTERS,
   getCurrentQuarter,
@@ -57,10 +58,7 @@ export function useChapters() {
       });
     },
     staleTime: 60 * 1000,
-    structuralSharing: (oldData, newData) => {
-      if (!oldData || !newData) return newData;
-      return JSON.stringify(oldData) === JSON.stringify(newData) ? oldData : newData;
-    },
+    structuralSharing: bigintStructuralSharing,
   });
 }
 

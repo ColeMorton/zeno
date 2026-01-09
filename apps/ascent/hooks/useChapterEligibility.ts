@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useAccount, useChainId } from 'wagmi';
+import { bigintStructuralSharing } from '@/lib/queryUtils';
 import { useVaults } from './useVaults';
 import { useChainTime } from './useChainTime';
 import { useChapters, type ChapterVersion } from './useChapters';
@@ -96,10 +97,7 @@ export function useChapterEligibility() {
     },
     enabled: !!address && !vaultsLoading && !chaptersLoading && !!chapters,
     staleTime: 30 * 1000,
-    structuralSharing: (oldData, newData) => {
-      if (!oldData || !newData) return newData;
-      return JSON.stringify(oldData) === JSON.stringify(newData) ? oldData : newData;
-    },
+    structuralSharing: bigintStructuralSharing,
   });
 }
 

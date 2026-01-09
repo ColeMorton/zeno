@@ -3,10 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAccount, useChainId } from 'wagmi';
 import { ANVIL_CHAIN_ID } from '@/lib/wagmi';
-
-function bigintReplacer(_key: string, value: unknown) {
-  return typeof value === 'bigint' ? value.toString() : value;
-}
+import { bigintStructuralSharing } from '@/lib/queryUtils';
 
 // Anvil contract addresses from deployment
 const ANVIL_CONTRACTS = {
@@ -84,12 +81,7 @@ export function useVaults() {
     },
     enabled: !!address,
     staleTime: isAnvil ? 10 * 1000 : 60 * 1000,
-    structuralSharing: (oldData, newData) => {
-      if (!oldData || !newData) return newData;
-      const oldJson = JSON.stringify(oldData, bigintReplacer);
-      const newJson = JSON.stringify(newData, bigintReplacer);
-      return oldJson === newJson ? oldData : newData;
-    },
+    structuralSharing: bigintStructuralSharing,
   });
 }
 
@@ -120,12 +112,7 @@ export function useVault(tokenId: bigint | undefined) {
     },
     enabled: !!tokenId,
     staleTime: isAnvil ? 10 * 1000 : 60 * 1000,
-    structuralSharing: (oldData, newData) => {
-      if (!oldData || !newData) return newData;
-      const oldJson = JSON.stringify(oldData, bigintReplacer);
-      const newJson = JSON.stringify(newData, bigintReplacer);
-      return oldJson === newJson ? oldData : newData;
-    },
+    structuralSharing: bigintStructuralSharing,
   });
 }
 
@@ -153,12 +140,7 @@ export function useVaultRanking(tokenId: bigint | undefined) {
     },
     enabled: !!tokenId,
     staleTime: isAnvil ? 10 * 1000 : 5 * 60 * 1000,
-    structuralSharing: (oldData, newData) => {
-      if (!oldData || !newData) return newData;
-      const oldJson = JSON.stringify(oldData, bigintReplacer);
-      const newJson = JSON.stringify(newData, bigintReplacer);
-      return oldJson === newJson ? oldData : newData;
-    },
+    structuralSharing: bigintStructuralSharing,
   });
 }
 

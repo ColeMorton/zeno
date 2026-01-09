@@ -334,6 +334,40 @@ export const TREASURE_NFT_ABI = [
   },
 ] as const;
 
+export const QUIZ_VERIFIER_ABI = [
+  {
+    name: 'submitQuiz',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'quizId', type: 'bytes32' },
+      { name: 'answers', type: 'uint8[]' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'quizPassed',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'wallet', type: 'address' },
+      { name: 'quizId', type: 'bytes32' },
+    ],
+    outputs: [{ type: 'bool' }],
+  },
+  {
+    name: 'getQuiz',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'quizId', type: 'bytes32' }],
+    outputs: [
+      { name: 'questionCount', type: 'uint8' },
+      { name: 'passingScore', type: 'uint8' },
+      { name: 'exists', type: 'bool' },
+    ],
+  },
+] as const;
+
 interface ContractAddresses {
   vaultNFT: `0x${string}`;
   treasureNFT: `0x${string}`;
@@ -344,6 +378,7 @@ interface ContractAddresses {
   chapterAchievementNFT?: `0x${string}`;
   profileRegistry?: `0x${string}`;
   signatureVerifier?: `0x${string}`;
+  quizVerifier?: `0x${string}`;
 }
 
 export function getContractAddresses(chainId: number): ContractAddresses {
@@ -370,6 +405,7 @@ export function getContractAddresses(chainId: number): ContractAddresses {
       chapterAchievementNFT: process.env.NEXT_PUBLIC_CHAPTER_ACHIEVEMENT_NFT_ANVIL as `0x${string}` | undefined,
       profileRegistry: process.env.NEXT_PUBLIC_PROFILE_REGISTRY_ANVIL as `0x${string}` | undefined,
       signatureVerifier: process.env.NEXT_PUBLIC_SIGNATURE_VERIFIER_ANVIL as `0x${string}` | undefined,
+      quizVerifier: process.env.NEXT_PUBLIC_QUIZ_VERIFIER_ANVIL as `0x${string}` | undefined,
     };
   }
 
@@ -398,6 +434,7 @@ export function getContractAddresses(chainId: number): ContractAddresses {
       chapterAchievementNFT: process.env.NEXT_PUBLIC_CHAPTER_ACHIEVEMENT_NFT_BASE as `0x${string}` | undefined,
       profileRegistry: process.env.NEXT_PUBLIC_PROFILE_REGISTRY_BASE as `0x${string}` | undefined,
       signatureVerifier: process.env.NEXT_PUBLIC_SIGNATURE_VERIFIER_BASE as `0x${string}` | undefined,
+      quizVerifier: process.env.NEXT_PUBLIC_QUIZ_VERIFIER_BASE as `0x${string}` | undefined,
     };
   }
 
