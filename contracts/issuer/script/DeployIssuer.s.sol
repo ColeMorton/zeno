@@ -43,8 +43,8 @@ contract DeployIssuer is Script {
         );
         console.log("AchievementNFT deployed at:", address(achievement));
 
-        // Deploy TreasureNFT
-        TreasureNFT treasure = new TreasureNFT(treasureName, treasureSymbol, treasureBaseURI);
+        // Deploy TreasureNFT (use first vault as protocol reference)
+        TreasureNFT treasure = new TreasureNFT(treasureName, treasureSymbol, treasureBaseURI, vaultWBTC);
         console.log("TreasureNFT deployed at:", address(treasure));
 
         // Prepare collateral and protocol arrays
