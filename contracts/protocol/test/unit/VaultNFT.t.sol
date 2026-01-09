@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {VaultNFT} from "../../src/VaultNFT.sol";
 import {BtcToken} from "../../src/BtcToken.sol";
 import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
+import {IVaultNFTDormancy} from "../../src/interfaces/IVaultNFTDormancy.sol";
 import {VaultMath} from "../../src/libraries/VaultMath.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
@@ -347,20 +348,20 @@ contract VaultNFTTest is Test {
 
         vm.warp(block.timestamp + DORMANCY_THRESHOLD + 1);
 
-        (bool eligible, IVaultNFT.DormancyState state) = vault.isDormantEligible(tokenId);
+        (bool eligible, IVaultNFTDormancy.DormancyState state) = vault.isDormantEligible(tokenId);
         assertTrue(eligible);
-        assertEq(uint256(state), uint256(IVaultNFT.DormancyState.ACTIVE));
+        assertEq(uint256(state), uint256(IVaultNFTDormancy.DormancyState.ACTIVE));
 
         vm.prank(bob);
         vault.pokeDormant(tokenId);
 
         (, state) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(state), uint256(IVaultNFT.DormancyState.POKE_PENDING));
+        assertEq(uint256(state), uint256(IVaultNFTDormancy.DormancyState.POKE_PENDING));
 
         vm.warp(block.timestamp + GRACE_PERIOD);
 
         (, state) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(state), uint256(IVaultNFT.DormancyState.CLAIMABLE));
+        assertEq(uint256(state), uint256(IVaultNFTDormancy.DormancyState.CLAIMABLE));
 
         uint256 bobWbtcBefore = wbtc.balanceOf(bob);
 
@@ -393,9 +394,9 @@ contract VaultNFTTest is Test {
         vm.prank(alice);
         vault.proveActivity(tokenId);
 
-        (bool eligible, IVaultNFT.DormancyState state) = vault.isDormantEligible(tokenId);
+        (bool eligible, IVaultNFTDormancy.DormancyState state) = vault.isDormantEligible(tokenId);
         assertFalse(eligible);
-        assertEq(uint256(state), uint256(IVaultNFT.DormancyState.ACTIVE));
+        assertEq(uint256(state), uint256(IVaultNFTDormancy.DormancyState.ACTIVE));
     }
 
     function test_Dormancy_NotEligible_OwnerHoldsBtcToken() public {

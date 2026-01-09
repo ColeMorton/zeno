@@ -19,6 +19,7 @@ contract BtcToken is ERC20, IBtcToken {
         string memory _name,
         string memory _symbol
     ) ERC20(_name, _symbol) {
+        if (_vault == address(0)) revert ZeroAddress();
         vault = _vault;
     }
 

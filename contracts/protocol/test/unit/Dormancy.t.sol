@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {VaultNFT} from "../../src/VaultNFT.sol";
 import {BtcToken} from "../../src/BtcToken.sol";
 import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
+import {IVaultNFTDormancy} from "../../src/interfaces/IVaultNFTDormancy.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
 
@@ -77,20 +78,20 @@ contract DormancyEdgeCasesTest is Test {
         vm.prank(bob);
         vault.pokeDormant(tokenId);
 
-        (, IVaultNFT.DormancyState state) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(state), uint256(IVaultNFT.DormancyState.POKE_PENDING));
+        (, IVaultNFTDormancy.DormancyState state) = vault.isDormantEligible(tokenId);
+        assertEq(uint256(state), uint256(IVaultNFTDormancy.DormancyState.POKE_PENDING));
 
         vm.prank(alice);
         vault.transferFrom(alice, charlie, tokenId);
 
-        (bool eligible, IVaultNFT.DormancyState newState) = vault.isDormantEligible(tokenId);
+        (bool eligible, IVaultNFTDormancy.DormancyState newState) = vault.isDormantEligible(tokenId);
         assertFalse(eligible);
-        assertEq(uint256(newState), uint256(IVaultNFT.DormancyState.ACTIVE));
+        assertEq(uint256(newState), uint256(IVaultNFTDormancy.DormancyState.ACTIVE));
 
         vm.warp(block.timestamp + GRACE_PERIOD);
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotClaimable.selector, tokenId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.NotClaimable.selector, tokenId));
         vault.claimDormantCollateral(tokenId);
     }
 
@@ -111,7 +112,7 @@ contract DormancyEdgeCasesTest is Test {
         vm.warp(block.timestamp + GRACE_PERIOD);
 
         vm.prank(charlie);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotClaimable.selector, tokenId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.NotClaimable.selector, tokenId));
         vault.claimDormantCollateral(tokenId);
     }
 
@@ -148,17 +149,17 @@ contract DormancyEdgeCasesTest is Test {
 
         vm.warp(block.timestamp + GRACE_PERIOD - 1);
 
-        (, IVaultNFT.DormancyState stateBefore) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(stateBefore), uint256(IVaultNFT.DormancyState.POKE_PENDING));
+        (, IVaultNFTDormancy.DormancyState stateBefore) = vault.isDormantEligible(tokenId);
+        assertEq(uint256(stateBefore), uint256(IVaultNFTDormancy.DormancyState.POKE_PENDING));
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotClaimable.selector, tokenId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.NotClaimable.selector, tokenId));
         vault.claimDormantCollateral(tokenId);
 
         vm.warp(block.timestamp + 2);
 
-        (, IVaultNFT.DormancyState stateAfter) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(stateAfter), uint256(IVaultNFT.DormancyState.CLAIMABLE));
+        (, IVaultNFTDormancy.DormancyState stateAfter) = vault.isDormantEligible(tokenId);
+        assertEq(uint256(stateAfter), uint256(IVaultNFTDormancy.DormancyState.CLAIMABLE));
 
         vm.prank(bob);
         vault.claimDormantCollateral(tokenId);
@@ -188,15 +189,15 @@ contract DormancyEdgeCasesTest is Test {
         vm.prank(charlie);
         vault.pokeDormant(tokenId);
 
-        (, IVaultNFT.DormancyState stateBefore) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(stateBefore), uint256(IVaultNFT.DormancyState.POKE_PENDING));
+        (, IVaultNFTDormancy.DormancyState stateBefore) = vault.isDormantEligible(tokenId);
+        assertEq(uint256(stateBefore), uint256(IVaultNFTDormancy.DormancyState.POKE_PENDING));
 
         vm.prank(alice);
         vault.withdraw(tokenId);
 
-        (bool eligible, IVaultNFT.DormancyState stateAfter) = vault.isDormantEligible(tokenId);
+        (bool eligible, IVaultNFTDormancy.DormancyState stateAfter) = vault.isDormantEligible(tokenId);
         assertFalse(eligible);
-        assertEq(uint256(stateAfter), uint256(IVaultNFT.DormancyState.ACTIVE));
+        assertEq(uint256(stateAfter), uint256(IVaultNFTDormancy.DormancyState.ACTIVE));
     }
 
     function test_Dormancy_ClaimMatchDuringPokePending_ResetsDormancy() public {
@@ -227,9 +228,9 @@ contract DormancyEdgeCasesTest is Test {
         vm.prank(alice);
         vault.claimMatch(aliceToken);
 
-        (bool eligible, IVaultNFT.DormancyState stateAfter) = vault.isDormantEligible(aliceToken);
+        (bool eligible, IVaultNFTDormancy.DormancyState stateAfter) = vault.isDormantEligible(aliceToken);
         assertFalse(eligible);
-        assertEq(uint256(stateAfter), uint256(IVaultNFT.DormancyState.ACTIVE));
+        assertEq(uint256(stateAfter), uint256(IVaultNFTDormancy.DormancyState.ACTIVE));
     }
 
     function test_Dormancy_TreasureBurned() public {
@@ -304,8 +305,8 @@ contract DormancyEdgeCasesTest is Test {
         vm.prank(charlie);
         vault.pokeDormant(tokenId);
 
-        (, IVaultNFT.DormancyState state) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(state), uint256(IVaultNFT.DormancyState.POKE_PENDING));
+        (, IVaultNFTDormancy.DormancyState state) = vault.isDormantEligible(tokenId);
+        assertEq(uint256(state), uint256(IVaultNFTDormancy.DormancyState.POKE_PENDING));
     }
 
     function test_Dormancy_ProveActivityBeforeGraceExpiry() public {
@@ -331,15 +332,15 @@ contract DormancyEdgeCasesTest is Test {
 
         vm.warp(block.timestamp + GRACE_PERIOD - 1);
 
-        (, IVaultNFT.DormancyState state) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(state), uint256(IVaultNFT.DormancyState.POKE_PENDING));
+        (, IVaultNFTDormancy.DormancyState state) = vault.isDormantEligible(tokenId);
+        assertEq(uint256(state), uint256(IVaultNFTDormancy.DormancyState.POKE_PENDING));
 
         vm.prank(alice);
         vault.proveActivity(tokenId);
 
-        (bool eligible, IVaultNFT.DormancyState newState) = vault.isDormantEligible(tokenId);
+        (bool eligible, IVaultNFTDormancy.DormancyState newState) = vault.isDormantEligible(tokenId);
         assertFalse(eligible);
-        assertEq(uint256(newState), uint256(IVaultNFT.DormancyState.ACTIVE));
+        assertEq(uint256(newState), uint256(IVaultNFTDormancy.DormancyState.ACTIVE));
     }
 
     function test_Dormancy_NoBtcToken_NotEligible() public {

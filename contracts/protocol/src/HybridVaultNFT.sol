@@ -15,6 +15,11 @@ import {VaultMath} from "./libraries/VaultMath.sol";
 contract HybridVaultNFT is ERC721, IHybridVaultNFT {
     using SafeERC20 for IERC20;
 
+    /// @notice Address to burn tokens (treasure NFTs on early redemption)
+    address public constant BURN_ADDRESS = address(0xdead);
+    /// @notice Full 100% in basis points
+    uint256 public constant FULL_BPS = 10000;
+
     uint256 private _nextTokenId;
 
     IBtcToken public immutable btcToken;
@@ -66,6 +71,9 @@ contract HybridVaultNFT is ERC721, IHybridVaultNFT {
         string memory _name,
         string memory _symbol
     ) ERC721(_name, _symbol) {
+        if (_btcToken == address(0)) revert ZeroAddress();
+        if (_primaryToken == address(0)) revert ZeroAddress();
+        if (_secondaryToken == address(0)) revert ZeroAddress();
         btcToken = IBtcToken(_btcToken);
         primaryToken = _primaryToken;
         secondaryToken = _secondaryToken;
@@ -216,7 +224,7 @@ contract HybridVaultNFT is ERC721, IHybridVaultNFT {
         // Burn treasure
         address treasureContract_ = _treasureContract[tokenId];
         uint256 treasureTokenId_ = _treasureTokenId[tokenId];
-        IERC721(treasureContract_).transferFrom(address(this), address(0xdead), treasureTokenId_);
+        IERC721(treasureContract_).transferFrom(address(this), BURN_ADDRESS, treasureTokenId_);
 
         // Clear state and burn vault
         _clearVaultState(tokenId);
@@ -392,7 +400,7 @@ contract HybridVaultNFT is ERC721, IHybridVaultNFT {
         _clearVaultState(tokenId);
         _burn(tokenId);
 
-        IERC721(treasureContract_).transferFrom(address(this), address(0xdead), treasureTokenId_);
+        IERC721(treasureContract_).transferFrom(address(this), BURN_ADDRESS, treasureTokenId_);
         IERC20(primaryToken).safeTransfer(msg.sender, primary);
         if (secondary > 0) {
             IERC20(secondaryToken).safeTransfer(msg.sender, secondary);
@@ -437,7 +445,7 @@ contract HybridVaultNFT is ERC721, IHybridVaultNFT {
     function grantWithdrawalDelegate(address delegate, uint256 percentageBPS) external {
         if (delegate == address(0)) revert ZeroAddress();
         if (delegate == msg.sender) revert CannotDelegateSelf();
-        if (percentageBPS == 0 || percentageBPS > 10000) revert InvalidPercentage(percentageBPS);
+        if (percentageBPS == 0 || percentageBPS > FULL_BPS) revert InvalidPercentage(percentageBPS);
 
         uint256 currentDelegated = walletTotalDelegatedBPS[msg.sender];
         WalletDelegatePermission storage existingPermission = walletDelegates[msg.sender][delegate];
@@ -447,7 +455,7 @@ contract HybridVaultNFT is ERC721, IHybridVaultNFT {
         if (isUpdate) {
             currentDelegated -= oldPercentageBPS;
         }
-        if (currentDelegated + percentageBPS > 10000) revert ExceedsDelegationLimit();
+        if (currentDelegated + percentageBPS > FULL_BPS) revert ExceedsDelegationLimit();
 
         walletDelegates[msg.sender][delegate] = WalletDelegatePermission({
             percentageBPS: percentageBPS,
@@ -490,7 +498,7 @@ contract HybridVaultNFT is ERC721, IHybridVaultNFT {
         if (ownerOf(tokenId) != msg.sender) revert NotVaultOwner(tokenId);
         if (delegate == address(0)) revert ZeroAddress();
         if (delegate == msg.sender) revert CannotDelegateSelf();
-        if (percentageBPS == 0 || percentageBPS > 10000) revert InvalidPercentage(percentageBPS);
+        if (percentageBPS == 0 || percentageBPS > FULL_BPS) revert InvalidPercentage(percentageBPS);
 
         uint256 currentVaultDelegated = vaultTotalDelegatedBPS[tokenId];
         VaultDelegatePermission storage existing = vaultDelegates[tokenId][delegate];
@@ -500,7 +508,7 @@ contract HybridVaultNFT is ERC721, IHybridVaultNFT {
         if (isUpdate) {
             currentVaultDelegated -= oldPercentageBPS;
         }
-        if (currentVaultDelegated + percentageBPS > 10000) revert ExceedsVaultDelegationLimit(tokenId);
+        if (currentVaultDelegated + percentageBPS > FULL_BPS) revert ExceedsVaultDelegationLimit(tokenId);
 
         uint256 expiresAt = durationSeconds > 0 ? block.timestamp + durationSeconds : 0;
         vaultDelegates[tokenId][delegate] = VaultDelegatePermission({
@@ -558,7 +566,7 @@ contract HybridVaultNFT is ERC721, IHybridVaultNFT {
 
         uint256 currentPrimary = _primaryAmount[tokenId];
         uint256 totalPool = VaultMath.calculateWithdrawal(currentPrimary);
-        withdrawnAmount = (totalPool * effectivePercentageBPS) / 10000;
+        withdrawnAmount = (totalPool * effectivePercentageBPS) / FULL_BPS;
 
         if (withdrawnAmount == 0) return 0;
 
@@ -612,7 +620,7 @@ contract HybridVaultNFT is ERC721, IHybridVaultNFT {
 
         uint256 currentPrimary = _primaryAmount[tokenId];
         uint256 totalPool = VaultMath.calculateWithdrawal(currentPrimary);
-        amount = (totalPool * effectivePercentageBPS) / 10000;
+        amount = (totalPool * effectivePercentageBPS) / FULL_BPS;
 
         return (amount > 0, amount, dtype);
     }

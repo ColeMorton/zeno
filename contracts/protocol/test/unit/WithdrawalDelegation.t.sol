@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {VaultNFT} from "../../src/VaultNFT.sol";
 import {BtcToken} from "../../src/BtcToken.sol";
 import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
+import {IVaultNFTDelegation} from "../../src/interfaces/IVaultNFTDelegation.sol";
 import {VaultMath} from "../../src/libraries/VaultMath.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
@@ -72,7 +73,7 @@ contract WithdrawalDelegationTest is Test {
 
     function test_GrantDelegation_EmitEvent() public {
         vm.expectEmit(true, true, false, true);
-        emit IVaultNFT.WalletDelegateGranted(alice, bob, 6000);
+        emit IVaultNFTDelegation.WalletDelegateGranted(alice, bob, 6000);
 
         vm.prank(alice);
         vault.grantWithdrawalDelegate(bob, 6000);
@@ -80,23 +81,23 @@ contract WithdrawalDelegationTest is Test {
 
     function test_GrantDelegation_RevertIf_ZeroAddress() public {
         vm.prank(alice);
-        vm.expectRevert(IVaultNFT.ZeroAddress.selector);
+        vm.expectRevert(IVaultNFTDelegation.ZeroAddress.selector);
         vault.grantWithdrawalDelegate(address(0), 6000);
     }
 
     function test_GrantDelegation_RevertIf_SelfDelegate() public {
         vm.prank(alice);
-        vm.expectRevert(IVaultNFT.CannotDelegateSelf.selector);
+        vm.expectRevert(IVaultNFTDelegation.CannotDelegateSelf.selector);
         vault.grantWithdrawalDelegate(alice, 6000);
     }
 
     function test_GrantDelegation_RevertIf_InvalidPercentage() public {
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.InvalidPercentage.selector, 0));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.InvalidPercentage.selector, 0));
         vault.grantWithdrawalDelegate(bob, 0);
 
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.InvalidPercentage.selector, 10001));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.InvalidPercentage.selector, 10001));
         vault.grantWithdrawalDelegate(bob, 10001);
     }
 
@@ -105,7 +106,7 @@ contract WithdrawalDelegationTest is Test {
         vault.grantWithdrawalDelegate(bob, 6000);
         vault.grantWithdrawalDelegate(charlie, 3000);
 
-        vm.expectRevert(IVaultNFT.ExceedsDelegationLimit.selector);
+        vm.expectRevert(IVaultNFTDelegation.ExceedsDelegationLimit.selector);
         vault.grantWithdrawalDelegate(dave, 2000); // Would total 11000 (110%)
         vm.stopPrank();
     }
@@ -134,7 +135,7 @@ contract WithdrawalDelegationTest is Test {
         vault.grantWithdrawalDelegate(bob, 6000);
 
         vm.expectEmit(true, true, false, true);
-        emit IVaultNFT.WalletDelegateUpdated(alice, bob, 6000, 8000);
+        emit IVaultNFTDelegation.WalletDelegateUpdated(alice, bob, 6000, 8000);
         vault.grantWithdrawalDelegate(bob, 8000); // Update to 80%
         vm.stopPrank();
 
@@ -181,11 +182,11 @@ contract WithdrawalDelegationTest is Test {
 
         // Now Bob is on cooldown for both vaults
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.WithdrawalPeriodNotMet.selector, tokenId, bob));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.WithdrawalPeriodNotMet.selector, tokenId, bob));
         vault.withdrawAsDelegate(tokenId);
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.WithdrawalPeriodNotMet.selector, tokenId2, bob));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.WithdrawalPeriodNotMet.selector, tokenId2, bob));
         vault.withdrawAsDelegate(tokenId2);
     }
 
@@ -235,7 +236,7 @@ contract WithdrawalDelegationTest is Test {
 
         // Bob's cooldown persists - cannot withdraw
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.WithdrawalPeriodNotMet.selector, tokenId, bob));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.WithdrawalPeriodNotMet.selector, tokenId, bob));
         vault.withdrawAsDelegate(tokenId);
 
         // After cooldown expires, Bob can withdraw
@@ -289,7 +290,7 @@ contract WithdrawalDelegationTest is Test {
 
         // Bob cannot withdraw again immediately
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.WithdrawalPeriodNotMet.selector, tokenId, bob));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.WithdrawalPeriodNotMet.selector, tokenId, bob));
         vault.withdrawAsDelegate(tokenId);
 
         // Alice can still withdraw (independent cooldown)
@@ -310,7 +311,7 @@ contract WithdrawalDelegationTest is Test {
         vault.grantWithdrawalDelegate(bob, 6000);
 
         vm.expectEmit(true, true, false, true);
-        emit IVaultNFT.WalletDelegateRevoked(alice, bob);
+        emit IVaultNFTDelegation.WalletDelegateRevoked(alice, bob);
         vault.revokeWithdrawalDelegate(bob);
         vm.stopPrank();
 
@@ -325,7 +326,7 @@ contract WithdrawalDelegationTest is Test {
         vault.grantWithdrawalDelegate(charlie, 3000);
 
         vm.expectEmit(true, false, false, true);
-        emit IVaultNFT.AllWalletDelegatesRevoked(alice);
+        emit IVaultNFTDelegation.AllWalletDelegatesRevoked(alice);
         vault.revokeAllWithdrawalDelegates();
         vm.stopPrank();
 
@@ -333,13 +334,13 @@ contract WithdrawalDelegationTest is Test {
 
         // Delegates should no longer be able to withdraw
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotActiveDelegate.selector, tokenId, bob));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.NotActiveDelegate.selector, tokenId, bob));
         vault.withdrawAsDelegate(tokenId);
     }
 
     function test_RevokeDelegate_RevertIf_NotActive() public {
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.DelegateNotActive.selector, alice, bob));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.DelegateNotActive.selector, alice, bob));
         vault.revokeWithdrawalDelegate(bob);
     }
 
@@ -356,7 +357,7 @@ contract WithdrawalDelegationTest is Test {
         uint256 bobBalanceBefore = wbtc.balanceOf(bob);
 
         vm.expectEmit(true, true, true, true);
-        emit IVaultNFT.DelegatedWithdrawal(tokenId, bob, alice, expectedAmount);
+        emit IVaultNFTDelegation.DelegatedWithdrawal(tokenId, bob, alice, expectedAmount);
 
         vm.prank(bob);
         uint256 withdrawn = vault.withdrawAsDelegate(tokenId);
@@ -368,7 +369,7 @@ contract WithdrawalDelegationTest is Test {
 
     function test_WithdrawAsDelegate_RevertIf_NotDelegate() public {
         vm.prank(dave);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotActiveDelegate.selector, tokenId, dave));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.NotActiveDelegate.selector, tokenId, dave));
         vault.withdrawAsDelegate(tokenId);
     }
 
@@ -396,7 +397,7 @@ contract WithdrawalDelegationTest is Test {
         vault.withdrawAsDelegate(tokenId);
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.WithdrawalPeriodNotMet.selector, tokenId, bob));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.WithdrawalPeriodNotMet.selector, tokenId, bob));
         vault.withdrawAsDelegate(tokenId);
     }
 
@@ -406,10 +407,10 @@ contract WithdrawalDelegationTest is Test {
         vm.prank(alice);
         vault.grantWithdrawalDelegate(bob, 6000);
 
-        (bool canWithdraw, uint256 amount, IVaultNFT.DelegationType dtype) = vault.canDelegateWithdraw(tokenId, bob);
+        (bool canWithdraw, uint256 amount, IVaultNFTDelegation.DelegationType dtype) = vault.canDelegateWithdraw(tokenId, bob);
         assertTrue(canWithdraw);
         assertGt(amount, 0);
-        assertEq(uint256(dtype), uint256(IVaultNFT.DelegationType.WalletLevel));
+        assertEq(uint256(dtype), uint256(IVaultNFTDelegation.DelegationType.WalletLevel));
 
         vm.prank(bob);
         vault.withdrawAsDelegate(tokenId);
@@ -569,7 +570,7 @@ contract WithdrawalDelegationTest is Test {
         vault.grantWithdrawalDelegate(charlie, p2);
 
         if (p1 + p2 + p3 > 10000) {
-            vm.expectRevert(IVaultNFT.ExceedsDelegationLimit.selector);
+            vm.expectRevert(IVaultNFTDelegation.ExceedsDelegationLimit.selector);
         }
         vault.grantWithdrawalDelegate(dave, p3);
         vm.stopPrank();
@@ -593,7 +594,7 @@ contract WithdrawalDelegationTest is Test {
         uint256 duration = 30 days;
 
         vm.expectEmit(true, true, false, true);
-        emit IVaultNFT.VaultDelegateGranted(tokenId, bob, 5000, block.timestamp + duration);
+        emit IVaultNFTDelegation.VaultDelegateGranted(tokenId, bob, 5000, block.timestamp + duration);
 
         vm.prank(alice);
         vault.grantVaultDelegate(tokenId, bob, 5000, duration);
@@ -604,29 +605,29 @@ contract WithdrawalDelegationTest is Test {
 
     function test_GrantVaultDelegate_RevertIf_NotOwner() public {
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotVaultOwner.selector, tokenId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.NotVaultOwner.selector, tokenId));
         vault.grantVaultDelegate(tokenId, charlie, 5000, 0);
     }
 
     function test_GrantVaultDelegate_RevertIf_ZeroAddress() public {
         vm.prank(alice);
-        vm.expectRevert(IVaultNFT.ZeroAddress.selector);
+        vm.expectRevert(IVaultNFTDelegation.ZeroAddress.selector);
         vault.grantVaultDelegate(tokenId, address(0), 5000, 0);
     }
 
     function test_GrantVaultDelegate_RevertIf_SelfDelegate() public {
         vm.prank(alice);
-        vm.expectRevert(IVaultNFT.CannotDelegateSelf.selector);
+        vm.expectRevert(IVaultNFTDelegation.CannotDelegateSelf.selector);
         vault.grantVaultDelegate(tokenId, alice, 5000, 0);
     }
 
     function test_GrantVaultDelegate_RevertIf_InvalidPercentage() public {
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.InvalidPercentage.selector, 0));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.InvalidPercentage.selector, 0));
         vault.grantVaultDelegate(tokenId, bob, 0, 0);
 
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.InvalidPercentage.selector, 10001));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.InvalidPercentage.selector, 10001));
         vault.grantVaultDelegate(tokenId, bob, 10001, 0);
     }
 
@@ -635,7 +636,7 @@ contract WithdrawalDelegationTest is Test {
         vault.grantVaultDelegate(tokenId, bob, 5000, 0);
 
         vm.expectEmit(true, true, false, true);
-        emit IVaultNFT.VaultDelegateRevoked(tokenId, bob);
+        emit IVaultNFTDelegation.VaultDelegateRevoked(tokenId, bob);
 
         vm.prank(alice);
         vault.revokeVaultDelegate(tokenId, bob);
@@ -650,13 +651,13 @@ contract WithdrawalDelegationTest is Test {
         vault.grantVaultDelegate(tokenId, bob, 5000, 0);
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotVaultOwner.selector, tokenId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.NotVaultOwner.selector, tokenId));
         vault.revokeVaultDelegate(tokenId, bob);
     }
 
     function test_RevokeVaultDelegate_RevertIf_NotActive() public {
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.VaultDelegateNotActive.selector, tokenId, bob));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.VaultDelegateNotActive.selector, tokenId, bob));
         vault.revokeVaultDelegate(tokenId, bob);
     }
 
@@ -670,15 +671,15 @@ contract WithdrawalDelegationTest is Test {
         vault.grantVaultDelegate(tokenId, bob, 7000, 0);
 
         // Check resolution - vault-specific should win
-        (uint256 percentageBPS, IVaultNFT.DelegationType dtype,) = vault.getEffectiveDelegation(tokenId, bob);
+        (uint256 percentageBPS, IVaultNFTDelegation.DelegationType dtype,) = vault.getEffectiveDelegation(tokenId, bob);
         assertEq(percentageBPS, 7000);
-        assertEq(uint256(dtype), uint256(IVaultNFT.DelegationType.VaultSpecific));
+        assertEq(uint256(dtype), uint256(IVaultNFTDelegation.DelegationType.VaultSpecific));
 
         // canDelegateWithdraw should report VaultSpecific
-        (bool canWithdraw, uint256 amount, IVaultNFT.DelegationType returnedType) = vault.canDelegateWithdraw(tokenId, bob);
+        (bool canWithdraw, uint256 amount, IVaultNFTDelegation.DelegationType returnedType) = vault.canDelegateWithdraw(tokenId, bob);
         assertTrue(canWithdraw);
         assertGt(amount, 0);
-        assertEq(uint256(returnedType), uint256(IVaultNFT.DelegationType.VaultSpecific));
+        assertEq(uint256(returnedType), uint256(IVaultNFTDelegation.DelegationType.VaultSpecific));
 
         // Withdrawal uses vault-specific rate (70%)
         uint256 collateral = vault.collateralAmount(tokenId);
@@ -707,7 +708,7 @@ contract WithdrawalDelegationTest is Test {
         assertFalse(canWithdraw);
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotActiveDelegate.selector, tokenId, bob));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.NotActiveDelegate.selector, tokenId, bob));
         vault.withdrawAsDelegate(tokenId);
     }
 
@@ -721,10 +722,10 @@ contract WithdrawalDelegationTest is Test {
         vault.transferFrom(alice, dave, tokenId);
 
         // Bob can still withdraw (vault-specific travels with vault)
-        (bool canWithdraw, uint256 amount, IVaultNFT.DelegationType dtype) = vault.canDelegateWithdraw(tokenId, bob);
+        (bool canWithdraw, uint256 amount, IVaultNFTDelegation.DelegationType dtype) = vault.canDelegateWithdraw(tokenId, bob);
         assertTrue(canWithdraw);
         assertGt(amount, 0);
-        assertEq(uint256(dtype), uint256(IVaultNFT.DelegationType.VaultSpecific));
+        assertEq(uint256(dtype), uint256(IVaultNFTDelegation.DelegationType.VaultSpecific));
 
         vm.prank(bob);
         uint256 withdrawn = vault.withdrawAsDelegate(tokenId);
@@ -772,7 +773,7 @@ contract WithdrawalDelegationTest is Test {
         vault.grantVaultDelegate(tokenId, bob, 6000, 0);
         vault.grantVaultDelegate(tokenId, charlie, 3000, 0);
 
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.ExceedsVaultDelegationLimit.selector, tokenId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.ExceedsVaultDelegationLimit.selector, tokenId));
         vault.grantVaultDelegate(tokenId, dave, 2000, 0); // Would total 11000 (110%)
         vm.stopPrank();
     }
@@ -791,16 +792,16 @@ contract WithdrawalDelegationTest is Test {
         vm.warp(block.timestamp + duration + 1);
 
         // getEffectiveDelegation shows the expired vault-specific (for visibility)
-        (uint256 percentageBPS, IVaultNFT.DelegationType dtype, bool isExpired) = vault.getEffectiveDelegation(tokenId, bob);
+        (uint256 percentageBPS, IVaultNFTDelegation.DelegationType dtype, bool isExpired) = vault.getEffectiveDelegation(tokenId, bob);
         assertEq(percentageBPS, 7000);
-        assertEq(uint256(dtype), uint256(IVaultNFT.DelegationType.VaultSpecific));
+        assertEq(uint256(dtype), uint256(IVaultNFTDelegation.DelegationType.VaultSpecific));
         assertTrue(isExpired);
 
         // canDelegateWithdraw falls back to wallet-level since vault-specific is expired
-        (bool canWithdraw, uint256 amount, IVaultNFT.DelegationType returnedType) = vault.canDelegateWithdraw(tokenId, bob);
+        (bool canWithdraw, uint256 amount, IVaultNFTDelegation.DelegationType returnedType) = vault.canDelegateWithdraw(tokenId, bob);
         assertTrue(canWithdraw);
         assertGt(amount, 0);
-        assertEq(uint256(returnedType), uint256(IVaultNFT.DelegationType.WalletLevel));
+        assertEq(uint256(returnedType), uint256(IVaultNFTDelegation.DelegationType.WalletLevel));
     }
 
     function test_ExpiredVaultDelegateNoWalletFallback() public {
@@ -813,9 +814,9 @@ contract WithdrawalDelegationTest is Test {
         vm.warp(block.timestamp + duration + 1);
 
         // getEffectiveDelegation shows the expired vault-specific
-        (uint256 percentageBPS, IVaultNFT.DelegationType dtype, bool isExpired) = vault.getEffectiveDelegation(tokenId, bob);
+        (uint256 percentageBPS, IVaultNFTDelegation.DelegationType dtype, bool isExpired) = vault.getEffectiveDelegation(tokenId, bob);
         assertEq(percentageBPS, 5000);
-        assertEq(uint256(dtype), uint256(IVaultNFT.DelegationType.VaultSpecific));
+        assertEq(uint256(dtype), uint256(IVaultNFTDelegation.DelegationType.VaultSpecific));
         assertTrue(isExpired);
 
         // Without wallet-level fallback, cannot withdraw
@@ -823,7 +824,7 @@ contract WithdrawalDelegationTest is Test {
         assertFalse(canWithdraw);
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotActiveDelegate.selector, tokenId, bob));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.NotActiveDelegate.selector, tokenId, bob));
         vault.withdrawAsDelegate(tokenId);
     }
 
@@ -832,7 +833,7 @@ contract WithdrawalDelegationTest is Test {
         vault.grantVaultDelegate(tokenId, bob, 5000, 0);
 
         vm.expectEmit(true, true, false, true);
-        emit IVaultNFT.VaultDelegateUpdated(tokenId, bob, 5000, 8000, 0);
+        emit IVaultNFTDelegation.VaultDelegateUpdated(tokenId, bob, 5000, 8000, 0);
 
         vm.prank(alice);
         vault.grantVaultDelegate(tokenId, bob, 8000, 0);
@@ -872,9 +873,9 @@ contract WithdrawalDelegationTest is Test {
     }
 
     function test_GetEffectiveDelegation_None() public {
-        (uint256 percentageBPS, IVaultNFT.DelegationType dtype, bool isExpired) = vault.getEffectiveDelegation(tokenId, bob);
+        (uint256 percentageBPS, IVaultNFTDelegation.DelegationType dtype, bool isExpired) = vault.getEffectiveDelegation(tokenId, bob);
         assertEq(percentageBPS, 0);
-        assertEq(uint256(dtype), uint256(IVaultNFT.DelegationType.None));
+        assertEq(uint256(dtype), uint256(IVaultNFTDelegation.DelegationType.None));
         assertFalse(isExpired);
     }
 
@@ -882,9 +883,9 @@ contract WithdrawalDelegationTest is Test {
         vm.prank(alice);
         vault.grantWithdrawalDelegate(bob, 3000);
 
-        (uint256 percentageBPS, IVaultNFT.DelegationType dtype, bool isExpired) = vault.getEffectiveDelegation(tokenId, bob);
+        (uint256 percentageBPS, IVaultNFTDelegation.DelegationType dtype, bool isExpired) = vault.getEffectiveDelegation(tokenId, bob);
         assertEq(percentageBPS, 3000);
-        assertEq(uint256(dtype), uint256(IVaultNFT.DelegationType.WalletLevel));
+        assertEq(uint256(dtype), uint256(IVaultNFTDelegation.DelegationType.WalletLevel));
         assertFalse(isExpired);
     }
 
@@ -892,9 +893,9 @@ contract WithdrawalDelegationTest is Test {
         vm.prank(alice);
         vault.grantVaultDelegate(tokenId, bob, 7000, 0);
 
-        (uint256 percentageBPS, IVaultNFT.DelegationType dtype, bool isExpired) = vault.getEffectiveDelegation(tokenId, bob);
+        (uint256 percentageBPS, IVaultNFTDelegation.DelegationType dtype, bool isExpired) = vault.getEffectiveDelegation(tokenId, bob);
         assertEq(percentageBPS, 7000);
-        assertEq(uint256(dtype), uint256(IVaultNFT.DelegationType.VaultSpecific));
+        assertEq(uint256(dtype), uint256(IVaultNFTDelegation.DelegationType.VaultSpecific));
         assertFalse(isExpired);
     }
 

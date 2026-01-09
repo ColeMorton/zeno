@@ -5,6 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {VaultNFT} from "../../src/VaultNFT.sol";
 import {BtcToken} from "../../src/BtcToken.sol";
 import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
+import {IVaultNFTDormancy} from "../../src/interfaces/IVaultNFTDormancy.sol";
 import {VaultMath} from "../../src/libraries/VaultMath.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
@@ -140,8 +141,8 @@ contract IntegrationTest is Test {
 
         vm.warp(block.timestamp + GRACE_PERIOD);
 
-        (, IVaultNFT.DormancyState state) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(state), uint256(IVaultNFT.DormancyState.CLAIMABLE));
+        (, IVaultNFTDormancy.DormancyState state) = vault.isDormantEligible(tokenId);
+        assertEq(uint256(state), uint256(IVaultNFTDormancy.DormancyState.CLAIMABLE));
 
         uint256 bobWbtcBefore = wbtc.balanceOf(bob);
 

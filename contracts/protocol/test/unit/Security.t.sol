@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {VaultNFT} from "../../src/VaultNFT.sol";
 import {BtcToken} from "../../src/BtcToken.sol";
 import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
+import {IVaultNFTDormancy} from "../../src/interfaces/IVaultNFTDormancy.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
 
@@ -234,7 +235,7 @@ contract SecurityTest is Test {
         vault.pokeDormant(tokenId);
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.AlreadyPoked.selector, tokenId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.AlreadyPoked.selector, tokenId));
         vault.pokeDormant(tokenId);
     }
 

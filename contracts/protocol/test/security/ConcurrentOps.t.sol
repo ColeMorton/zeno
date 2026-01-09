@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {VaultNFT} from "../../src/VaultNFT.sol";
 import {BtcToken} from "../../src/BtcToken.sol";
 import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
+import {IVaultNFTDelegation} from "../../src/interfaces/IVaultNFTDelegation.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
 
@@ -135,7 +136,7 @@ contract ConcurrentOpsTest is Test {
         assertFalse(canWithdraw);
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotActiveDelegate.selector, tokenId, bob));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.NotActiveDelegate.selector, tokenId, bob));
         vault.withdrawAsDelegate(tokenId);
     }
 
@@ -165,7 +166,7 @@ contract ConcurrentOpsTest is Test {
         assertFalse(canWithdraw);
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotActiveDelegate.selector, tokenId, bob));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.NotActiveDelegate.selector, tokenId, bob));
         vault.withdrawAsDelegate(tokenId);
 
         // Dave (new owner) can withdraw
@@ -283,7 +284,7 @@ contract ConcurrentOpsTest is Test {
         vault.grantWithdrawalDelegate(charlie, 3000);
 
         // Try to grant 20% to Dave (would exceed 100%)
-        vm.expectRevert(IVaultNFT.ExceedsDelegationLimit.selector);
+        vm.expectRevert(IVaultNFTDelegation.ExceedsDelegationLimit.selector);
         vault.grantWithdrawalDelegate(dave, 2000);
 
         // Can grant exactly 10% to Dave
