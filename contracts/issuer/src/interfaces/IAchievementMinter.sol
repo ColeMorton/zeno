@@ -31,19 +31,23 @@ interface IAchievementMinter {
     error ZeroCollateral();
     error InvalidDurationAchievement(bytes32 achievementType);
     error DurationNotMet(uint256 vaultId, bytes32 achievementType, uint256 required, uint256 elapsed);
+    error ZeroAddress();
 
     /// @notice Claim the MINTER achievement
     /// @param vaultId The vault token ID to verify
-    function claimMinterAchievement(uint256 vaultId) external;
+    /// @param collateralToken The collateral token to identify the protocol
+    function claimMinterAchievement(uint256 vaultId, address collateralToken) external;
 
     /// @notice Claim the MATURED achievement
     /// @param vaultId The vault token ID to verify
-    function claimMaturedAchievement(uint256 vaultId) external;
+    /// @param collateralToken The collateral token to identify the protocol
+    function claimMaturedAchievement(uint256 vaultId, address collateralToken) external;
 
     /// @notice Claim a duration-based achievement
     /// @param vaultId The vault token ID to verify
+    /// @param collateralToken The collateral token to identify the protocol
     /// @param achievementType The duration achievement type to claim
-    function claimDurationAchievement(uint256 vaultId, bytes32 achievementType) external;
+    function claimDurationAchievement(uint256 vaultId, address collateralToken, bytes32 achievementType) external;
 
     /// @notice Mint a Hodler Supreme vault (composite achievement)
     /// @param collateralToken The ERC-20 token to use as collateral
@@ -57,9 +61,10 @@ interface IAchievementMinter {
     /// @notice Check if a wallet can claim MINTER achievement for a vault
     /// @param wallet Address to check
     /// @param vaultId Vault to verify
+    /// @param collateralToken The collateral token to identify the protocol
     /// @return canClaim Whether the achievement can be claimed
     /// @return reason Failure reason if cannot claim
-    function canClaimMinterAchievement(address wallet, uint256 vaultId)
+    function canClaimMinterAchievement(address wallet, uint256 vaultId, address collateralToken)
         external
         view
         returns (bool canClaim, string memory reason);
@@ -67,9 +72,10 @@ interface IAchievementMinter {
     /// @notice Check if a wallet can claim MATURED achievement for a vault
     /// @param wallet Address to check
     /// @param vaultId Vault to verify
+    /// @param collateralToken The collateral token to identify the protocol
     /// @return canClaim Whether the achievement can be claimed
     /// @return reason Failure reason if cannot claim
-    function canClaimMaturedAchievement(address wallet, uint256 vaultId)
+    function canClaimMaturedAchievement(address wallet, uint256 vaultId, address collateralToken)
         external
         view
         returns (bool canClaim, string memory reason);
@@ -77,19 +83,21 @@ interface IAchievementMinter {
     /// @notice Check if a wallet can claim a duration achievement for a vault
     /// @param wallet Address to check
     /// @param vaultId Vault to verify
+    /// @param collateralToken The collateral token to identify the protocol
     /// @param achievementType Duration achievement type
     /// @return canClaim Whether the achievement can be claimed
     /// @return reason Failure reason if cannot claim
-    function canClaimDurationAchievement(address wallet, uint256 vaultId, bytes32 achievementType)
+    function canClaimDurationAchievement(address wallet, uint256 vaultId, address collateralToken, bytes32 achievementType)
         external
         view
         returns (bool canClaim, string memory reason);
 
     /// @notice Check if a wallet can mint Hodler Supreme vault
     /// @param wallet Address to check
+    /// @param collateralToken The collateral token to identify the protocol
     /// @return canMint Whether the vault can be minted
     /// @return reason Failure reason if cannot mint
-    function canMintHodlerSupremeVault(address wallet)
+    function canMintHodlerSupremeVault(address wallet, address collateralToken)
         external
         view
         returns (bool canMint, string memory reason);

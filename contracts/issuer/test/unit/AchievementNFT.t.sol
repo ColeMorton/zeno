@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {AchievementNFT} from "../../src/AchievementNFT.sol";
+import {AchievementTypes} from "../../src/libraries/AchievementTypes.sol";
 import {IAchievementNFT} from "../../src/interfaces/IAchievementNFT.sol";
 
 contract AchievementNFTTest is Test {
@@ -12,11 +13,11 @@ contract AchievementNFTTest is Test {
     address public alice;
     address public bob;
 
-    // Cache achievement type constants
-    bytes32 public MINTER;
-    bytes32 public MATURED;
-    bytes32 public HODLER_SUPREME;
-    bytes32 public FIRST_MONTH;
+    // Achievement type constants from library
+    bytes32 public constant MINTER = AchievementTypes.MINTER;
+    bytes32 public constant MATURED = AchievementTypes.MATURED;
+    bytes32 public constant HODLER_SUPREME = AchievementTypes.HODLER_SUPREME;
+    bytes32 public constant FIRST_MONTH = AchievementTypes.FIRST_MONTH;
 
     // Chapter ID for regular (non-chapter) achievements
     bytes32 public constant NO_CHAPTER = bytes32(0);
@@ -29,12 +30,6 @@ contract AchievementNFTTest is Test {
 
         vm.prank(owner);
         achievement = new AchievementNFT("Achievements", "ACH", "https://example.com/", true);
-
-        // Cache constants
-        MINTER = achievement.MINTER();
-        MATURED = achievement.MATURED();
-        HODLER_SUPREME = achievement.HODLER_SUPREME();
-        FIRST_MONTH = achievement.FIRST_MONTH();
     }
 
     function test_Constructor() public view {
@@ -43,15 +38,16 @@ contract AchievementNFTTest is Test {
         assertEq(achievement.owner(), owner);
     }
 
-    function test_AchievementTypeConstants() public view {
-        assertEq(achievement.MINTER(), keccak256("MINTER"));
-        assertEq(achievement.MATURED(), keccak256("MATURED"));
-        assertEq(achievement.HODLER_SUPREME(), keccak256("HODLER_SUPREME"));
-        assertEq(achievement.FIRST_MONTH(), keccak256("FIRST_MONTH"));
-        assertEq(achievement.QUARTER_STACK(), keccak256("QUARTER_STACK"));
-        assertEq(achievement.HALF_YEAR(), keccak256("HALF_YEAR"));
-        assertEq(achievement.ANNUAL(), keccak256("ANNUAL"));
-        assertEq(achievement.DIAMOND_HANDS(), keccak256("DIAMOND_HANDS"));
+    function test_AchievementTypeConstants() public pure {
+        // Verify constants are correctly defined in the library
+        assertEq(AchievementTypes.MINTER, keccak256("MINTER"));
+        assertEq(AchievementTypes.MATURED, keccak256("MATURED"));
+        assertEq(AchievementTypes.HODLER_SUPREME, keccak256("HODLER_SUPREME"));
+        assertEq(AchievementTypes.FIRST_MONTH, keccak256("FIRST_MONTH"));
+        assertEq(AchievementTypes.QUARTER_STACK, keccak256("QUARTER_STACK"));
+        assertEq(AchievementTypes.HALF_YEAR, keccak256("HALF_YEAR"));
+        assertEq(AchievementTypes.ANNUAL, keccak256("ANNUAL"));
+        assertEq(AchievementTypes.DIAMOND_HANDS, keccak256("DIAMOND_HANDS"));
     }
 
     function test_AuthorizeMinter() public {

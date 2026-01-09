@@ -6,23 +6,14 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IAchievementNFT} from "./interfaces/IAchievementNFT.sol";
 import {AchievementSVG} from "./AchievementSVG.sol";
+import {AchievementTypes} from "./libraries/AchievementTypes.sol";
 
 /// @title AchievementNFT - Unified soulbound achievement tokens
 /// @notice ERC-5192 compliant non-transferable NFT for all achievement types
 /// @dev Handles both regular (personal journey) and chapter (calendar-based) achievements
 ///      Regular achievements use chapterId = bytes32(0)
+///      Achievement type constants available via AchievementTypes library
 contract AchievementNFT is ERC721, Ownable, IAchievementNFT {
-    // ==================== Achievement Type Constants ====================
-
-    bytes32 public constant MINTER = keccak256("MINTER");
-    bytes32 public constant MATURED = keccak256("MATURED");
-    bytes32 public constant HODLER_SUPREME = keccak256("HODLER_SUPREME");
-    bytes32 public constant FIRST_MONTH = keccak256("FIRST_MONTH");
-    bytes32 public constant QUARTER_STACK = keccak256("QUARTER_STACK");
-    bytes32 public constant HALF_YEAR = keccak256("HALF_YEAR");
-    bytes32 public constant ANNUAL = keccak256("ANNUAL");
-    bytes32 public constant DIAMOND_HANDS = keccak256("DIAMOND_HANDS");
-
     // ==================== State Variables ====================
 
     uint256 private _nextTokenId;

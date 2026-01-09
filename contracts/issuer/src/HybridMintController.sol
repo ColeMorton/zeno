@@ -63,6 +63,11 @@ contract HybridMintController is IHybridMintController, Ownable, ReentrancyGuard
         address lpToken_,
         address curvePool_
     ) Ownable(msg.sender) {
+        if (hybridVaultNFT_ == address(0)) revert ZeroAddress();
+        if (treasureNFT_ == address(0)) revert ZeroAddress();
+        if (cbBTC_ == address(0)) revert ZeroAddress();
+        if (lpToken_ == address(0)) revert ZeroAddress();
+        if (curvePool_ == address(0)) revert ZeroAddress();
         hybridVaultNFT = IProtocolHybridVaultNFT(hybridVaultNFT_);
         treasureNFT = ITreasureNFT(treasureNFT_);
         cbBTC = IERC20(cbBTC_);

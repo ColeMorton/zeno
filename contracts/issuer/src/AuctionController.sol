@@ -9,16 +9,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 
 import {IAuctionController} from "./interfaces/IAuctionController.sol";
 import {ITreasureNFT} from "./interfaces/ITreasureNFT.sol";
-
-/// @notice Minimal interface for protocol vault minting
-interface IVaultMint {
-    function mint(
-        address treasureContract,
-        uint256 treasureTokenId,
-        address collateralToken,
-        uint256 collateralAmount
-    ) external returns (uint256 tokenId);
-}
+import {IVaultMint} from "./interfaces/IVaultState.sol";
 
 /// @title AuctionController - Manages Dutch and English auctions for vault minting
 /// @notice Issuer-layer contract for auction-based vault creation
@@ -52,6 +43,7 @@ contract AuctionController is IAuctionController, Ownable, ReentrancyGuard {
         address[] memory collateralTokens_,
         address[] memory protocols_
     ) Ownable(msg.sender) {
+        if (treasureNFT_ == address(0)) revert ZeroAddress();
         treasureNFT = ITreasureNFT(treasureNFT_);
         for (uint256 i = 0; i < collateralTokens_.length; i++) {
             protocols[collateralTokens_[i]] = IVaultMint(protocols_[i]);

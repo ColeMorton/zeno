@@ -8,21 +8,8 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {IAchievementNFT} from "./interfaces/IAchievementNFT.sol";
 import {ITreasureNFT} from "./interfaces/ITreasureNFT.sol";
-
-/// @notice Minimal interface for protocol vault state verification
-interface IVaultState {
-    function ownerOf(uint256 tokenId) external view returns (address);
-    function treasureContract(uint256 tokenId) external view returns (address);
-    function mintTimestamp(uint256 tokenId) external view returns (uint256);
-    function isVested(uint256 tokenId) external view returns (bool);
-    function matchClaimed(uint256 tokenId) external view returns (bool);
-    function mint(
-        address treasureContract,
-        uint256 treasureTokenId,
-        address collateralToken,
-        uint256 collateralAmount
-    ) external returns (uint256 tokenId);
-}
+import {IVaultStateAndMint} from "./interfaces/IVaultState.sol";
+import {AchievementTypes} from "./libraries/AchievementTypes.sol";
 
 /// @title AchievementMinter - Verifies protocol state and mints achievements
 /// @notice Claims achievements by verifying on-chain protocol state
@@ -30,33 +17,13 @@ interface IVaultState {
 contract AchievementMinter is Ownable {
     using SafeERC20 for IERC20;
 
-    // ==================== Achievement Type Constants ====================
-
-    bytes32 public constant MINTER = keccak256("MINTER");
-    bytes32 public constant MATURED = keccak256("MATURED");
-    bytes32 public constant HODLER_SUPREME = keccak256("HODLER_SUPREME");
-    bytes32 public constant FIRST_MONTH = keccak256("FIRST_MONTH");
-    bytes32 public constant QUARTER_STACK = keccak256("QUARTER_STACK");
-    bytes32 public constant HALF_YEAR = keccak256("HALF_YEAR");
-    bytes32 public constant ANNUAL = keccak256("ANNUAL");
-    bytes32 public constant DIAMOND_HANDS = keccak256("DIAMOND_HANDS");
-
-    // ==================== Duration Constants ====================
-
-    uint256 public constant FIRST_MONTH_DURATION = 30 days;
-    uint256 public constant QUARTER_STACK_DURATION = 91 days;
-    uint256 public constant HALF_YEAR_DURATION = 182 days;
-    uint256 public constant ANNUAL_DURATION = 365 days;
-    uint256 public constant DIAMOND_HANDS_DURATION = 730 days;
-    uint256 public constant HODLER_SUPREME_DURATION = 1129 days;
-
     // ==================== State Variables ====================
 
     IAchievementNFT public immutable achievements;
     ITreasureNFT public immutable treasureNFT;
 
     /// @notice Mapping of collateral token to protocol address
-    mapping(address => IVaultState) public protocols;
+    mapping(address => IVaultStateAndMint) public protocols;
 
     /// @notice Maps achievement type to required duration (0 = not a duration achievement)
     mapping(bytes32 => uint256) public durationThresholds;
@@ -89,6 +56,7 @@ contract AchievementMinter is Ownable {
     error InvalidDurationAchievement(bytes32 achievementType);
     error DurationNotMet(uint256 vaultId, bytes32 achievementType, uint256 required, uint256 elapsed);
     error UnsupportedCollateral(address collateralToken);
+    error ZeroAddress();
 
     // ==================== Constructor ====================
 
@@ -98,18 +66,20 @@ contract AchievementMinter is Ownable {
         address[] memory collateralTokens_,
         address[] memory protocols_
     ) Ownable(msg.sender) {
+        if (achievements_ == address(0)) revert ZeroAddress();
+        if (treasureNFT_ == address(0)) revert ZeroAddress();
         achievements = IAchievementNFT(achievements_);
         treasureNFT = ITreasureNFT(treasureNFT_);
         for (uint256 i = 0; i < collateralTokens_.length; i++) {
-            protocols[collateralTokens_[i]] = IVaultState(protocols_[i]);
+            protocols[collateralTokens_[i]] = IVaultStateAndMint(protocols_[i]);
         }
 
         // Initialize duration thresholds
-        durationThresholds[FIRST_MONTH] = FIRST_MONTH_DURATION;
-        durationThresholds[QUARTER_STACK] = QUARTER_STACK_DURATION;
-        durationThresholds[HALF_YEAR] = HALF_YEAR_DURATION;
-        durationThresholds[ANNUAL] = ANNUAL_DURATION;
-        durationThresholds[DIAMOND_HANDS] = DIAMOND_HANDS_DURATION;
+        durationThresholds[AchievementTypes.FIRST_MONTH] = AchievementTypes.FIRST_MONTH_DURATION;
+        durationThresholds[AchievementTypes.QUARTER_STACK] = AchievementTypes.QUARTER_STACK_DURATION;
+        durationThresholds[AchievementTypes.HALF_YEAR] = AchievementTypes.HALF_YEAR_DURATION;
+        durationThresholds[AchievementTypes.ANNUAL] = AchievementTypes.ANNUAL_DURATION;
+        durationThresholds[AchievementTypes.DIAMOND_HANDS] = AchievementTypes.DIAMOND_HANDS_DURATION;
     }
 
     // ==================== Core Achievement Functions ====================
@@ -119,7 +89,7 @@ contract AchievementMinter is Ownable {
     /// @param vaultId The vault token ID to verify
     /// @param collateralToken The collateral token to identify the protocol
     function claimMinterAchievement(uint256 vaultId, address collateralToken) external {
-        IVaultState selectedProtocol = protocols[collateralToken];
+        IVaultStateAndMint selectedProtocol = protocols[collateralToken];
         if (address(selectedProtocol) == address(0)) {
             revert UnsupportedCollateral(collateralToken);
         }
@@ -136,7 +106,7 @@ contract AchievementMinter is Ownable {
         }
 
         // 3. Mint achievement (AchievementNFT handles duplicate prevention)
-        achievements.mint(msg.sender, MINTER, bytes32(0), false);
+        achievements.mint(msg.sender, AchievementTypes.MINTER, bytes32(0), false);
 
         emit MinterAchievementClaimed(msg.sender, vaultId);
     }
@@ -146,13 +116,13 @@ contract AchievementMinter is Ownable {
     /// @param vaultId The vault token ID to verify
     /// @param collateralToken The collateral token to identify the protocol
     function claimMaturedAchievement(uint256 vaultId, address collateralToken) external {
-        IVaultState selectedProtocol = protocols[collateralToken];
+        IVaultStateAndMint selectedProtocol = protocols[collateralToken];
         if (address(selectedProtocol) == address(0)) {
             revert UnsupportedCollateral(collateralToken);
         }
 
         // 1. Verify wallet has MINTER achievement
-        if (!achievements.hasAchievement(msg.sender, MINTER)) {
+        if (!achievements.hasAchievement(msg.sender, AchievementTypes.MINTER)) {
             revert MissingMinterAchievement(msg.sender);
         }
 
@@ -178,7 +148,7 @@ contract AchievementMinter is Ownable {
         }
 
         // 6. Mint achievement (AchievementNFT handles duplicate prevention)
-        achievements.mint(msg.sender, MATURED, bytes32(0), false);
+        achievements.mint(msg.sender, AchievementTypes.MATURED, bytes32(0), false);
 
         emit MaturedAchievementClaimed(msg.sender, vaultId);
     }
@@ -191,7 +161,7 @@ contract AchievementMinter is Ownable {
     /// @param collateralToken The collateral token to identify the protocol
     /// @param achievementType The duration achievement type to claim
     function claimDurationAchievement(uint256 vaultId, address collateralToken, bytes32 achievementType) external {
-        IVaultState selectedProtocol = protocols[collateralToken];
+        IVaultStateAndMint selectedProtocol = protocols[collateralToken];
         if (address(selectedProtocol) == address(0)) {
             revert UnsupportedCollateral(collateralToken);
         }
@@ -235,18 +205,18 @@ contract AchievementMinter is Ownable {
         address collateralToken,
         uint256 collateralAmount
     ) external returns (uint256 vaultId) {
-        IVaultState selectedProtocol = protocols[collateralToken];
+        IVaultStateAndMint selectedProtocol = protocols[collateralToken];
         if (address(selectedProtocol) == address(0)) {
             revert UnsupportedCollateral(collateralToken);
         }
 
         // 1. Verify MINTER achievement
-        if (!achievements.hasAchievement(msg.sender, MINTER)) {
+        if (!achievements.hasAchievement(msg.sender, AchievementTypes.MINTER)) {
             revert MissingMinterAchievement(msg.sender);
         }
 
         // 2. Verify MATURED achievement
-        if (!achievements.hasAchievement(msg.sender, MATURED)) {
+        if (!achievements.hasAchievement(msg.sender, AchievementTypes.MATURED)) {
             revert MissingMaturedAchievement(msg.sender);
         }
 
@@ -255,7 +225,7 @@ contract AchievementMinter is Ownable {
         }
 
         // 3. Mint HODLER_SUPREME achievement
-        achievements.mint(msg.sender, HODLER_SUPREME, bytes32(0), false);
+        achievements.mint(msg.sender, AchievementTypes.HODLER_SUPREME, bytes32(0), false);
 
         // 4. Mint Hodler Supreme Treasure
         uint256 treasureId = treasureNFT.mint(address(this));
@@ -294,12 +264,12 @@ contract AchievementMinter is Ownable {
         view
         returns (bool canClaim, string memory reason)
     {
-        IVaultState selectedProtocol = protocols[collateralToken];
+        IVaultStateAndMint selectedProtocol = protocols[collateralToken];
         if (address(selectedProtocol) == address(0)) {
             return (false, "Unsupported collateral");
         }
 
-        if (achievements.hasAchievement(wallet, MINTER)) {
+        if (achievements.hasAchievement(wallet, AchievementTypes.MINTER)) {
             return (false, "Already has MINTER achievement");
         }
 
@@ -325,16 +295,16 @@ contract AchievementMinter is Ownable {
         view
         returns (bool canClaim, string memory reason)
     {
-        IVaultState selectedProtocol = protocols[collateralToken];
+        IVaultStateAndMint selectedProtocol = protocols[collateralToken];
         if (address(selectedProtocol) == address(0)) {
             return (false, "Unsupported collateral");
         }
 
-        if (!achievements.hasAchievement(wallet, MINTER)) {
+        if (!achievements.hasAchievement(wallet, AchievementTypes.MINTER)) {
             return (false, "Missing MINTER achievement");
         }
 
-        if (achievements.hasAchievement(wallet, MATURED)) {
+        if (achievements.hasAchievement(wallet, AchievementTypes.MATURED)) {
             return (false, "Already has MATURED achievement");
         }
 
@@ -369,7 +339,7 @@ contract AchievementMinter is Ownable {
         view
         returns (bool canClaim, string memory reason)
     {
-        IVaultState selectedProtocol = protocols[collateralToken];
+        IVaultStateAndMint selectedProtocol = protocols[collateralToken];
         if (address(selectedProtocol) == address(0)) {
             return (false, "Unsupported collateral");
         }
@@ -413,15 +383,15 @@ contract AchievementMinter is Ownable {
             return (false, "Unsupported collateral");
         }
 
-        if (!achievements.hasAchievement(wallet, MINTER)) {
+        if (!achievements.hasAchievement(wallet, AchievementTypes.MINTER)) {
             return (false, "Missing MINTER achievement");
         }
 
-        if (!achievements.hasAchievement(wallet, MATURED)) {
+        if (!achievements.hasAchievement(wallet, AchievementTypes.MATURED)) {
             return (false, "Missing MATURED achievement");
         }
 
-        if (achievements.hasAchievement(wallet, HODLER_SUPREME)) {
+        if (achievements.hasAchievement(wallet, AchievementTypes.HODLER_SUPREME)) {
             return (false, "Already has HODLER_SUPREME achievement");
         }
 

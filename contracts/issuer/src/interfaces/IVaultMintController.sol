@@ -14,6 +14,7 @@ interface IVaultMintController {
     );
 
     error ZeroCollateral();
+    error ZeroAddress();
 
     /// @notice Atomically mint treasure with achievement and wrap into vault
     /// @param achievementType The achievement type for the treasure

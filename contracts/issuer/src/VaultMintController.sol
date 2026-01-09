@@ -6,20 +6,11 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IVaultMintController} from "./interfaces/IVaultMintController.sol";
+import {IVaultMint} from "./interfaces/IVaultState.sol";
 
 /// @notice Minimal interface for TreasureNFT with achievement support
 interface ITreasureNFTWithAchievement {
     function mintWithAchievement(address to, bytes32 achievementType) external returns (uint256);
-}
-
-/// @notice Minimal interface for VaultNFT minting
-interface IVaultNFT {
-    function mint(
-        address treasureContract,
-        uint256 treasureTokenId,
-        address collateralToken,
-        uint256 collateralAmount
-    ) external returns (uint256 tokenId);
 }
 
 /// @title VaultMintController - Atomic vault minting with achievement treasures
@@ -37,6 +28,9 @@ contract VaultMintController is IVaultMintController {
         address vaultNFT_,
         address collateralToken_
     ) {
+        if (treasureNFT_ == address(0)) revert ZeroAddress();
+        if (vaultNFT_ == address(0)) revert ZeroAddress();
+        if (collateralToken_ == address(0)) revert ZeroAddress();
         treasureNFT = treasureNFT_;
         vaultNFT = vaultNFT_;
         collateralToken = collateralToken_;
@@ -63,7 +57,7 @@ contract VaultMintController is IVaultMintController {
         IERC20(collateralToken).approve(vaultNFT, collateralAmount);
 
         // 4. Mint vault (this contract owns treasure, so VaultNFT.transferFrom succeeds)
-        vaultId = IVaultNFT(vaultNFT).mint(
+        vaultId = IVaultMint(vaultNFT).mint(
             treasureNFT,
             treasureId,
             collateralToken,

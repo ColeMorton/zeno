@@ -7,18 +7,17 @@ import {IChapterRegistry} from "./interfaces/IChapterRegistry.sol";
 import {IAchievementNFT} from "./interfaces/IAchievementNFT.sol";
 import {ITreasureNFT} from "./interfaces/ITreasureNFT.sol";
 import {IAchievementVerifier} from "./interfaces/IAchievementVerifier.sol";
-
-/// @notice Minimal interface for protocol vault state verification
-interface IVaultState {
-    function ownerOf(uint256 tokenId) external view returns (address);
-    function treasureContract(uint256 tokenId) external view returns (address);
-    function mintTimestamp(uint256 tokenId) external view returns (uint256);
-}
+import {IVaultState} from "./interfaces/IVaultState.sol";
 
 /// @title ChapterMinter - Claims chapter achievements with time + journey gates
 /// @notice Verifies protocol state and enforces eligibility before minting chapter achievements
 /// @dev Enforces calendar time windows and personal journey progress gates
 contract ChapterMinter is IChapterMinter, Ownable {
+    // ==================== Constants ====================
+
+    /// @notice Maximum allowed prerequisites per achievement to prevent gas griefing
+    uint256 public constant MAX_PREREQUISITES = 10;
+
     // ==================== State Variables ====================
 
     IAchievementNFT public immutable achievements;
@@ -37,6 +36,9 @@ contract ChapterMinter is IChapterMinter, Ownable {
         address[] memory collateralTokens_,
         address[] memory protocols_
     ) Ownable(msg.sender) {
+        if (achievements_ == address(0)) revert ZeroAddress();
+        if (registry_ == address(0)) revert ZeroAddress();
+        if (treasureNFT_ == address(0)) revert ZeroAddress();
         achievements = IAchievementNFT(achievements_);
         registry = IChapterRegistry(registry_);
         treasureNFT = ITreasureNFT(treasureNFT_);
@@ -103,6 +105,9 @@ contract ChapterMinter is IChapterMinter, Ownable {
 
         // 6. Prerequisite check (skill-tree within this chapter)
         IChapterRegistry.ChapterAchievement memory ach = registry.getAchievement(achievementId);
+        if (ach.prerequisites.length > MAX_PREREQUISITES) {
+            revert TooManyPrerequisites(achievementId, ach.prerequisites.length, MAX_PREREQUISITES);
+        }
         for (uint256 i = 0; i < ach.prerequisites.length; i++) {
             if (!achievements.hasAchievement(msg.sender, ach.prerequisites[i])) {
                 revert PrerequisiteNotMet(achievementId, ach.prerequisites[i]);
@@ -198,6 +203,9 @@ contract ChapterMinter is IChapterMinter, Ownable {
         }
 
         // Prerequisites (ach already fetched at start of function)
+        if (ach.prerequisites.length > MAX_PREREQUISITES) {
+            return (false, "Too many prerequisites");
+        }
         for (uint256 i = 0; i < ach.prerequisites.length; i++) {
             if (!achievements.hasAchievement(wallet, ach.prerequisites[i])) {
                 return (false, "Prerequisite not met");

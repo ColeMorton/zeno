@@ -47,6 +47,15 @@ interface IChapterMinter {
     /// @notice Achievement-specific verification failed
     error AchievementVerificationFailed(bytes32 achievementId);
 
+    /// @notice Zero address provided
+    error ZeroAddress();
+
+    /// @notice Achievement not part of specified chapter
+    error AchievementNotInChapter(bytes32 achievementId, bytes32 chapterId);
+
+    /// @notice Achievement has too many prerequisites
+    error TooManyPrerequisites(bytes32 achievementId, uint256 count, uint256 max);
+
     // ==================== Core Functions ====================
 
     /// @notice Claim a chapter achievement

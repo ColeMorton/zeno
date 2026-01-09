@@ -32,7 +32,7 @@ contract VaultMintControllerTest is Test {
         wbtc = new MockWBTC();
 
         // Deploy issuer contracts
-        treasure = new TreasureNFT("Treasure", "TREASURE", "https://treasure.com/");
+        treasure = new TreasureNFT("Treasure", "TREASURE", "https://treasure.com/", address(0));
 
         // Deploy controller
         controller = new VaultMintController(

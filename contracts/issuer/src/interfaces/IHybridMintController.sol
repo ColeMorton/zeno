@@ -35,6 +35,7 @@ interface IHybridMintController {
     // ==================== Errors ====================
 
     error ZeroAmount();
+    error ZeroAddress();
     error ConfigUpdateTooFrequent();
     error RateLimitExceeded(string param);
 

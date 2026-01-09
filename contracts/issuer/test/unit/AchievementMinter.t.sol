@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {AchievementNFT} from "../../src/AchievementNFT.sol";
 import {IAchievementNFT} from "../../src/interfaces/IAchievementNFT.sol";
 import {AchievementMinter} from "../../src/AchievementMinter.sol";
+import {AchievementTypes} from "../../src/libraries/AchievementTypes.sol";
 import {TreasureNFT} from "../../src/TreasureNFT.sol";
 import {MockVaultNFT} from "../mocks/MockVaultNFT.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
@@ -22,15 +23,15 @@ contract AchievementMinterTest is Test {
 
     uint256 public constant COLLATERAL_AMOUNT = 1e8; // 1 WBTC
 
-    // Cache achievement type constants to avoid consuming vm.prank
-    bytes32 public MINTER;
-    bytes32 public MATURED;
-    bytes32 public HODLER_SUPREME;
-    bytes32 public FIRST_MONTH;
-    bytes32 public QUARTER_STACK;
-    bytes32 public HALF_YEAR;
-    bytes32 public ANNUAL;
-    bytes32 public DIAMOND_HANDS;
+    // Achievement type constants from library
+    bytes32 public constant MINTER = AchievementTypes.MINTER;
+    bytes32 public constant MATURED = AchievementTypes.MATURED;
+    bytes32 public constant HODLER_SUPREME = AchievementTypes.HODLER_SUPREME;
+    bytes32 public constant FIRST_MONTH = AchievementTypes.FIRST_MONTH;
+    bytes32 public constant QUARTER_STACK = AchievementTypes.QUARTER_STACK;
+    bytes32 public constant HALF_YEAR = AchievementTypes.HALF_YEAR;
+    bytes32 public constant ANNUAL = AchievementTypes.ANNUAL;
+    bytes32 public constant DIAMOND_HANDS = AchievementTypes.DIAMOND_HANDS;
 
     function setUp() public {
         owner = makeAddr("owner");
@@ -45,7 +46,7 @@ contract AchievementMinterTest is Test {
 
         // Deploy issuer contracts
         achievement = new AchievementNFT("Achievements", "ACH", "https://achievements.com/", true);
-        treasure = new TreasureNFT("Treasure", "TREASURE", "https://treasure.com/");
+        treasure = new TreasureNFT("Treasure", "TREASURE", "https://treasure.com/", address(0));
 
         // Prepare collateral and protocol arrays (single collateral for tests)
         address[] memory collaterals = new address[](1);
@@ -66,16 +67,6 @@ contract AchievementMinterTest is Test {
         treasure.authorizeMinter(address(minter));
 
         vm.stopPrank();
-
-        // Cache achievement type constants
-        MINTER = minter.MINTER();
-        MATURED = minter.MATURED();
-        HODLER_SUPREME = minter.HODLER_SUPREME();
-        FIRST_MONTH = minter.FIRST_MONTH();
-        QUARTER_STACK = minter.QUARTER_STACK();
-        HALF_YEAR = minter.HALF_YEAR();
-        ANNUAL = minter.ANNUAL();
-        DIAMOND_HANDS = minter.DIAMOND_HANDS();
     }
 
     function _mintVaultForAlice() internal returns (uint256 vaultId, uint256 treasureId) {
@@ -152,7 +143,7 @@ contract AchievementMinterTest is Test {
     function test_ClaimMinterAchievement_RevertIf_WrongTreasure() public {
         // Create a different treasure contract
         vm.prank(owner);
-        TreasureNFT otherTreasure = new TreasureNFT("Other", "OTHER", "https://other.com/");
+        TreasureNFT otherTreasure = new TreasureNFT("Other", "OTHER", "https://other.com/", address(0));
 
         vm.prank(owner);
         uint256 treasureId = otherTreasure.mint(alice);
@@ -415,7 +406,7 @@ contract AchievementMinterTest is Test {
     function test_ClaimDurationAchievement_RevertIf_WrongTreasure() public {
         // Create vault with different treasure
         vm.prank(owner);
-        TreasureNFT otherTreasure = new TreasureNFT("Other", "OTHER", "https://other.com/");
+        TreasureNFT otherTreasure = new TreasureNFT("Other", "OTHER", "https://other.com/", address(0));
 
         vm.prank(owner);
         uint256 treasureId = otherTreasure.mint(alice);

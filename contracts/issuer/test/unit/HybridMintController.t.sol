@@ -41,7 +41,7 @@ contract HybridMintControllerTest is Test {
         hybridVault = new MockProtocolHybridVaultNFT(address(cbBTC), address(curvePool));
 
         // Deploy treasure NFT
-        treasure = new TreasureNFT("Controller Treasure", "CT", "https://example.com/");
+        treasure = new TreasureNFT("Controller Treasure", "CT", "https://example.com/", address(0));
 
         // Deploy HybridMintController
         controller = new HybridMintController(

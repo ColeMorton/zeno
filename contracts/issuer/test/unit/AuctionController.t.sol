@@ -28,7 +28,7 @@ contract AuctionControllerTest is Test {
         charlie = makeAddr("charlie");
 
         // Deploy contracts
-        treasure = new TreasureNFT("Test Treasure", "TT", "https://example.com/");
+        treasure = new TreasureNFT("Test Treasure", "TT", "https://example.com/", address(0));
         vault = new MockVaultNFT();
         wbtc = new MockWBTC();
 
