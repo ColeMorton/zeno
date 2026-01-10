@@ -1,24 +1,25 @@
 # vestedBTC/WBTC Curve Liquidity Pool
 
-> **Version:** 1.0
+> **Version:** 2.0
 > **Status:** Draft
-> **Last Updated:** 2025-12-30
+> **Last Updated:** 2026-01-10
 > **Related Documents:**
 > - [Leveraged Lending Protocol](./Leveraged_Lending_Protocol.md)
+> - [Time-Preference Primer](../research/Time_Preference_Primer.md)
 > - [Technical Specification](../protocol/Technical_Specification.md)
-> - [Product Specification](../protocol/Product_Specification.md)
 
 ---
 
 ## Table of Contents
 
 1. [Overview](#1-overview)
-2. [Pool Parameters](#2-pool-parameters)
-3. [Price Dynamics](#3-price-dynamics)
-4. [Liquidity Bootstrapping](#4-liquidity-bootstrapping)
-5. [Risk Analysis](#5-risk-analysis)
-6. [Deployment Checklist](#6-deployment-checklist)
-7. [Multi-Collateral Strategy](#7-multi-collateral-strategy)
+2. [Pool Type: CryptoSwap V2](#2-pool-type-cryptoswap-v2)
+3. [Pool Parameters](#3-pool-parameters)
+4. [Price Dynamics](#4-price-dynamics)
+5. [Liquidity Bootstrapping](#5-liquidity-bootstrapping)
+6. [Risk Analysis](#6-risk-analysis)
+7. [Deployment Checklist](#7-deployment-checklist)
+8. [Multi-Collateral Strategy](#8-multi-collateral-strategy)
 
 ---
 
@@ -30,7 +31,7 @@ vestedBTC holders currently have no secondary market for entry/exit. The early r
 
 ### Solution
 
-Deploy a Curve StableSwap pool (vWBTC/WBTC) enabling market-determined exit pricing. Arbitrageurs maintain price equilibrium between DEX pricing and the early redemption formula.
+Deploy a **Curve CryptoSwap V2 pool** (vWBTC/WBTC) enabling market-determined exit pricing. Arbitrageurs maintain price equilibrium between DEX pricing and the early redemption formula.
 
 ### Integration Layer
 
@@ -38,7 +39,7 @@ Deploy a Curve StableSwap pool (vWBTC/WBTC) enabling market-determined exit pric
 |--------|-------|
 | Layer | Off-chain DeFi integration |
 | Protocol Changes | None required |
-| Pool Type | Curve StableSwap (correlated assets) |
+| Pool Type | **Curve CryptoSwap V2** (non-pegged volatile pairs) |
 | Pair | vWBTC/WBTC (single collateral type) |
 
 ### Lindy Score
@@ -46,58 +47,134 @@ Deploy a Curve StableSwap pool (vWBTC/WBTC) enabling market-determined exit pric
 | Component | Age | Score |
 |-----------|-----|-------|
 | Curve Protocol | 5+ years | HIGH |
-| StableSwap Invariant | 5+ years | HIGH |
+| CryptoSwap V2 Invariant | 3+ years | MEDIUM-HIGH |
 | ERC-20 Standard | 8+ years | HIGH |
 | Factory Pool Pattern | 3+ years | MEDIUM-HIGH |
 
 ---
 
-## 2. Pool Parameters
+## 2. Pool Type: CryptoSwap V2
+
+### Why CryptoSwap (Not StableSwap)
+
+vBTC is a **subordinated residual claim**, NOT a stable/pegged asset. This is a critical distinction that determines the appropriate AMM design.
+
+**vBTC Characteristics:**
+- **Structural decay:** 1% monthly withdrawal to senior claimant (vault owner)
+- **Variable discount:** 5-50%+ depending on market conditions
+- **No peg mechanism:** No convergence guarantee to 1:1
+- **Fair value changes over time:** Unlike liquid staking derivatives
+
+**Why StableSwap is Wrong:**
+- StableSwap assumes deviations from 1:1 are **temporary inefficiencies** that arbitrage corrects
+- vBTC's discount is **structural reality** — the underlying claim genuinely depletes
+- StableSwap pools fail catastrophically at 30-50% discounts (which vBTC can reach)
+
+**Why CryptoSwap is Correct:**
+- Designed for **non-pegged volatile pairs**
+- **EMA oracle** tracks evolving fair value without assuming a peg
+- **Profit-offset rule** protects LPs (rebalance only when fees > 50% of cost)
+- Capital efficiency maintained across **50-95% price range**
+
+### Comparison: CryptoSwap vs StableSwap for vBTC
+
+| Factor | StableSwap | CryptoSwap V2 |
+|--------|------------|---------------|
+| **Design assumption** | Pegged assets (95-105% range) | Non-pegged volatile pairs |
+| **vBTC range** | 50-95% (incompatible) | 50-95% (designed for this) |
+| **At 30% discount** | 8-12% IL, poor efficiency | 3-5% IL (fee-buffered) |
+| **At 50% discount** | Catastrophic failure | Manageable |
+| **Structural decay** | Assumes fixed peg (wrong) | EMA oracle tracks changes |
+| **LP protection** | None | Profit-offset rule |
+
+### Reference: Time-Preference Primer
+
+For detailed explanation of why vBTC is structurally different from pegged assets, see [Time-Preference Primer](../research/Time_Preference_Primer.md), particularly:
+- Part VII: "vBTC: A Subordinated Residual Claim"
+- Part VIII: "Mathematical Framework"
+
+---
+
+## 3. Pool Parameters
 
 ### Recommended Configuration
 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
-| Invariant | StableSwap | Correlated assets (vBTC trades at discount to BTC) |
-| A Parameter | 100-200 | Balance capital efficiency vs. slippage tolerance |
-| Swap Fee | 0.04% | Matches stETH/ETH pool (similar correlated pair) |
+| Invariant | **CryptoSwap V2** | Non-pegged volatile pairs |
+| A (amplification) | 50-100 | More volatile than stables, less than ETH/BTC |
+| gamma (curvature) | 0.000145 | Standard for volatile pairs |
+| adjustment_step | 0.00146 | 1% min price move to trigger rebalancing |
+| mid_fee | 0.26% | Between stable (0.04%) and volatile (0.4%) |
+| out_fee | 0.45% | Higher fee at curve edges |
+| EMA half-life | 10 min | Smooth discount tracking |
 | Admin Fee | 50% | Standard Curve admin fee share |
 
-### A Parameter Selection
+### A Parameter Selection (CryptoSwap)
 
-The amplification parameter (A) controls how "flat" the bonding curve is around the peg:
+The amplification parameter (A) in CryptoSwap controls liquidity concentration around the EMA price:
 
 | A Value | Behavior | Use Case |
 |---------|----------|----------|
-| 10-50 | More curved, tolerates large depegs | Volatile pairs |
-| 100-200 | Balanced | **vestedBTC (recommended)** |
-| 500+ | Very flat, assumes tight peg | True stablecoins |
+| 10-30 | Wide distribution, high slippage tolerance | Highly volatile pairs |
+| 50-100 | **Balanced** | **vestedBTC (recommended)** |
+| 200+ | Tight concentration | More stable pairs |
 
-**Recommendation:** Start with A=100, monitor price dynamics, adjust via Curve governance if needed.
+**Recommendation:** Start with A=75, monitor rebalancing frequency, adjust based on:
+- If rebalancing > daily: Increase adjustment_step or decrease A
+- If slippage too high: Increase A
 
-### Why StableSwap (Not Uniswap V3)
+### Gamma Parameter
 
-| Feature | StableSwap | Uniswap V3 |
-|---------|------------|------------|
-| Capital efficiency | High for correlated assets | Requires active management |
-| LP complexity | Passive | Requires range management |
-| Slippage at 10% deviation | Low | Moderate |
-| Depeg tolerance | Built into invariant | Position becomes out-of-range |
+Gamma controls the curvature shape:
 
-vestedBTC is expected to trade at 0.70-0.95 of WBTC, making StableSwap's correlated-asset invariant ideal.
+| gamma Value | Effect |
+|-------------|--------|
+| 0.0001 | Sharper curve, more concentrated |
+| 0.000145 | **Standard (recommended)** |
+| 0.0002 | Flatter curve, more distributed |
+
+### Why NOT StableSwap
+
+| Feature | StableSwap | CryptoSwap V2 | vBTC Fit |
+|---------|------------|---------------|----------|
+| Capital efficiency | High near 1:1 only | High across EMA range | CryptoSwap wins |
+| LP complexity | Passive | Sophisticated passive | Acceptable |
+| IL at 30% deviation | 8-12% | 3-5% (fee-buffered) | CryptoSwap wins |
+| Depeg handling | Catastrophic | Dynamic rebalancing | CryptoSwap wins |
 
 ---
 
-## 3. Price Dynamics
+## 4. Price Dynamics
 
 ### Expected Price Range
 
 | Metric | Value | Derivation |
 |--------|-------|------------|
 | Price Floor | ~0.00 | Early redemption at day 0 = 100% penalty |
-| Practical Floor | ~0.70 | Arbitrage profitable above this level |
+| Practical Floor | ~0.50 | Extreme stress scenario |
+| Expected Range | 0.70-0.95 | Normal market conditions |
 | Price Ceiling | ~0.95 | Near-vested vaults, minimal discount |
-| Equilibrium | 0.75-0.90 | Market-discovered, cohort-dependent |
+
+**Important:** These are expected ranges, NOT pegs. vBTC's price can and will move within this range based on:
+- Time to vesting completion
+- Market demand for time-compression
+- Protocol TVL and liquidity depth
+- General crypto market conditions
+
+### EMA Oracle Behavior
+
+CryptoSwap V2 uses an **exponential moving average (EMA)** to track price:
+
+```
+EMA Price Update:
+├─ Triggered by trades
+├─ Smoothed over configured half-life (10 min recommended)
+├─ Used for rebalancing decisions
+└─ No assumption of convergence to any fixed value
+```
+
+**Key Insight:** The EMA oracle naturally tracks vBTC's evolving fair value without assuming it should return to 1:1.
 
 ### Price Discovery Mechanism
 
@@ -149,7 +226,7 @@ Where:
 
 ---
 
-## 4. Liquidity Bootstrapping
+## 5. Liquidity Bootstrapping
 
 ### Phase 1: Issuer Seeding
 
@@ -203,41 +280,60 @@ Total: 12% + LP Yield
 
 ---
 
-## 5. Risk Analysis
+## 6. Risk Analysis
+
+### LP Risk Disclosure
+
+**Important:** LPs must understand vBTC's structural characteristics:
+
+| Risk Factor | Impact |
+|-------------|--------|
+| **Structural decay** | vBTC's underlying depletes 1% monthly; creates ~12% annual headwind |
+| **IL during rebalancing** | CryptoSwap realizes IL during rebalancing events |
+| **No convergence** | Do not expect vBTC to "repeg" to wBTC |
+| **Profitability requirement** | LP fees must exceed structural decay for positive returns |
 
 ### Risk Matrix
 
 | Risk | Severity | Probability | Mitigation |
 |------|----------|-------------|------------|
-| Impermanent Loss | MEDIUM | MEDIUM | Correlated assets minimize IL; StableSwap curve reduces further |
+| Impermanent Loss | MEDIUM | MEDIUM | CryptoSwap's profit-offset rule buffers IL; rebalancing only when economical |
 | Low Initial Liquidity | HIGH | HIGH | Issuer seeding; conservative A parameter |
-| Depeg Event | LOW | MEDIUM | A=100-200 tolerates 10-30% deviation; pool continues functioning |
-| Smart Contract (Curve) | HIGH | LOW | 5+ years Lindy; no custom code deployed |
+| Wide Discount Event | MEDIUM | MEDIUM | CryptoSwap handles 30-50% discounts; EMA tracks new equilibrium |
+| Smart Contract (Curve) | HIGH | LOW | 5+ years Lindy; CryptoSwap V2 battle-tested |
 | Smart Contract (vWBTC) | HIGH | LOW | Protocol audited; minimal ERC-20 |
 
-### Impermanent Loss Analysis
+### Impermanent Loss Analysis (CryptoSwap)
 
-For correlated assets trading within 0.70-0.95 range:
+CryptoSwap's IL profile differs from StableSwap:
 
-| Price Ratio (vWBTC/WBTC) | IL (Uniswap V2) | IL (StableSwap A=100) |
-|--------------------------|-----------------|----------------------|
-| 0.95 | ~0.3% | ~0.05% |
-| 0.85 | ~2.8% | ~0.5% |
-| 0.75 | ~6.2% | ~1.5% |
+| Price Ratio (vWBTC/WBTC) | IL (Uniswap V2) | IL (StableSwap) | IL (CryptoSwap) |
+|--------------------------|-----------------|-----------------|-----------------|
+| 0.95 | ~0.3% | ~0.05% | ~0.1% |
+| 0.85 | ~2.8% | ~0.5% | ~0.8% |
+| 0.75 | ~6.2% | ~1.5% | ~2.0% |
+| 0.50 | ~25% | **FAILURE** | ~8% |
 
-**Conclusion:** StableSwap significantly reduces IL for expected price range.
+**Key Insight:** CryptoSwap handles the full vBTC range (0.50-0.95) without catastrophic failure. StableSwap fails at wide discounts.
 
-### Depeg Scenario
+### Wide Discount Scenario
 
 If vWBTC drops below 0.50 (severe discount):
-- StableSwap invariant remains functional
-- Slippage increases but trading continues
-- Arbitrage remains profitable (buy cheap vWBTC → recombine → redeem)
-- Pool does not "break" like concentrated liquidity positions
+
+**StableSwap behavior:**
+- Curve becomes essentially constant-product
+- Capital efficiency collapses
+- LPs experience massive IL with no protection
+
+**CryptoSwap V2 behavior:**
+- EMA oracle tracks new equilibrium
+- Rebalancing occurs only when fees offset cost
+- Pool continues functioning efficiently
+- Arbitrage remains profitable
 
 ---
 
-## 6. Deployment Checklist
+## 7. Deployment Checklist
 
 ### Pre-Deployment
 
@@ -245,12 +341,14 @@ If vWBTC drops below 0.50 (severe discount):
 - [ ] Confirm WBTC contract address
 - [ ] Prepare initial liquidity (vWBTC + WBTC)
 - [ ] Document expected initial price
+- [ ] Select CryptoSwap V2 parameters (A=75, gamma=0.000145)
 
 ### Deployment
 
-- [ ] Deploy Curve Factory pool via Curve UI
-- [ ] Set A parameter (100-200)
-- [ ] Set swap fee (0.04%)
+- [ ] Deploy Curve CryptoSwap V2 pool via Curve Factory
+- [ ] Set A parameter (50-100)
+- [ ] Set gamma parameter (0.000145)
+- [ ] Set fee parameters (mid_fee=0.26%, out_fee=0.45%)
 - [ ] Seed initial liquidity
 - [ ] Verify pool appears on Curve UI
 
@@ -259,7 +357,8 @@ If vWBTC drops below 0.50 (severe discount):
 - [ ] Add pool to BTCNFT Protocol documentation
 - [ ] Announce pool to community
 - [ ] Monitor initial trading activity
-- [ ] Track arbitrage efficiency
+- [ ] Track EMA oracle behavior
+- [ ] Monitor rebalancing frequency
 
 ### Governance (Optional)
 
@@ -268,7 +367,7 @@ If vWBTC drops below 0.50 (severe discount):
 
 ---
 
-## 7. Multi-Collateral Strategy
+## 8. Multi-Collateral Strategy
 
 ### Pool Per Collateral Type
 

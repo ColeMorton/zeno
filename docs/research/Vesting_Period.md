@@ -117,9 +117,11 @@ The 1129-day value balances:
 
 | Window | Samples | Mean | Min | Max |
 |--------|---------|------|-----|-----|
-| Monthly | Analyzed | Variable | Variable | Variable |
-| Yearly | Analyzed | 63.11% (historical) | Variable | Variable |
-| 1129-Day | Analyzed | Variable | 0%+ (all positive) | Variable |
+| Monthly | 96 | 4.61% | 0.18% | 35.54% |
+| Yearly | 2,565 | 63.11% | 14.75% | 346.81% |
+| 1129-Day | 1,837 | 313.07% | 77.78% | 902.96% |
+
+> **Data Period:** 2017-09-13 to 2025-09-20. See [Quantitative Validation](../protocol/Quantitative_Validation.md) for methodology. For analysis including 2014-2017 early-adoption period, see [Optimal Vesting Window](./Optimal_Vesting_Window.md).
 
 ### Key Finding
 
@@ -267,7 +269,7 @@ Current Rate Sustainability:
 
 BTC Appreciation Required: +12% annually (breakeven)
 Historical Mean Return:    +63.11% annually
-Historical Minimum:        +14.75% annually (still above breakeven)
+Historical Minimum:        +22.6% annualized (+77.78% total over 3.09 years)
 
 Net Effect: USD value expected to remain stable or grow
 ```

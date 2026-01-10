@@ -428,15 +428,15 @@ vestedBTC enables full DeFi composability through a layered integration architec
 | Price discovery | Continuous, transparent | Floor price mechanics |
 | Gas efficiency | Lower | Higher |
 
-**Primary DEX Integration: Curve StableSwap**
+**Primary DEX Integration: Curve CryptoSwap V2**
 
-The recommended liquidity mechanism is a Curve StableSwap pool per collateral type:
+The recommended liquidity mechanism is a Curve CryptoSwap V2 pool per collateral type. CryptoSwap V2 is selected because vBTC is a **subordinated residual claim** with structural decay, NOT a pegged asset:
 
-| Pool | A Parameter | Swap Fee | Expected Range |
-|------|-------------|----------|----------------|
-| vWBTC/WBTC | 100-200 | 0.04% | 0.70-0.95 |
-| vCBBTC/cbBTC | 100-200 | 0.04% | 0.70-0.95 |
-| vTBTC/tBTC | 100-200 | 0.04% | 0.70-0.95 |
+| Pool | A Parameter | mid_fee | Expected Range |
+|------|-------------|---------|----------------|
+| vWBTC/WBTC | 50-100 | 0.26% | 0.50-0.95 |
+| vCBBTC/cbBTC | 50-100 | 0.26% | 0.50-0.95 |
+| vTBTC/tBTC | 50-100 | 0.26% | 0.50-0.95 |
 
 Price discovery is bounded by the early redemption formula: arbitrageurs buy underpriced vBTC on DEX to recombine and redeem, or mint new vaults to sell overpriced vBTC.
 

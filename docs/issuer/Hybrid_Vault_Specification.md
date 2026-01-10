@@ -108,7 +108,7 @@ LP swap fees accrue to the LP position. When owner withdraws LP at vesting, they
 | Base LP Ratio | 30% (3000 BPS) | Meaningful liquidity without barrier |
 | Min LP Ratio | 10% (1000 BPS) | Floor during high-demand periods |
 | Max LP Ratio | 50% (5000 BPS) | Ceiling during bootstrapping |
-| LP Provider | Curve StableSwap | Best for correlated assets |
+| LP Provider | Curve CryptoSwap V2 | Non-pegged volatile pair (vBTC is subordinated claim) |
 | cbBTC Withdrawal | 1% monthly | Perpetual income stream |
 | LP Withdrawal | 100% at vesting | One-time liquidity event |
 | Protocol Fees | 0% | All value to owner |
@@ -334,7 +334,7 @@ contracts/issuer/src/
 ├── interfaces/
 │   ├── IHybridMintController.sol     # Controller interface
 │   ├── IProtocolHybridVaultNFT.sol   # Minimal protocol interface
-│   └── ICurveStableSwap.sol          # Curve pool interface
+│   └── ICurveCryptoSwap.sol          # Curve CryptoSwap V2 interface
 │
 └── test/
     ├── mocks/
@@ -379,21 +379,26 @@ User provides: 1.0 cbBTC
 User owns: Protocol HybridVaultNFT directly (no wrapper)
 ```
 
-### Curve StableSwap Integration
+### Curve CryptoSwap V2 Integration
 
 ```solidity
-interface ICurveStableSwap {
+interface ICurveCryptoSwap {
     function add_liquidity(uint256[2] memory amounts, uint256 min_mint_amount) external returns (uint256);
     function remove_liquidity_one_coin(uint256 _burn_amount, int128 i, uint256 _min_received) external returns (uint256);
     function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy) external returns (uint256);
     function get_virtual_price() external view returns (uint256);
     function balances(uint256 i) external view returns (uint256);
+    function price_oracle() external view returns (uint256); // CryptoSwap-specific: EMA oracle
 }
 
-// Pool deployment parameters
-// A: 100-200 (correlated assets)
-// Fee: 0.04% (matches stETH/ETH)
+// Pool deployment parameters (CryptoSwap V2 for non-pegged pairs)
+// A: 50-100 (non-pegged volatile pair)
+// gamma: 0.000145 (standard for volatile pairs)
+// mid_fee: 0.26% (between stable and volatile)
 // Coins: [cbBTC, vestedCBBTC]
+//
+// Note: CryptoSwap selected because vBTC is a subordinated residual claim
+// with structural decay, NOT a pegged asset. See Curve_Liquidity_Pool.md.
 ```
 
 ---
@@ -412,11 +417,11 @@ interface ICurveStableSwap {
 
 ### LP Impermanent Loss
 
-vestedCBBTC/cbBTC is a correlated pair—IL is minimal:
+vestedCBBTC/cbBTC uses CryptoSwap V2 (not StableSwap) because vBTC is a subordinated residual claim:
 
-- Both assets track BTC value
-- Curve StableSwap (A=100-200) minimizes IL
-- IL only materializes if vestedBTC significantly depegs
+- Both assets track BTC value but vBTC has structural decay (1% monthly)
+- CryptoSwap V2 profit-offset rule minimizes IL (~2% expected at 25% discount)
+- EMA oracle tracks evolving fair value without assuming a peg
 - IL bounded by early redemption floor (arbitrage closes discount)
 
 ### Maturity Liquidity Risk

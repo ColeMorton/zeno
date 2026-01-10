@@ -10,9 +10,15 @@
 
 ---
 
+> **Implementation Status:** ✅ IMPLEMENTED
+>
+> This document's primary recommendation (increase vesting period to 1129 days) has been implemented in the protocol. The current immutable vesting period is **1129 days**. This document is retained as historical research demonstrating the analytical basis for the 1129-day parameter.
+
+---
+
 ## Executive Summary
 
-This analysis identifies the optimal vesting window for the BTCNFT Protocol using four distinct optimization objectives. The current 1093-day window is validated as near-optimal, with minor adjustments recommended for absolute safety.
+This analysis identifies the optimal vesting window for the BTCNFT Protocol using four distinct optimization objectives. The analysis was conducted when the vesting window was 1093 days; the recommendation to increase to 1129 days has since been **implemented**.
 
 **Key Findings:**
 
@@ -23,7 +29,7 @@ This analysis identifies the optimal vesting window for the BTCNFT Protocol usin
 | Risk-adjusted (max Sharpe) | 30 days | N/A (different purpose) |
 | Robustness (cross-period) | **1100 days** | Within range |
 
-**Recommendation:** The current 1093-day window achieves 99.7% positive returns but falls short of the 100% threshold. For absolute safety, **1129 days** (3.09 years) is recommended.
+**Recommendation (IMPLEMENTED):** The protocol now uses **1129 days** (3.09 years), achieving 100% positive historical returns across all rolling windows in the 2017-2025 dataset.
 
 ---
 

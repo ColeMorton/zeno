@@ -5,6 +5,7 @@
 The vestedBTC Derivatives Suite provides comprehensive financial exposure mechanisms for vestedBTC holders. This unified specification consolidates three interconnected products enabling price, volume, and volatility exposure.
 
 **Design Philosophy:**
+- Non-profit protocol (zero protocol fees)
 - Immutable contracts with no governance
 - Fail-fast oracles (no fallbacks)
 - Full upfront collateralization (no liquidations where possible)
@@ -12,113 +13,154 @@ The vestedBTC Derivatives Suite provides comprehensive financial exposure mechan
 
 ---
 
-## Product Matrix
+## Terminology
 
-| Exposure | Product | Mechanism | Liquidation Risk |
-|----------|---------|-----------|------------------|
-| Long vBTC Price | CDP Lending | Borrow USDC → Buy vBTC | Yes |
-| Short vBTC Price | CDP Lending | Borrow vBTC → Sell vBTC | Yes |
-| Long Volume | Yield Vault (yvBTC) | Curve LP fees + CRV | No |
-| Long Volatility | VarianceVaultLong | Pay strike, receive realized | No |
-| Short Volatility | VarianceVaultShort | Receive strike, pay realized | No |
+| Term | Meaning |
+|------|---------|
+| vBTC | vestedBTC token (fungible ERC-20 from separated Vaults) |
+| vBTC discount | `1 - (vBTC_price / wBTC_price)` from Curve pool |
+| BTC-equivalent | Any wrapped BTC variant (wBTC, cbBTC, tBTC) |
+| wBTC | Reference wrapped BTC for oracle pricing |
+
+**Price References:**
+- Oracle: vBTC/wBTC from Curve CryptoSwap V2 pool
+- All discount calculations use wBTC as denominator
+- Note: vBTC is a subordinated residual claim (not pegged to wBTC)
 
 ---
 
-## Part I: Price Exposure - Leveraged Lending Protocol
+## Product Matrix
+
+| Exposure | Product | Collateral | Leverage | Liquidation |
+|----------|---------|------------|----------|-------------|
+| Long vBTC Price | Capped Bull Vault | vBTC | 1-5x | No |
+| Short vBTC Price | Capped Bear Vault | vBTC | 1-5x | No |
+| Long Volume | Yield Vault (yvBTC) | vBTC | 1x | No |
+| Long Volatility | VarianceVaultLong | vBTC | 1x | No |
+| Short Volatility | VarianceVaultShort | vBTC | 1x | No |
+
+**Single asset. No liquidations. Full feature set.**
+
+---
+
+## Part I: Price Exposure - Capped Leverage Vaults
+
+### Design Rationale
+
+vBTC is a **subordinated residual claim** with time-locked redemption (1% monthly). Capped leverage vaults eliminate liquidation entirely by bounding payoffs—maximum loss equals deposit.
 
 ### Architecture
 
-CDP-based lending with isolated markets per collateral type (wBTC, cbBTC, tBTC).
-
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                 ISOLATED LENDING MARKETS                        │
+│              CAPPED LEVERAGE VAULTS (vBTC-Only)                 │
 ├─────────────────────────────────────────────────────────────────┤
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
-│  │ vWBTC Market    │  │ vCBBTC Market   │  │ vTBTC Market    │ │
-│  │ Collateral: wBTC│  │ Collateral:cbBTC│  │ Collateral: tBTC│ │
-│  │ Borrow: vWBTC   │  │ Borrow: vCBBTC  │  │ Borrow: vTBTC   │ │
-│  │ Oracle: TWAP    │  │ Oracle: TWAP    │  │ Oracle: TWAP    │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
-│  │ Stablecoin Pool │  │ Stablecoin Pool │  │ Stablecoin Pool │ │
-│  │ Collateral:vWBTC│  │ Collateral:vCBBTC│ │ Collateral:vTBTC│ │
-│  │ Borrow: USDC    │  │ Borrow: USDC    │  │ Borrow: USDC    │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
+│                                                                 │
+│  ┌─────────────────────────────┐  ┌─────────────────────────┐  │
+│  │ BULL VAULT (Long Price)     │  │ BEAR VAULT (Short Price)│  │
+│  │                             │  │                         │  │
+│  │ Collateral: vBTC            │  │ Collateral: vBTC        │  │
+│  │ Leverage: 1-5x (user)       │  │ Leverage: 1-5x (user)   │  │
+│  │ Duration: 30/60/90 days     │  │ Duration: 30/60/90 days │  │
+│  │ Liquidation: None           │  │ Liquidation: None       │  │
+│  │ Settlement: vBTC            │  │ Settlement: vBTC        │  │
+│  └──────────────┬──────────────┘  └────────────┬────────────┘  │
+│                 │                              │               │
+│                 └──────────────┬───────────────┘               │
+│                                │                               │
+│                    ┌───────────┴───────────┐                   │
+│                    │ BILATERAL SETTLEMENT  │                   │
+│                    │ Bulls ↔ Bears         │                   │
+│                    │ Zero-sum              │                   │
+│                    └───────────────────────┘                   │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+### Core Principle: Cap Replaces Liquidation
+
+Instead of liquidating when health factor drops, the payoff hits its floor/ceiling. Maximum loss equals deposit.
+
+```
+Cap = 100% of deposit = 1/leverage move
+
+At 3x leverage:
+├─ Cap triggers at ±33% price move
+├─ Max gain: 2x deposit (100% return)
+└─ Max loss: ~0 deposit (100% loss)
 ```
 
 ### Position Types
 
-| Position | User Thesis | Execution Flow |
-|----------|-------------|----------------|
-| **Long vBTC** | Discount will narrow | Deposit wBTC → Borrow USDC → Buy vBTC on Curve |
-| **Short vBTC** | Discount will widen | Deposit wBTC → Borrow vBTC → Sell vBTC on Curve |
+| Position | User Thesis | Mechanism |
+|----------|-------------|-----------|
+| **Long vBTC** | Discount will narrow | Deposit vBTC to Bull Vault → Profit if vBTC/BTC ratio increases |
+| **Short vBTC** | Discount will widen | Deposit vBTC to Bear Vault → Profit if vBTC/BTC ratio decreases |
 
-### Interest Rate Model
-
-vBTC has structural negative carry due to 1% monthly (12% annual) withdrawal rate. The base rate must exceed this to prevent arbitrage.
-
-```solidity
-baseRate = 14%      // 12% carry + 2% margin
-slope1 = 6%         // Per 100% utilization (0-80%)
-slope2 = 200%       // Per 100% utilization above kink
-kink = 80%
-```
-
-| Utilization | Borrow APR |
-|-------------|------------|
-| 0% | 14.0% |
-| 50% | 17.0% |
-| 80% (kink) | 18.8% |
-| 100% | 58.8% |
-
-### Dynamic LTV
-
-LTV adjusts based on current vBTC/BTC discount to provide additional buffer during stress.
-
-```solidity
-baseLTV = 85%           // At 0% discount
-sensitivity = 2.0x      // 2x sensitivity
-minLTV = 30%
-
-Max LTV = baseLTV - (currentDiscount × sensitivity)
-```
-
-| Discount | vBTC/BTC Price | Max LTV | Liq LTV |
-|----------|----------------|---------|---------|
-| 5% | 0.95 | 75% | 82% |
-| 10% | 0.90 | 65% | 72% |
-| 15% | 0.85 | 55% | 62% |
-| 25% | 0.75 | 35% | 42% |
-
-### Liquidation: Dutch Auction
-
-Gradual bonus escalation replaces circuit breakers for smoother liquidations.
+### Capped Bull Vault (Long vBTC Price)
 
 ```
-Health Factor < 1.0 triggers auction:
-├─ Time 0m:   Bonus = 0%
-├─ Time 15m:  Bonus = 3.75%
-├─ Time 30m:  Bonus = 7.5%
-├─ Time 45m:  Bonus = 11.25%
-└─ Time 60m:  Bonus = 15% (max)
+User deposits: 1 vBTC
+Leverage: 3x (user-selected, 1-5x)
+Strike: Current vBTC/BTC ratio at deposit (e.g., 0.85)
+Duration: 30 days (user-selected: 30/60/90)
+Cap: 100% of deposit (1/leverage = ±33% move)
+
+Payoff at expiry:
+├─ Ratio → 0.935 (+10%): 1 + (3 × 0.10) = 1.30 vBTC (+30%)
+├─ Ratio → 0.765 (-10%): 1 - (3 × 0.10) = 0.70 vBTC (-30%)
+├─ Ratio → 0.57 (-33%): 0.01 vBTC (floored at ~0)
+└─ Ratio → 1.13 (+33%): 1.99 vBTC (capped at ~2x)
 ```
 
-### Flash Loan Leverage
+### Capped Bear Vault (Short vBTC Price)
 
-Atomic leverage via Balancer flash loans (zero fee).
+Mirror of Bull Vault with inverted payoff:
 
 ```
-openLeveragedLong(1 wBTC, 2.5x leverage):
-Step 1: Flash loan 1.5 wBTC → Total 2.5 wBTC
-Step 2: Deposit as collateral
-Step 3: Borrow USDC at 65% LTV = $97,500
-Step 4: Swap USDC → wBTC = 1.625 wBTC
-Step 5: Repay flash loan (1.5 wBTC + fee)
-Step 6: Deposit remaining as additional collateral
-Result: ~2.625x effective leverage in single transaction
+User deposits: 1 vBTC
+Leverage: 3x
+Strike: 0.85
+
+Payoff at expiry:
+├─ Ratio → 0.765 (-10%): 1 + (3 × 0.10) = 1.30 vBTC (+30%)
+├─ Ratio → 0.935 (+10%): 1 - (3 × 0.10) = 0.70 vBTC (-30%)
+├─ Ratio → 1.13 (+33%): 0.01 vBTC (floored at ~0)
+└─ Ratio → 0.57 (-33%): 1.99 vBTC (capped at ~2x)
 ```
+
+### Bilateral Settlement
+
+Bull Vault gains come from Bear Vault losses (and vice versa). Pure zero-sum between directional traders.
+
+```
+Example: Bull TVL = 100 vBTC, Bear TVL = 80 vBTC
+
+Matched portion: 80 vBTC each
+├─ Full leverage payoff applies
+└─ Settlement: losers pay winners
+
+Unmatched portion: 20 vBTC Bulls
+├─ Reduced effective leverage
+└─ Scaled proportionally: 20 × (80/100) = 16 vBTC effective
+```
+
+### Leverage Selection
+
+| Leverage | Cap (Price Move) | Risk Profile |
+|----------|------------------|--------------|
+| 1x | ±100% | Conservative, no amplification |
+| 2x | ±50% | Moderate |
+| 3x | ±33% | Standard |
+| 5x | ±20% | Aggressive |
+
+### Parameters
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| MIN_LEVERAGE | 1x | Floor |
+| MAX_LEVERAGE | 5x | Cap speculation |
+| DURATIONS | 30, 60, 90 days | Standard periods |
+| MIN_DEPOSIT | 0.01 vBTC | Spam prevention |
 
 ---
 
@@ -126,7 +168,7 @@ Result: ~2.625x effective leverage in single transaction
 
 ### Architecture
 
-ERC-4626 yield-bearing vault that deploys vestedBTC to Curve LP for fee capture.
+ERC-4626 yield-bearing vault that deploys vestedBTC to Curve LP, allowing users to earn external Curve trading fees.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -148,13 +190,25 @@ ERC-4626 yield-bearing vault that deploys vestedBTC to Curve LP for fee capture.
 
 ### Yield Sources
 
+**yvBTC Vault Yields (accrues to depositors):**
+
 | Source | Estimated APY | Dependency |
 |--------|---------------|------------|
 | Curve swap fees | 0.5-2% | Trading volume |
 | CRV emissions | 3-10% | Gauge approval |
-| Arbitrage (implicit) | Variable | Market volatility |
-| **Base withdrawal** | **12%** | **Retained by Vault holder** |
-| **Total** | **17-22%** | Combined |
+| **yvBTC Total** | **3.5-12%** | Combined |
+
+*Note: Vault owners who separate vBTC and deposit to yvBTC also retain their 12% annual withdrawal rights on the underlying Vault NFT. This is separate from yvBTC yield.*
+
+**Total Yield Stack (Vault Owner Who Deposits to yvBTC):**
+
+| Source | Estimated APY | Who Receives |
+|--------|---------------|--------------|
+| Vault withdrawals | 12% | Vault NFT owner |
+| yvBTC vault yield | 3.5-12% | yvBTC depositor |
+| **Combined** | **15.5-24%** | Same person if owner deposits |
+
+The 12% withdrawal is NOT distributed by yvBTC; it flows directly from the Vault NFT to its owner.
 
 ### Exchange Rate Mechanics
 
@@ -176,8 +230,6 @@ After yield accrual (10 vBTC harvested):
 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
-| Performance Fee | 10% | Industry standard (Yearn uses 10-20%) |
-| Management Fee | 0% | KISS principle |
 | Strategy | Single immutable | No governance attack surface |
 | Harvesting | Permissionless | Anyone can call, MEV bots incentivized |
 
@@ -236,16 +288,18 @@ contracts/issuer/src/volatility/
 
 ### Variance Calculation
 
+**Realized Variance (Industry Standard for Variance Swaps):**
+
 ```
 Step 1: Collect Price Observations
 ├─ Observation frequency: Daily (86400 seconds)
-├─ Price ratio: P(t) = vBTC_price / BTC_price
+├─ Price ratio: P(t) = vBTC_price / wBTC_price
 
 Step 2: Calculate Log Returns
 ├─ r(t) = ln(P(t) / P(t-1))
 
 Step 3: Calculate Realized Variance
-├─ Variance = (252 / N) × Σ r(t)²
+├─ Realized Variance = (252 / N) × Σ r(t)²
 ├─ Annualized using 252 trading days
 
 Step 4: Settlement
@@ -254,9 +308,16 @@ Step 4: Settlement
 ├─ If PnL < 0: Short receives from Long
 ```
 
+**Note:** This formula assumes zero mean return, which is standard convention for variance swaps over short horizons (7-90 days). This differs from statistical sample variance `Σ(r - r̄)² / (N-1)` which centers on observed mean.
+
+The zero-mean convention:
+1. Avoids look-ahead bias in mean estimation
+2. Simplifies hedging (delta-neutral positions)
+3. Matches market standard for variance swap settlement
+
 ### Collateral Requirements
 
-Full upfront collateralization eliminates liquidation risk:
+Full upfront collateralization eliminates liquidation risk. **Collateral: vBTC only.**
 
 ```solidity
 MAX_VARIANCE = 1e18  // 100% annualized variance cap
@@ -266,14 +327,18 @@ longCollateralRequired = notional × strikeVariance
 
 // Short party: max loss = notional × (maxVariance - strike)
 shortCollateralRequired = notional × (MAX_VARIANCE - strikeVariance)
+
+// All collateral and settlement in vBTC
+collateralToken = vBTC
+settlementToken = vBTC
 ```
 
-### Settlement Examples (30-day, 1 wBTC notional, 4% strike)
+### Settlement Examples (30-day, 1 vBTC notional, 4% strike)
 
 | Scenario | Realized Variance | PnL | Winner |
 |----------|-------------------|-----|--------|
-| High Vol | 8% | +0.04 wBTC | Long |
-| Low Vol | 2% | -0.02 wBTC | Short |
+| High Vol | 8% | +0.04 vBTC | Long |
+| Low Vol | 2% | -0.02 vBTC | Short |
 | At Strike | 4% | 0 | Even |
 
 ### ERC-4626 Vault Wrapper Flow
@@ -325,18 +390,22 @@ interface IVBTCOracle {
 |-----------|-------|-----------|
 | TWAP Period | 30 min | Manipulation resistance |
 | Max Staleness | 1 hour | Fail-fast on illiquid conditions |
-| Min Price | 0.50 | vBTC cannot trade below 50% of BTC |
-| Max Price | 1.00 | vBTC cannot exceed BTC price |
+| Min Price | 0.50 | vBTC cannot trade below 50% of wBTC |
+| Max Price | 1.00 | vBTC cannot exceed wBTC price |
 | Fallback | None | Fail-fast philosophy |
 
-### Curve StableSwap Pool
+### Curve CryptoSwap V2 Pool
 
 ```
 Pool: vBTC/WBTC
-├─ A Parameter: 100-200 (balance capital efficiency vs depeg tolerance)
-├─ Swap Fee: 0.04% (matches stETH/ETH precedent)
-├─ Expected Range: 0.70-0.95 vBTC per WBTC
-└─ IL Profile: ~1.5% at 25% discount (vs 6.2% Uniswap V2)
+├─ A Parameter: 50-100 (non-pegged volatile pair)
+├─ gamma: 0.000145 (standard for volatile pairs)
+├─ mid_fee: 0.26% (between stable and volatile)
+├─ Expected Range: 0.50-0.95 vBTC per WBTC
+└─ IL Profile: ~2% at 25% discount (with profit-offset protection)
+
+Note: CryptoSwap V2 selected because vBTC is a subordinated residual
+claim with structural decay, NOT a pegged asset. See Curve_Liquidity_Pool.md.
 ```
 
 ---
@@ -345,31 +414,32 @@ Pool: vBTC/WBTC
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                  vestedBTC DERIVATIVES STACK                     │
+│              vBTC-ONLY DERIVATIVES SUITE                        │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌────────────────┐ │
-│  │ LENDING PROTOCOL │  │ YIELD VAULT      │  │ VARIANCE SWAP  │ │
-│  │ (CDP)            │  │ (yvBTC)          │  │                │ │
-│  ├──────────────────┤  ├──────────────────┤  ├────────────────┤ │
-│  │ Long Price       │  │ Long Volume      │  │ Long Vol       │ │
-│  │ Short Price      │  │ (LP fees)        │  │ Short Vol      │ │
-│  └────────┬─────────┘  └────────┬─────────┘  └───────┬────────┘ │
-│           │                     │                     │          │
-│           └─────────────────────┴─────────────────────┘          │
-│                                 │                                │
-│                    ┌────────────┴────────────┐                   │
-│                    │ DEX TWAP ORACLE          │                   │
-│                    │ (Curve vBTC/WBTC)        │                   │
-│                    └────────────┬────────────┘                   │
-│                                 │                                │
-│                    ┌────────────┴────────────┐                   │
-│                    │ CURVE STABLESWAP POOL   │                   │
-│                    │ vBTC/WBTC (A=100-200)   │                   │
-│                    └─────────────────────────┘                   │
-│                                                                  │
+│                                                                 │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
+│  │ PRICE EXPOSURE  │  │ VOLUME EXPOSURE │  │ VOL EXPOSURE    │ │
+│  │                 │  │                 │  │                 │ │
+│  │ Bull Vault      │  │ yvBTC Vault     │  │ VarianceVaultL  │ │
+│  │ Bear Vault      │  │ (Curve LP)      │  │ VarianceVaultS  │ │
+│  │                 │  │                 │  │                 │ │
+│  │ Leverage: 1-5x  │  │ Leverage: 1x    │  │ Leverage: 1x    │ │
+│  │ Collateral: vBTC│  │ Collateral: vBTC│  │ Collateral: vBTC│ │
+│  │ Liquidation: No │  │ Liquidation: No │  │ Liquidation: No │ │
+│  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘ │
+│           │                    │                    │          │
+│           └────────────────────┴────────────────────┘          │
+│                                │                               │
+│                    ┌───────────┴───────────┐                   │
+│                    │ ORACLE (Settlement)   │                   │
+│                    │ vBTC/WBTC TWAP        │                   │
+│                    │ (Curve Pool)          │                   │
+│                    └───────────────────────┘                   │
+│                                                                │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+**Single asset. No liquidations. Full feature set.**
 
 ### Protocol Layer Boundary
 
@@ -378,31 +448,32 @@ All derivatives products operate at the **issuer layer** without modifying proto
 | Layer | Contracts | Modifiable |
 |-------|-----------|------------|
 | Protocol | VaultNFT, BtcToken | No (immutable) |
-| Issuer | Lending, Yield Vault, Variance Swap | Yes (new deployments) |
+| Issuer | Bull/Bear Vaults, yvBTC, Variance Vaults | Yes (new deployments) |
 
 ---
 
 ## Part VI: Risk Matrix
 
-### Lending Protocol Risks
+### Capped Vault Risks (Price Exposure)
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| Liquidation cascade | HIGH | Dynamic LTV, Dutch auction |
-| Oracle manipulation | MEDIUM | 30-min TWAP, staleness check |
-| Negative carry arbitrage | HIGH | 14% base rate floor |
-| Bad debt | MEDIUM | 10% reserve fund |
+| Counterparty imbalance | MEDIUM | Scaled leverage for unmatched portion |
+| Oracle manipulation | MEDIUM | 30-min TWAP; settlement-only (not continuous) |
+| Price cap breach | NONE | Bounded by design (cap = 100% deposit) |
+| Liquidation | NONE | No liquidations by design |
+| Bad debt | NONE | Full upfront collateralization |
 
-### Yield Vault Risks
+### Yield Vault Risks (Volume Exposure)
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
 | Smart contract (Curve) | HIGH | 5+ year Lindy, $3B+ TVL |
-| Impermanent loss | MEDIUM | StableSwap minimizes (0.5-1.5% expected) |
+| Impermanent loss | MEDIUM | CryptoSwap profit-offset rule minimizes (~2% expected at 25% discount) |
 | CRV price crash | MEDIUM | Frequent harvesting |
 | Low trading volume | LOW | Accept lower yield |
 
-### Variance Swap Risks
+### Variance Swap Risks (Volatility Exposure)
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
@@ -416,21 +487,20 @@ All derivatives products operate at the **issuer layer** without modifying proto
 
 ## Part VII: Comparison Summary
 
-| Aspect | Lending | Yield Vault | Variance Swap |
-|--------|---------|-------------|---------------|
+| Aspect | Bull/Bear Vault | yvBTC | Variance Swap |
+|--------|-----------------|-------|---------------|
 | **Exposure** | Price direction | Volume/fees | Price magnitude |
-| **Leverage** | 1-3x via flash loans | None | None |
-| **Liquidation** | Yes (Dutch auction) | No | No |
-| **Active Management** | Required | None | None |
-| **Collateral** | Over-collateralized | Full deposit | Full upfront |
-| **Settlement** | Continuous | On withdrawal | End of period |
-| **Oracle Dependency** | High | Low | Medium |
+| **Collateral** | vBTC | vBTC | vBTC |
+| **Leverage** | 1-5x (capped) | 1x | 1x |
+| **Liquidation** | No | No | No |
+| **Active Management** | None | None | None |
+| **Settlement** | End of period | On withdrawal | End of period |
+| **Oracle Dependency** | Settlement only | Low | Medium |
 
 ---
 
 ## Related Documents
 
-- [Leveraged Lending Protocol](./Leveraged_Lending_Protocol.md) - Detailed CDP mechanics
 - [Native Volatility Farming Architecture](../research/Native_Volatility_Farming_Architecture.md) - ERC-4626 vault design
 - [Curve Liquidity Pool](./Curve_Liquidity_Pool.md) - Base LP design
 - [Peapods Finance Analysis](../research/Peapods_Finance_Analysis.md) - External protocol comparison

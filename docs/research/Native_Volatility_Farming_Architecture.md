@@ -556,7 +556,7 @@ User's Vault NFT (1 BTC collateral)
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| Impermanent loss | MEDIUM | StableSwap curve minimizes IL (0.5-1.5% expected) |
+| Impermanent loss | MEDIUM | CryptoSwap profit-offset rule minimizes IL (~2% expected) |
 | CRV price crash | MEDIUM | Harvest frequently, minimize CRV exposure |
 | vestedBTC discount widening | MEDIUM | LP position rebalances naturally |
 | Low trading volume | LOW | Accept lower yield, maintain position |
@@ -628,7 +628,7 @@ User's Vault NFT (1 BTC collateral)
 This architecture design provides a **native volatility farming solution** for vestedBTC that:
 
 1. **Respects protocol immutability** - No changes to VaultNFT or BtcToken
-2. **Uses battle-tested infrastructure** - ERC-4626, Curve StableSwap (5+ year Lindy)
+2. **Uses battle-tested infrastructure** - ERC-4626, Curve CryptoSwap V2 (3+ year Lindy)
 3. **Aligns with BTCNFT philosophy** - No governance, all parameters immutable
 4. **Captures yield efficiently** - LP fees + CRV emissions auto-compounded
 

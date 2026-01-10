@@ -10,7 +10,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IHybridMintController} from "./interfaces/IHybridMintController.sol";
 import {IProtocolHybridVaultNFT} from "./interfaces/IProtocolHybridVaultNFT.sol";
 import {ITreasureNFT} from "./interfaces/ITreasureNFT.sol";
-import {ICurveStableSwap} from "./interfaces/ICurveStableSwap.sol";
+import {ICurveCryptoSwap} from "./interfaces/ICurveCryptoSwap.sol";
 
 /// @title HybridMintController
 /// @notice Issuer-layer controller that mints Protocol HybridVaultNFTs with Curve LP integration
@@ -32,8 +32,8 @@ contract HybridMintController is IHybridMintController, Ownable, ReentrancyGuard
     /// @notice Curve LP token (secondary collateral in protocol vault)
     IERC20 public immutable lpToken;
 
-    /// @notice Curve StableSwap pool for cbBTC/vestedBTC
-    ICurveStableSwap public immutable curvePool;
+    /// @notice Curve pool for cbBTC/vestedBTC (CryptoSwap V2 for non-pegged pairs)
+    ICurveCryptoSwap public immutable curvePool;
 
     // ==================== Monthly Configuration ====================
 
@@ -72,7 +72,7 @@ contract HybridMintController is IHybridMintController, Ownable, ReentrancyGuard
         treasureNFT = ITreasureNFT(treasureNFT_);
         cbBTC = IERC20(cbBTC_);
         lpToken = IERC20(lpToken_);
-        curvePool = ICurveStableSwap(curvePool_);
+        curvePool = ICurveCryptoSwap(curvePool_);
 
         // Initialize default config
         currentConfig = MonthlyConfig({
@@ -162,7 +162,7 @@ contract HybridMintController is IHybridMintController, Ownable, ReentrancyGuard
         uint256 swapAmount = (totalPoolValue * config.standardSwapBPS) / BASIS_POINTS;
         if (swapAmount == 0) return 0;
 
-        // Expected output at parity
+        // Reference output (1:1 baseline, not expected market price)
         uint256 expectedOut = swapAmount;
 
         // Actual output from Curve (cbBTC -> vestedBTC)
@@ -224,15 +224,20 @@ contract HybridMintController is IHybridMintController, Ownable, ReentrancyGuard
         }
     }
 
+    /// @notice Calculates LP allocation adjustment based on vBTC discount from reference price
+    /// @dev vBTC is a subordinated residual claim that trades at a structural discount to BTC.
+    ///      This discount is NOT a "depeg" - it reflects time value, subordination, and decay.
+    ///      The reference price (1:1) is used as a measurement baseline, not an expected peg.
+    ///      See docs/research/Time_Preference_Primer.md for detailed explanation.
     function _calculateDiscountAdjustment(MonthlyConfig memory config) internal view returns (int256) {
         // Get vestedBTC/cbBTC price from Curve pool
         // 1 vestedBTC -> how much cbBTC?
         uint256 vestedBTCPrice = curvePool.get_dy(1, 0, 1e8); // 1 vestedBTC (8 decimals) -> cbBTC
-        uint256 parity = 1e8;
+        uint256 referencePrice = 1e8; // Baseline for discount measurement, NOT an expected peg
 
-        if (vestedBTCPrice >= parity) return 0;
+        if (vestedBTCPrice >= referencePrice) return 0;
 
-        uint256 discountBPS = ((parity - vestedBTCPrice) * BASIS_POINTS) / parity;
+        uint256 discountBPS = ((referencePrice - vestedBTCPrice) * BASIS_POINTS) / referencePrice;
 
         if (discountBPS > config.discountThresholdBPS) {
             // Significant discount -> increase LP to absorb selling pressure

@@ -324,18 +324,20 @@ The mechanism ensures fair treatment for all parties:
 
 **Why BTC-Denominated Pairs Only?**
 
-vestedBTC represents a claim on BTC collateral. Pairing exclusively with WBTC/cbBTC creates correlated-asset pools (similar to stETH/ETH) that minimize impermanent loss, enable direct NAV arbitrage without oracle dependency, and keep users within the BTC ecosystem. Users acquire WBTC/cbBTC through existing market infrastructure before interacting with vestedBTC.
+vestedBTC represents a **subordinated residual claim** on BTC collateral—NOT a pegged asset. Pairing exclusively with WBTC/cbBTC creates pools within the BTC ecosystem, enables direct NAV arbitrage without oracle dependency, and keeps users within familiar infrastructure.
 
-**Primary Liquidity Pool: Curve StableSwap**
+**Primary Liquidity Pool: Curve CryptoSwap V2**
 
-The recommended entry/exit mechanism is a Curve StableSwap pool (vWBTC/WBTC):
+The recommended entry/exit mechanism is a Curve CryptoSwap V2 pool (vWBTC/WBTC):
 
 | Parameter | Value |
 |-----------|-------|
-| Pool Type | StableSwap (A=100-200) |
-| Swap Fee | 0.04% |
-| Expected Price Range | 0.70-0.95 relative to WBTC |
+| Pool Type | CryptoSwap V2 (A=50-100, non-pegged) |
+| mid_fee | 0.26% |
+| Expected Price Range | 0.50-0.95 relative to WBTC |
 | Arbitrage Mechanism | DEX price bounded by early redemption formula |
+
+**Note:** CryptoSwap V2 is used instead of StableSwap because vBTC has structural decay (1% monthly withdrawal to senior claimant) and trades at a variable discount (5-50%+), making it unsuitable for pegged-asset pools.
 
 See [Curve Liquidity Pool](../defi/Curve_Liquidity_Pool.md) for deployment specifications.
 

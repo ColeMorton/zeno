@@ -420,8 +420,8 @@ export const CHAPTER_3_ACHIEVEMENTS: Chapter1Achievement[] = [
     description: 'Read Curve pool parameters',
     week: 7,
     category: 'Activity',
-    defiConcept: 'stableSwap',
-    learningOutcome: 'Learn Curve StableSwap mechanics',
+    defiConcept: 'cryptoSwap',
+    learningOutcome: 'Learn Curve CryptoSwap V2 mechanics',
     contentFile: 'curve_explorer',
   },
   {

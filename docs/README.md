@@ -56,7 +56,7 @@ vestedBTC composability with external DeFi protocols.
 
 | Document | Purpose |
 |----------|---------|
-| [Curve Liquidity Pool](./defi/Curve_Liquidity_Pool.md) | vWBTC/WBTC StableSwap pool specification |
+| [Curve Liquidity Pool](./defi/Curve_Liquidity_Pool.md) | vWBTC/WBTC CryptoSwap V2 pool specification |
 | [Leveraged Lending Protocol](./defi/Leveraged_Lending_Protocol.md) | CDP-based lending architecture |
 
 ### SDK

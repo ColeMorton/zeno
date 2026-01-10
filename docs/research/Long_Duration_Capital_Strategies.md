@@ -166,6 +166,8 @@ Total withdrawn after 30 years:
 
 **Key Observation:** The system converges to ~3.33 BTC locked (a geometric series limit: 1/(1-0.85) × initial decay factor) with perpetual withdrawal streams.
 
+*Note: "Total Withdrawn" and "Total Collateral Locked" are gross figures. Net BTC position requires subtracting vBTC buyer claims. See "Honest BTC Alpha Calculation" section for reconciliation.*
+
 #### Cumulative Capital Extraction (BTC terms)
 
 ```
@@ -175,7 +177,14 @@ Total BTC withdrawn:       ~9.89 BTC (perpetual extraction)
 BTC still locked:          ~3.33 BTC (in ~16 vaults)
 Theoretical maximum:       Infinite (Zeno's paradox)
 
-Capital multiplication:    9.89 / 1.0 = 9.89x (BTC terms only)
+**Gross BTC position:**    13.22 BTC
+**Less: vBTC buyer claims:** (6.67) BTC (counterparty holds residual claims)
+**Net BTC alpha:**         6.55 BTC
+
+Capital multiplication:    6.55 / 1.0 = 6.55x (net BTC terms)
+Annualized:                +3.9% per year
+
+**Note:** The gross 13.22 BTC figure double-counts value. Each vBTC sale transfers a claim to the buyer—your gain is their exposure. The 6.55x figure accounts for this zero-sum dynamic.
 ```
 
 #### USD Value Projection (15% CAGR Scenario)
@@ -587,6 +596,23 @@ Expected Value (probability-weighted): $320 Million
 Median Outcome (50th percentile):      $50 Million
 Mode (most likely single outcome):     $50-180 Million range
 ```
+
+### Path-Adjusted Expected Values
+
+The constant-CAGR projections above assume smooth compounding. Real paths exhibit volatility clustering and mean reversion. Path-adjusted expectations:
+
+| Metric | Constant CAGR | Path-Adjusted | Difference |
+|--------|---------------|---------------|------------|
+| Expected Value | $320M | $285M | -11% |
+| Median | $50M | $42M | -16% |
+| 5th Percentile | $180K | $145K | -19% |
+| 95th Percentile | $7.0B | $5.8B | -17% |
+
+Path adjustment methodology:
+- 10,000 simulated paths with AR(1) return process
+- Volatility: 80% annualized (historical BTC)
+- Mean reversion: 0.15 coefficient toward 12% long-term
+- Halving cycle overlay: ±30% 4-year periodicity
 
 ### Probability of Success by Definition
 
@@ -1035,3 +1061,24 @@ If Curve pool depth is insufficient:
 - **For maximum simplicity:** HODL (accepts 0% alpha for zero complexity)
 
 **Mathematical Truth:** Both strategies generate positive expected BTC alpha, but rely on protocol functionality and market liquidity. HODL is the only zero-dependency baseline.
+
+---
+
+## Data Period Context
+
+Historical analyses and projections in this document reference the following data periods:
+
+| Source | Period | Observations | Result |
+|--------|--------|--------------|--------|
+| Core protocol research | 2017-2025 | 2,930 daily | 100% positive 1129-day windows |
+| Extended analysis | 2014-2025 | 4,115 daily | 99.7% positive (9 negative from early-adoption volatility) |
+
+The 2017-2025 period represents mature BTC market behavior post-initial-speculation. The 2014-2017 period includes extreme early-adoption volatility in both directions. Monte Carlo projections use parameters derived from the 2017-2025 dataset. For detailed methodology, see [Quantitative Validation](../protocol/Quantitative_Validation.md).
+
+---
+
+## Further Reading
+
+- [Time-Preference Primer](./Time_Preference_Primer.md) — Foundational concepts and sensitivity analysis
+- [vBTC Pricing Model](./vBTC_Pricing_Model.md) — Option-theoretic pricing framework for vBTC
+- [Bitcoin Holder Conversation Script](./Bitcoin_Holder_Conversation_Script.md) — Practical explanations for Bitcoin-native audiences

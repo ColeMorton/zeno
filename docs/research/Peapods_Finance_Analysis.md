@@ -282,7 +282,7 @@ vlPEAS represents vote-locked PEAS, enabling:
 
 BTCNFT's existing DeFi integrations:
 
-1. **Curve StableSwap**: vWBTC/WBTC pool (A=100-200)
+1. **Curve CryptoSwap V2**: vWBTC/WBTC pool (A=50-100, non-pegged)
 2. **Leveraged Lending**: vBTC collateral for synthetic positions
 3. **Sablier Streaming**: Convert withdrawals to 30-day linear streams
 
