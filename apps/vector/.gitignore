@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+out/
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment
+.env*.local
+!.env.local.example
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
