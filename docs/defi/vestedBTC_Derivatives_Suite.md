@@ -36,8 +36,8 @@ The vestedBTC Derivatives Suite provides comprehensive financial exposure mechan
 | Long vBTC Price | Capped Bull Vault | vBTC | 1-5x | No |
 | Short vBTC Price | Capped Bear Vault | vBTC | 1-5x | No |
 | Long Volume | Yield Vault (yvBTC) | vBTC | 1x | No |
-| Long Volatility | VarianceVaultLong | vBTC | 1x | No |
-| Short Volatility | VarianceVaultShort | vBTC | 1x | No |
+| Long Volatility | VolatilityPool (Long) | vBTC | 1x | No |
+| Short Volatility | VolatilityPool (Short) | vBTC | 1x | No |
 
 **Single asset. No liquidations. Full feature set.**
 
@@ -250,122 +250,132 @@ User's Vault NFT (1 BTC collateral)
 
 ---
 
-## Part III: Volatility Exposure - Variance Swap
+## Part III: Volatility Exposure - Perpetual Volatility Pool
 
 ### Concept
 
-A variance swap is a derivative where one party pays fixed (strike variance) and receives floating (realized variance), while the counterparty takes the opposite position.
+The Volatility Pool provides perpetual exposure to vBTC price variance through a socialized pool model. Instead of bilateral matching, users deposit to long or short volatility pools, and variance P&L continuously transfers between pools based on realized variance vs strike.
 
 ```
-Settlement = Notional × (Realized_Variance - Strike_Variance)
-
-Long Volatility: Profits when Realized > Strike (price movement)
-Short Volatility: Profits when Realized < Strike (price stability)
+Long Volatility: Profits when Realized Variance > Strike (price movement)
+Short Volatility: Profits when Realized Variance < Strike (price stability)
 ```
 
 ### Architecture
 
 ```
 contracts/issuer/src/volatility/
-├── VarianceSwap.sol              # Core variance swap mechanics
-├── VarianceOracle.sol            # Realized variance calculator
-├── VarianceVaultLong.sol         # ERC-4626 vault for long vol exposure
-├── VarianceVaultShort.sol        # ERC-4626 vault for short vol exposure
-├── VarianceSwapRouter.sol        # Auto-matching for vault deposits
+├── VolatilityPool.sol            # Unified pool for long/short vol
+├── VarianceOracle.sol            # Price observations & variance calculation
 └── interfaces/
-    ├── IVarianceSwap.sol
-    ├── IVarianceOracle.sol
-    └── IVarianceVault.sol
+    ├── IVolatilityPool.sol
+    └── IVarianceOracle.sol
 ```
 
-### Standard Observation Periods
+### Design Principles
 
-| Period | Use Case | Observations |
-|--------|----------|--------------|
-| 7 days | Short-term vol trading | 7 daily |
-| 30 days | Standard vol exposure | 30 daily |
-| 90 days | Quarterly hedging | 90 daily |
+| Traditional Variance Swap | Volatility Pool |
+|--------------------------|-----------------|
+| Epoch-based (7/30/90 days) | Perpetual (enter/exit anytime) |
+| Bilateral matching required | Socialized pools (no matching) |
+| Complex collateral requirements | Symmetric deposits |
+| 5+ contracts | 2 contracts |
+
+### Pool Mechanics
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    VOLATILITY POOL                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────────────┐        ┌─────────────────────┐        │
+│  │   LONG VOL POOL     │        │   SHORT VOL POOL    │        │
+│  │                     │        │                     │        │
+│  │ Deposits → Shares   │  P&L   │ Deposits → Shares   │        │
+│  │ Users: Alice, Bob   │◄──────►│ Users: Charlie      │        │
+│  │                     │        │                     │        │
+│  └──────────┬──────────┘        └──────────┬──────────┘        │
+│             │                              │                    │
+│             └──────────────┬───────────────┘                    │
+│                            │                                    │
+│               ┌────────────┴────────────┐                       │
+│               │      SETTLEMENT         │                       │
+│               │ variance > strike: L→S  │                       │
+│               │ variance < strike: S→L  │                       │
+│               │ (daily permissionless)  │                       │
+│               └─────────────────────────┘                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Settlement Logic
+
+Settlement transfers value between pools based on variance:
+
+```solidity
+function settle() external {
+    // 1. Get rolling realized variance from oracle
+    uint256 realizedVariance = oracle.getRollingVariance(7 days);
+
+    // 2. Calculate variance delta from strike
+    int256 varianceDelta = realizedVariance - strikeVariance;
+
+    // 3. Transfer proportional to matched amount
+    uint256 matchedAmount = min(longPool, shortPool);
+    int256 pnl = matchedAmount × varianceDelta × timeFraction;
+
+    // 4. If positive: short→long, if negative: long→short
+    transfer(pnl);
+}
+```
 
 ### Variance Calculation
 
-**Realized Variance (Industry Standard for Variance Swaps):**
+Rolling variance uses industry-standard zero-mean convention:
 
 ```
-Step 1: Collect Price Observations
-├─ Observation frequency: Daily (86400 seconds)
-├─ Price ratio: P(t) = vBTC_price / wBTC_price
+Realized Variance = (252 / N) × Σ r(t)²
 
-Step 2: Calculate Log Returns
-├─ r(t) = ln(P(t) / P(t-1))
-
-Step 3: Calculate Realized Variance
-├─ Realized Variance = (252 / N) × Σ r(t)²
-├─ Annualized using 252 trading days
-
-Step 4: Settlement
-├─ PnL = Notional × (Realized_Variance - Strike_Variance)
-├─ If PnL > 0: Long receives from Short
-├─ If PnL < 0: Short receives from Long
+Where:
+├─ r(t) = ln(P(t) / P(t-1)) (log return)
+├─ N = observations in rolling window (default: 7 days)
+├─ 252 = trading days per year (annualization)
 ```
 
-**Note:** This formula assumes zero mean return, which is standard convention for variance swaps over short horizons (7-90 days). This differs from statistical sample variance `Σ(r - r̄)² / (N-1)` which centers on observed mean.
-
-The zero-mean convention:
-1. Avoids look-ahead bias in mean estimation
-2. Simplifies hedging (delta-neutral positions)
-3. Matches market standard for variance swap settlement
-
-### Collateral Requirements
-
-Full upfront collateralization eliminates liquidation risk. **Collateral: vBTC only.**
-
-```solidity
-MAX_VARIANCE = 1e18  // 100% annualized variance cap
-
-// Long party: max loss = notional × strike (if realized = 0)
-longCollateralRequired = notional × strikeVariance
-
-// Short party: max loss = notional × (maxVariance - strike)
-shortCollateralRequired = notional × (MAX_VARIANCE - strikeVariance)
-
-// All collateral and settlement in vBTC
-collateralToken = vBTC
-settlementToken = vBTC
-```
-
-### Settlement Examples (30-day, 1 vBTC notional, 4% strike)
-
-| Scenario | Realized Variance | PnL | Winner |
-|----------|-------------------|-----|--------|
-| High Vol | 8% | +0.04 vBTC | Long |
-| Low Vol | 2% | -0.02 vBTC | Short |
-| At Strike | 4% | 0 | Even |
-
-### ERC-4626 Vault Wrapper Flow
+### User Flow
 
 ```
-User deposits to VarianceVaultLong:
-├─ Vault accumulates deposits
-├─ Router matches with VarianceVaultShort deposits
-├─ Creates underlying VarianceSwap positions
-├─ User receives vault shares
-│
-On settlement:
-├─ Swap settles based on realized variance
-├─ Profits/losses flow to respective vaults
-├─ Exchange rate adjusts accordingly
-└─ Users can withdraw at any time after settlement
+Deposit:
+├─ User calls depositLong(assets) or depositShort(assets)
+├─ Receives proportional pool shares
+├─ No waiting for epoch or matching
+
+Settlement:
+├─ Anyone can call settle() after interval (1 day default)
+├─ Variance P&L transfers between pools
+├─ Share exchange rates adjust automatically
+
+Withdraw:
+├─ User calls withdrawLong(shares) or withdrawShort(shares)
+├─ Receives proportional assets at current exchange rate
+├─ Anytime withdrawal (no epoch lock)
 ```
 
-### Immutable Parameters
+### Edge Cases
+
+| Scenario | Behavior |
+|----------|----------|
+| One-sided pool | No P&L transfer (matchedAmount = 0) |
+| Pool depletion | Losing side can go to zero (max loss = deposit) |
+| Settlement gap | Next settle() catches up accumulated variance |
+
+### Parameters
 
 | Parameter | Value | Rationale |
 |-----------|-------|-----------|
-| MAX_VARIANCE | 1e18 (100%) | Caps maximum settlement |
-| MIN_OBSERVATION_PERIOD | 7 days | Minimum meaningful period |
-| MAX_OBSERVATION_PERIOD | 365 days | Practical limit |
-| MIN_OBSERVATION_FREQUENCY | 1 hour | Prevents spam |
-| TWAP_PERIOD | 30 minutes | Manipulation resistance |
+| STRIKE_VARIANCE | 4e16 (4%) | Historical average for vBTC |
+| SETTLEMENT_INTERVAL | 1 day | Daily P&L settlement |
+| VARIANCE_WINDOW | 7 days | Rolling observation window |
+| MIN_DEPOSIT | 1e6 (0.01 vBTC) | Spam prevention |
 | ANNUALIZATION_FACTOR | 252 | Standard trading days |
 
 ---
@@ -448,7 +458,7 @@ All derivatives products operate at the **issuer layer** without modifying proto
 | Layer | Contracts | Modifiable |
 |-------|-----------|------------|
 | Protocol | VaultNFT, BtcToken | No (immutable) |
-| Issuer | Bull/Bear Vaults, yvBTC, Variance Vaults | Yes (new deployments) |
+| Issuer | Bull/Bear Vaults, yvBTC, VolatilityPool | Yes (new deployments) |
 
 ---
 
@@ -473,28 +483,28 @@ All derivatives products operate at the **issuer layer** without modifying proto
 | CRV price crash | MEDIUM | Frequent harvesting |
 | Low trading volume | LOW | Accept lower yield |
 
-### Variance Swap Risks (Volatility Exposure)
+### Volatility Pool Risks (Volatility Exposure)
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| Variance cap breach | HIGH | MAX_VARIANCE = 100% cap |
-| Low liquidity (no match) | MEDIUM | Permissionless; cancel if unmatched |
-| Oracle manipulation | MEDIUM | 30-min TWAP; multiple observations |
-| Counterparty default | NONE | Full upfront collateralization |
+| Pool depletion | MEDIUM | Max loss = 100% of deposit; natural cap |
+| One-sided pool | LOW | No P&L transfer if no counterparty; can withdraw anytime |
+| Oracle manipulation | MEDIUM | Rolling 7-day variance; TWAP-based observations |
+| Settlement delay | LOW | Permissionless settlement; MEV incentivized |
 | Liquidation | NONE | No liquidations by design |
 
 ---
 
 ## Part VII: Comparison Summary
 
-| Aspect | Bull/Bear Vault | yvBTC | Variance Swap |
-|--------|-----------------|-------|---------------|
+| Aspect | Bull/Bear Vault | yvBTC | Volatility Pool |
+|--------|-----------------|-------|-----------------|
 | **Exposure** | Price direction | Volume/fees | Price magnitude |
 | **Collateral** | vBTC | vBTC | vBTC |
 | **Leverage** | 1-5x (capped) | 1x | 1x |
 | **Liquidation** | No | No | No |
 | **Active Management** | None | None | None |
-| **Settlement** | End of period | On withdrawal | End of period |
+| **Settlement** | End of period | On withdrawal | Daily (perpetual) |
 | **Oracle Dependency** | Settlement only | Low | Medium |
 
 ---
