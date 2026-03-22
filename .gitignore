@@ -11,8 +11,13 @@ broadcast/
 # Environment variables
 .env
 
-# Claude Code session data
-.claude/
+# Claude Code — track skills, commands, agents; ignore local/generated data
+.claude/settings.local.json
+.claude/worktrees/
+.claude/plans/
+.claude/skills/simulation-results/
+.claude/skills/*-workspace/iteration-*/
+.claude/skills/simulation/data/
 
 # Node.js
 node_modules/
@@ -33,3 +38,6 @@ __pycache__/
 
 
 assets/diamond_hands_matrix
+
+# Solidity workspace (benchmarking/evaluation output)
+solidity-workspace/
