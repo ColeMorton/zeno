@@ -8,10 +8,12 @@ import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
 import {VaultMath} from "../../src/libraries/VaultMath.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
+import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
 
 contract BoundaryConditionsTest is Test {
     VaultNFT public vault;
     BtcToken public btcToken;
+    ExpeditionCredits public xbtc;
     MockTreasure public treasure;
     MockWBTC public wbtc;
 
@@ -31,9 +33,10 @@ contract BoundaryConditionsTest is Test {
         treasure = new MockTreasure();
         wbtc = new MockWBTC();
 
-        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
+        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
         btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
-        vault = new VaultNFT(address(btcToken), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
+        xbtc = new ExpeditionCredits(vaultAddr, address(this));
+        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
 
         wbtc.mint(alice, 100 * ONE_BTC);
         treasure.mintBatch(alice, 10);

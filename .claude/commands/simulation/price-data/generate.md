@@ -1,0 +1,1 @@
+Run the simulation skill: generate a GBM price series using `scripts/generate_price_series.py`. Follow the "Command: Generate Price Series" workflow in the simulation skill (run Python script, copy CSV and validation JSON to canonical data location).

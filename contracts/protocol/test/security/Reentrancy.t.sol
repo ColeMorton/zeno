@@ -7,11 +7,13 @@ import {BtcToken} from "../../src/BtcToken.sol";
 import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
+import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
 import {MaliciousDelegate} from "../mocks/MaliciousDelegate.sol";
 
 contract ReentrancyTest is Test {
     VaultNFT public vault;
     BtcToken public btcToken;
+    ExpeditionCredits public xbtc;
     MockTreasure public treasure;
     MockWBTC public wbtc;
     MaliciousDelegate public maliciousDelegate;
@@ -32,9 +34,10 @@ contract ReentrancyTest is Test {
         treasure = new MockTreasure();
         wbtc = new MockWBTC();
 
-        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
+        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
         btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
-        vault = new VaultNFT(address(btcToken), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
+        xbtc = new ExpeditionCredits(vaultAddr, address(this));
+        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
 
         // Fund alice
         wbtc.mint(alice, 100 * ONE_BTC);

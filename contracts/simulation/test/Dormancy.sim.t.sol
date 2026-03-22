@@ -5,6 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {SimulationOrchestrator, MockWBTC} from "../src/SimulationOrchestrator.sol";
 import {VaultNFT} from "@protocol/VaultNFT.sol";
 import {IVaultNFT} from "@protocol/interfaces/IVaultNFT.sol";
+import {IVaultNFTDormancy} from "@protocol/interfaces/IVaultNFTDormancy.sol";
 import {BtcToken} from "@protocol/BtcToken.sol";
 import {TreasureNFT} from "@issuer/TreasureNFT.sol";
 import {VaultMath} from "@protocol/libraries/VaultMath.sol";
@@ -83,7 +84,7 @@ contract DormancyTest is Test {
         assertEq(vault.ownerOf(vaultId), alice);
 
         // Not dormant yet - hasn't been inactive long enough
-        (bool eligible, IVaultNFT.DormancyState state) = vault.isDormantEligible(vaultId);
+        (bool eligible, IVaultNFTDormancy.DormancyState state) = vault.isDormantEligible(vaultId);
         assertFalse(eligible, "Not dormant eligible yet");
 
         // Warp past dormancy threshold (additional 1129 days of inactivity)
@@ -93,7 +94,7 @@ contract DormancyTest is Test {
         // Now dormant eligible
         (eligible, state) = vault.isDormantEligible(vaultId);
         assertTrue(eligible, "Should be dormant eligible");
-        assertEq(uint8(state), uint8(IVaultNFT.DormancyState.ACTIVE), "State should be ACTIVE (not poked)");
+        assertEq(uint8(state), uint8(IVaultNFTDormancy.DormancyState.ACTIVE), "State should be ACTIVE (not poked)");
 
         // Charlie (or anyone) can poke
         vm.prank(charlie);
@@ -102,11 +103,11 @@ contract DormancyTest is Test {
         // Check state is now POKE_PENDING
         (eligible, state) = vault.isDormantEligible(vaultId);
         assertTrue(eligible, "Still eligible");
-        assertEq(uint8(state), uint8(IVaultNFT.DormancyState.POKE_PENDING), "State should be POKE_PENDING");
+        assertEq(uint8(state), uint8(IVaultNFTDormancy.DormancyState.POKE_PENDING), "State should be POKE_PENDING");
 
         // Cannot claim yet - grace period not expired
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotClaimable.selector, vaultId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.NotClaimable.selector, vaultId));
         vault.claimDormantCollateral(vaultId);
 
         // Warp past grace period
@@ -115,7 +116,7 @@ contract DormancyTest is Test {
         // Now claimable
         (eligible, state) = vault.isDormantEligible(vaultId);
         assertTrue(eligible, "Still eligible");
-        assertEq(uint8(state), uint8(IVaultNFT.DormancyState.CLAIMABLE), "State should be CLAIMABLE");
+        assertEq(uint8(state), uint8(IVaultNFTDormancy.DormancyState.CLAIMABLE), "State should be CLAIMABLE");
 
         // Bob (vBTC holder) can claim
         uint256 bobWbtcBefore = wbtc.balanceOf(bob);
@@ -201,8 +202,8 @@ contract DormancyTest is Test {
         vault.pokeDormant(vaultId);
 
         // Verify POKE_PENDING state
-        (, IVaultNFT.DormancyState state) = vault.isDormantEligible(vaultId);
-        assertEq(uint8(state), uint8(IVaultNFT.DormancyState.POKE_PENDING));
+        (, IVaultNFTDormancy.DormancyState state) = vault.isDormantEligible(vaultId);
+        assertEq(uint8(state), uint8(IVaultNFTDormancy.DormancyState.POKE_PENDING));
 
         // Alice proves activity during grace period
         vm.prank(alice);
@@ -217,7 +218,7 @@ contract DormancyTest is Test {
 
         // Not claimable anymore
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotClaimable.selector, vaultId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.NotClaimable.selector, vaultId));
         vault.claimDormantCollateral(vaultId);
     }
 
@@ -280,7 +281,7 @@ contract DormancyTest is Test {
 
         // Cannot poke
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotDormantEligible.selector, vaultId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.NotDormantEligible.selector, vaultId));
         vault.pokeDormant(vaultId);
     }
 
@@ -308,7 +309,7 @@ contract DormancyTest is Test {
 
         // Second poke fails
         vm.prank(charlie);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.AlreadyPoked.selector, vaultId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.AlreadyPoked.selector, vaultId));
         vault.pokeDormant(vaultId);
     }
 

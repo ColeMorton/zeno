@@ -1,0 +1,1 @@
+Run the simulation skill: generate and validate the price series using `scripts/generate_price_series.py` (validation stats are produced alongside generation). Present the statistics from `price_validation.json` in the canonical data location.

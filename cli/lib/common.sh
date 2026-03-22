@@ -266,3 +266,81 @@ print_vault_summary() {
     echo ""
     echo "View vault status: ./btcnft status $token_id"
 }
+
+# Require a contract address env var to be set (fail-fast)
+# Usage: require_contract_set <VAR_NAME>
+require_contract_set() {
+    local var_name="$1"
+    if [[ -z "${!var_name}" ]]; then
+        echo "Error: $var_name not set in environment file" >&2
+        echo "Add $var_name=0x... to your .env file" >&2
+        exit 1
+    fi
+}
+
+# Approve ERC-20 token spending
+# Usage: approve_erc20 <token_address> <spender_address> <amount>
+approve_erc20() {
+    local token="$1"
+    local spender="$2"
+    local amount="$3"
+
+    echo "Approving token spend..."
+    cast send "$token" "approve(address,uint256)" "$spender" "$amount" \
+        --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" > /dev/null
+}
+
+# Resolve token alias to address from env
+# Usage: resolve_token_address <"wbtc"|"vbtc"|"cbbtc">
+resolve_token_address() {
+    local alias="$1"
+    case "$alias" in
+        wbtc|WBTC)   echo "$WBTC" ;;
+        vbtc|VBTC)   echo "$BTC_TOKEN" ;;
+        cbbtc|CBBTC) echo "$CBBTC" ;;
+        0x*)         echo "$alias" ;;
+        *)
+            echo "Error: Unknown token '$alias'. Use wbtc, vbtc, cbbtc, or an address" >&2
+            exit 1
+            ;;
+    esac
+}
+
+# Check if hybrid vault exists
+require_hybrid_vault_exists() {
+    local token_id="$1"
+    require_contract_set "HYBRID_VAULT"
+
+    local owner
+    if ! owner=$(cast call "$HYBRID_VAULT" "ownerOf(uint256)(address)" "$token_id" --rpc-url "$RPC_URL" 2>&1); then
+        echo "Error: Hybrid vault $token_id does not exist" >&2
+        exit 1
+    fi
+}
+
+# Check if hybrid vault is vested
+require_hybrid_vested() {
+    local token_id="$1"
+    require_contract_set "HYBRID_VAULT"
+
+    local is_vested
+    is_vested=$(cast_call "$HYBRID_VAULT" "isVested(uint256)(bool)" "$token_id")
+
+    if [[ "$is_vested" != "true" ]]; then
+        echo "Error: Hybrid vault $token_id is not yet vested" >&2
+
+        local mint_ts
+        mint_ts=$(cast_call "$HYBRID_VAULT" "mintTimestamp(uint256)(uint256)" "$token_id")
+        local current_ts
+        current_ts=$(cast block latest --rpc-url "$RPC_URL" --json | jq -r '.timestamp')
+        current_ts=$((16#${current_ts:2}))
+
+        local elapsed=$((current_ts - mint_ts))
+        local remaining=$((VESTING_SECONDS - elapsed))
+
+        if [[ $remaining -gt 0 ]]; then
+            echo "Vesting completes in $(format_days $remaining)" >&2
+        fi
+        exit 1
+    fi
+}

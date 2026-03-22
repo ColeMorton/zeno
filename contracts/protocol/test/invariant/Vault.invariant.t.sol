@@ -6,11 +6,13 @@ import {VaultNFT} from "../../src/VaultNFT.sol";
 import {BtcToken} from "../../src/BtcToken.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
+import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
 import {VaultHandler} from "./handlers/VaultHandler.sol";
 
 contract VaultInvariantTest is Test {
     VaultNFT public vault;
     BtcToken public btcToken;
+    ExpeditionCredits public xbtc;
     MockTreasure public treasure;
     MockWBTC public wbtc;
     VaultHandler public handler;
@@ -29,9 +31,10 @@ contract VaultInvariantTest is Test {
         treasure = new MockTreasure();
         wbtc = new MockWBTC();
 
-        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
+        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
         btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
-        vault = new VaultNFT(address(btcToken), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
+        xbtc = new ExpeditionCredits(vaultAddr, address(this));
+        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
 
         // Fund actors
         address[] memory actors = new address[](3);

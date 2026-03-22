@@ -1,0 +1,44 @@
+{
+  "skill_name": "simulation",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Add a new Whale archetype to the swarm simulation — 5 agents that deposit 10x normal capital and hold through vesting like Diamond Hands but with higher leverage perp positions",
+      "expected_output": "Modifications to AgentLib.sol (new enum, decision logic, config gen), SwarmOrchestrator.sol (agent distribution), HtmlReport.sol (colors/labels), and docs/Swarm_Simulation.md",
+      "files": [],
+      "assertions": [
+        {"text": "Identifies all 4 required files: AgentLib.sol, SwarmOrchestrator.sol, HtmlReport.sol, docs/Swarm_Simulation.md", "type": "file_coverage"},
+        {"text": "Adds WHALE to the Archetype enum in AgentLib.sol", "type": "code_correctness"},
+        {"text": "Adjusts agent distribution to accommodate 5 Whale agents", "type": "code_correctness"},
+        {"text": "Provides deterministic config generation with 10x capital multiplier", "type": "code_correctness"},
+        {"text": "Implements decide() branch with Diamond Hands hold behavior + higher leverage perp logic", "type": "code_correctness"}
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "The simulation is failing at tick 800 with a vault solvency invariant violation — help me debug it",
+      "expected_output": "Systematic debugging approach with ghost variable tracing, diagnostic logging, root cause analysis, and reproduction commands",
+      "files": [],
+      "assertions": [
+        {"text": "Identifies invariant check location (_checkInvariants in test or SwarmInvariants.sol)", "type": "code_reference"},
+        {"text": "Traces ghost variables (ghost_totalDeposited, ghost_totalWithdrawn, ghost_totalForfeited, ghost_totalMatchClaimed)", "type": "debugging_approach"},
+        {"text": "Suggests adding diagnostic logging around tick 800", "type": "debugging_approach"},
+        {"text": "Identifies likely root causes (match pool accounting, early redemption, withdrawal edge cases)", "type": "root_cause_analysis"},
+        {"text": "Provides Foundry reproduction command", "type": "actionability"}
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Add a Sharpe ratio metric to the HTML report dashboard that shows risk-adjusted returns per archetype",
+      "expected_output": "Modifications to SwarmOrchestrator.sol, HtmlReport.sol with correct Sharpe formula using netWorthAt data",
+      "files": [],
+      "assertions": [
+        {"text": "Uses correct Sharpe ratio formula: (mean return - risk-free) / std deviation", "type": "code_correctness"},
+        {"text": "Calculates per-archetype, grouping agents", "type": "code_correctness"},
+        {"text": "Derives returns from existing netWorthAt snapshot data", "type": "efficiency"},
+        {"text": "Modifies HtmlReport.sol to add new visualization", "type": "code_correctness"},
+        {"text": "Handles fixed-point arithmetic correctly (18-decimal precision)", "type": "code_correctness"}
+      ]
+    }
+  ]
+}

@@ -26,6 +26,8 @@ organicPower = vBTC + unsplitVaultCollateral + sourceRegistry.getAggregatedPower
 
 ### Founder Transition
 
+The 1129-day transitional period corresponds to the protocol's [Bootstrap phase](../../.claude/skills/btcnft/references/bootstrap.md) — the period before any vault has completed vesting and no vestedBTC exists.
+
 The founder receives **two sources of voting power**:
 
 1. **Transitional Power**: Decays linearly from 100% to 0% of total protocol BTC over 1129 days

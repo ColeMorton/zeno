@@ -228,6 +228,8 @@ Where:
 
 ## 5. Liquidity Bootstrapping
 
+> **Note:** Pool seeding requires vestedBTC, which only exists after the protocol's [Bootstrap phase](../../.claude/skills/btcnft/references/bootstrap.md) concludes (day 1129+). No Curve pool activity is possible during the first 1129 days.
+
 ### Phase 1: Issuer Seeding
 
 | Requirement | Value |

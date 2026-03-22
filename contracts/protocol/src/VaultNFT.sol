@@ -7,6 +7,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IVaultNFT} from "./interfaces/IVaultNFT.sol";
 import {IBtcToken} from "./interfaces/IBtcToken.sol";
+import {IExpeditionCredits} from "./interfaces/IExpeditionCredits.sol";
 import {VaultMath} from "./libraries/VaultMath.sol";
 
 contract VaultNFT is ERC721, IVaultNFT {
@@ -20,6 +21,7 @@ contract VaultNFT is ERC721, IVaultNFT {
     uint256 private _nextTokenId;
 
     IBtcToken public immutable btcToken;
+    IExpeditionCredits public immutable expeditionCredits;
     address public immutable collateralToken;
 
     mapping(uint256 => address) private _treasureContract;
@@ -49,13 +51,16 @@ contract VaultNFT is ERC721, IVaultNFT {
 
     constructor(
         address _btcToken,
+        address _expeditionCredits,
         address _collateralToken,
         string memory _name,
         string memory _symbol
     ) ERC721(_name, _symbol) {
         if (_btcToken == address(0)) revert ZeroAddress();
+        if (_expeditionCredits == address(0)) revert ZeroAddress();
         if (_collateralToken == address(0)) revert ZeroAddress();
         btcToken = IBtcToken(_btcToken);
+        expeditionCredits = IExpeditionCredits(_expeditionCredits);
         collateralToken = _collateralToken;
     }
 
@@ -83,6 +88,10 @@ contract VaultNFT is ERC721, IVaultNFT {
         _lastActivity[tokenId] = block.timestamp;
 
         totalActiveCollateral += collateralAmount_;
+
+        if (block.timestamp <= expeditionCredits.bootstrapEnd()) {
+            expeditionCredits.mint(msg.sender, collateralAmount_);
+        }
 
         emit VaultMinted(
             tokenId,

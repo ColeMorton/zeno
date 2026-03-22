@@ -4,12 +4,14 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {VaultNFT} from "../../src/VaultNFT.sol";
 import {BtcToken} from "../../src/BtcToken.sol";
+import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
 
 abstract contract BaseTest is Test {
     VaultNFT public vault;
     BtcToken public btcToken;
+    ExpeditionCredits public xbtc;
     MockTreasure public treasure;
     MockWBTC public wbtc;
 
@@ -31,9 +33,11 @@ abstract contract BaseTest is Test {
         treasure = new MockTreasure();
         wbtc = new MockWBTC();
 
-        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
+        // Pre-compute vault address: nonce+2 because BtcToken and ExpeditionCredits deploy first
+        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
         btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
-        vault = new VaultNFT(address(btcToken), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
+        xbtc = new ExpeditionCredits(vaultAddr, address(this));
+        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
 
         _fundUser(alice, 1000);
         _fundUser(bob, 1000);

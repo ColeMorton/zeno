@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Script, console} from "forge-std/Script.sol";
 import {VaultNFT} from "../src/VaultNFT.sol";
 import {BtcToken} from "../src/BtcToken.sol";
+import {ExpeditionCredits} from "../src/ExpeditionCredits.sol";
 import {MockTreasure} from "../test/mocks/MockTreasure.sol";
 import {MockWBTC} from "../test/mocks/MockWBTC.sol";
 import {MockCBBTC} from "../test/mocks/MockCBBTC.sol";
@@ -26,13 +27,17 @@ contract Deploy is Script {
         console.log("MockWBTC deployed at:", address(wbtc));
 
         uint256 nonce = vm.getNonce(deployer);
-        address predictedWbtcVault = vm.computeCreateAddress(deployer, nonce + 1);
+        address predictedWbtcVault = vm.computeCreateAddress(deployer, nonce + 2);
 
         BtcToken btcTokenWbtc = new BtcToken(predictedWbtcVault, "vestedBTC-wBTC", "vWBTC");
         console.log("BtcToken (WBTC) deployed at:", address(btcTokenWbtc));
 
+        ExpeditionCredits xbtcWbtc = new ExpeditionCredits(predictedWbtcVault, deployer);
+        console.log("ExpeditionCredits (WBTC) deployed at:", address(xbtcWbtc));
+
         VaultNFT vaultWbtc = new VaultNFT(
             address(btcTokenWbtc),
+            address(xbtcWbtc),
             address(wbtc),
             "Vault NFT-wBTC",
             "VAULT-W"
@@ -49,13 +54,17 @@ contract Deploy is Script {
         console.log("MockCBBTC deployed at:", address(cbbtc));
 
         nonce = vm.getNonce(deployer);
-        address predictedCbbtcVault = vm.computeCreateAddress(deployer, nonce + 1);
+        address predictedCbbtcVault = vm.computeCreateAddress(deployer, nonce + 2);
 
         BtcToken btcTokenCbbtc = new BtcToken(predictedCbbtcVault, "vestedBTC-cbBTC", "vcbBTC");
         console.log("BtcToken (cbBTC) deployed at:", address(btcTokenCbbtc));
 
+        ExpeditionCredits xbtcCbbtc = new ExpeditionCredits(predictedCbbtcVault, deployer);
+        console.log("ExpeditionCredits (cbBTC) deployed at:", address(xbtcCbbtc));
+
         VaultNFT vaultCbbtc = new VaultNFT(
             address(btcTokenCbbtc),
+            address(xbtcCbbtc),
             address(cbbtc),
             "Vault NFT-cbBTC",
             "VAULT-C"
@@ -77,9 +86,11 @@ contract Deploy is Script {
         console.log("TREASURE:", address(treasure));
         console.log("WBTC:", address(wbtc));
         console.log("BTC_TOKEN_WBTC:", address(btcTokenWbtc));
+        console.log("XBTC_WBTC:", address(xbtcWbtc));
         console.log("VAULT_WBTC:", address(vaultWbtc));
         console.log("CBBTC:", address(cbbtc));
         console.log("BTC_TOKEN_CBBTC:", address(btcTokenCbbtc));
+        console.log("XBTC_CBBTC:", address(xbtcCbbtc));
         console.log("VAULT_CBBTC:", address(vaultCbbtc));
     }
 }

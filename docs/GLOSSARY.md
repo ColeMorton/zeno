@@ -1,8 +1,8 @@
 # BTCNFT Protocol Glossary
 
-> **Version:** 1.7
+> **Version:** 1.8
 > **Status:** Final
-> **Last Updated:** 2026-01-03
+> **Last Updated:** 2026-03-22
 
 Standardized terminology for BTCNFT Protocol documentation.
 
@@ -54,6 +54,28 @@ Each collateral type has its own vestedBTC token to maintain risk isolation:
 
 **Note:** Each variant has independent pricing and risk profile based on its underlying collateral's custody model.
 
+### Expedition Credits (xBTC)
+
+| Attribute | Value |
+|-----------|-------|
+| Standard | ERC-20 (Fungible) |
+| Decimals | 8 (matches WBTC/vBTC) |
+| Backing | None (utility token) |
+
+**Also known as:** ExpeditionCredits (contract name)
+
+Bootstrap-phase minting reward token. Minted 1:1 with collateral when creating single-collateral vaults during Bootstrap (days 0-1128). Enables DeFi participation before vestedBTC exists.
+
+**Key Properties:**
+- Minted automatically at vault creation, amount = collateral deposited
+- Fixed supply per mint (no inflation, no decay)
+- Ecosystem-scoped: transfers restricted to whitelisted protocol contracts and EOA wallets
+- Not minted for hybrid vaults
+- Kept on early redemption (no clawback)
+- Post-Bootstrap: participation history unlocks DeFi Pioneer achievements
+
+**Lifecycle:** Minting stops after Bootstrap phase ends (day 1129). Existing tokens remain valid.
+
 ### Hybrid Vault NFT (Protocol Layer)
 
 | Attribute | Value |
@@ -90,6 +112,18 @@ Issuer-layer wrapper that adds Curve LP integration, dynamic ratio formulas, and
 - Self-calibrating slippage signal
 
 **See:** [Issuer Hybrid Vault Specification](issuer/Hybrid_Vault_Specification.md)
+
+---
+
+## Protocol Phases
+
+### Bootstrap
+
+| Value | Description |
+|-------|-------------|
+| Days 0–1128 | First 1129 days of protocol existence |
+
+The period from protocol deployment until the first vaults complete vesting. No vestedBTC circulates, governance is founder-led via Transitional Voting Power, and the match pool accumulates from early redeemer forfeitures. Ends when first vaults reach day 1129, unlocking vestedBTC minting, withdrawals, match claims, and delegation.
 
 ---
 
