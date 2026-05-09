@@ -33,12 +33,13 @@ contract SwarmSimulationTest is Test {
     }
 
     function setUp() public {
+        uint256 seed = vm.envOr("SIMULATION_SEED", uint256(42));
         orchestrator = new SwarmOrchestrator();
         orchestrator.setVm(vm);
         orchestrator.deployProtocol();
         orchestrator.deployIssuer("Swarm");
         orchestrator.deployDeFiStack();
-        orchestrator.initializeAgents(42);
+        orchestrator.initializeAgents(seed);
 
         (VaultNFT vault, BtcToken btcToken, MockWBTC wbtc) = orchestrator.getProtocol();
         _vault = vault;
@@ -50,17 +51,15 @@ contract SwarmSimulationTest is Test {
     /// @dev Requires reports/price_series.csv to exist (generate via scripts/generate_price_series.py)
     function test_swarm() public {
         uint256 weeks_ = _simulationWeeks();
+        uint256 seed = vm.envOr("SIMULATION_SEED", uint256(42));
         _loadPriceSeries();
 
         console.log("=== SWARM SIMULATION START ===");
-        console.log("Agents: 100 | Ticks: %d | Seed: 42", weeks_);
+        console.log("Agents: 100 | Ticks: %d | Seed: %d", weeks_, seed);
 
         for (uint256 tick = 0; tick < weeks_; tick++) {
             orchestrator.executeTick();
-
-            if (tick > 0 && tick % INVARIANT_CHECK_INTERVAL == 0) {
-                _checkInvariants(tick);
-            }
+            _checkInvariants(tick);
 
             if (tick % 100 == 0) {
                 _logProgress(tick);
@@ -78,32 +77,60 @@ contract SwarmSimulationTest is Test {
         _loadPriceSeries();
         for (uint256 tick = 0; tick < 20; tick++) {
             orchestrator.executeTick();
+            _checkInvariants(tick);
         }
-        _checkInvariants(20);
         _exportData();
     }
 
     // ==================== Invariant Checks ====================
 
     function _checkInvariants(uint256 tick) internal {
-        uint256 vaultBalance = _wbtc.balanceOf(address(_vault));
-        uint256 matchPool = _vault.matchPool();
-        assertTrue(vaultBalance >= matchPool, string.concat("Tick ", vm.toString(tick), ": vault balance < match pool"));
+        // Per-tick ratio invariants: must stay within [0.50, 1.00] once pool is initialized
+        _checkRatioInvariants(tick);
 
-        (bool perpValid,) = SwarmInvariants.checkPerpVaultSolvency(
-            IPerpetualVault(address(orchestrator.perpVault())),
-            IERC20(address(_btcToken)),
-            orchestrator.getAllPerpPositionIds()
-        );
-        if (!perpValid) {
-            console.log("WARNING Tick %d: perp vault insolvent", tick);
+        // Full invariant suite runs every 50 ticks
+        if (tick > 0 && tick % INVARIANT_CHECK_INTERVAL == 0) {
+            uint256 vaultBalance = _wbtc.balanceOf(address(_vault));
+            uint256 matchPool = _vault.matchPool();
+            assertTrue(vaultBalance >= matchPool, string.concat("Tick ", vm.toString(tick), ": vault balance < match pool"));
+
+            (bool perpValid,) = SwarmInvariants.checkPerpVaultSolvency(
+                IPerpetualVault(address(orchestrator.perpVault())),
+                IERC20(address(_btcToken)),
+                orchestrator.getAllPerpPositionIds()
+            );
+            if (!perpValid) {
+                console.log("WARNING Tick %d: perp vault insolvent", tick);
+            }
+
+            (bool volValid,) = SwarmInvariants.checkVolPoolSolvency(
+                IVolatilityPool(address(orchestrator.volPool())),
+                IERC20(address(_btcToken))
+            );
+            assertTrue(volValid, string.concat("Tick ", vm.toString(tick), ": vol pool insolvent"));
         }
+    }
 
-        (bool volValid,) = SwarmInvariants.checkVolPoolSolvency(
-            IVolatilityPool(address(orchestrator.volPool())),
-            IERC20(address(_btcToken))
+    /// @notice Per-tick vBTC ratio invariant checks
+    /// @dev Runs every tick once the curve pool is initialized (ratio-sensitive phase)
+    function _checkRatioInvariants(uint256 tick) internal view {
+        if (!orchestrator.curvePool().initialized()) return;
+
+        uint256 vbtcRatio = orchestrator.curvePool().spotPrice();
+        assertTrue(
+            vbtcRatio <= 1.0e18,
+            string.concat(
+                "Tick ", vm.toString(tick),
+                ": Ratio ceiling breached. vbtcRatio=", vm.toString(vbtcRatio)
+            )
         );
-        assertTrue(volValid, string.concat("Tick ", vm.toString(tick), ": vol pool insolvent"));
+        assertTrue(
+            vbtcRatio >= 0.5e18,
+            string.concat(
+                "Tick ", vm.toString(tick),
+                ": Ratio floor breached. vbtcRatio=", vm.toString(vbtcRatio)
+            )
+        );
     }
 
     // ==================== Console Analytics ====================
@@ -119,6 +146,8 @@ contract SwarmSimulationTest is Test {
     function _logFinalResults() internal view {
         console.log("Total actions: %d", orchestrator.ghost_totalActions());
         console.log("Failed actions: %d", orchestrator.ghost_totalFailedActions());
+        console.log("Expected failures: %d", orchestrator.ghost_expectedFailures());
+        console.log("Unexpected failures: %d", orchestrator.ghost_unexpectedFailures());
         console.log("Total deposited: %d sats", orchestrator.ghost_totalDeposited());
         console.log("Total withdrawn: %d sats", orchestrator.ghost_totalWithdrawn());
         console.log("Total forfeited: %d sats", orchestrator.ghost_totalForfeited());
@@ -203,6 +232,8 @@ contract SwarmSimulationTest is Test {
                 int8 volBias,
                 uint8 rebalanceFrequency,
                 uint64 initialCap,
+                ,
+                ,
             ) = orchestrator.configs(i);
 
             string memory entry = string.concat(
@@ -226,12 +257,13 @@ contract SwarmSimulationTest is Test {
 
     /// @notice Write simulation_summary.json: ghost vars, params, final state
     function _exportSimulationSummary(uint256 tickCount) internal {
+        uint256 seed = vm.envOr("SIMULATION_SEED", uint256(42));
         uint256 finalPrice = tickCount > 0 ? orchestrator.priceSnapshots(tickCount - 1) : 0;
         uint256 finalVbtcRatio = tickCount > 0 ? orchestrator.vbtcRatioSnapshots(tickCount - 1) : 0;
         uint256 finalTvl = tickCount > 0 ? orchestrator.tvlSnapshots(tickCount - 1) : 0;
 
         string memory json = string.concat(
-            '{\n  "seed":42,\n  "agentCount":100,\n  "tickCount":', vm.toString(tickCount),
+            '{\n  "seed":', vm.toString(seed), ',\n  "agentCount":100,\n  "tickCount":', vm.toString(tickCount),
             ',\n  "tickDuration":"1 week",'
         );
 
@@ -244,6 +276,8 @@ contract SwarmSimulationTest is Test {
             '    "totalMatchClaimed":"', vm.toString(orchestrator.ghost_totalMatchClaimed()), '",\n',
             '    "totalActions":"', vm.toString(orchestrator.ghost_totalActions()), '",\n',
             '    "totalFailedActions":"', vm.toString(orchestrator.ghost_totalFailedActions()), '",\n',
+            '    "expectedFailures":"', vm.toString(orchestrator.ghost_expectedFailures()), '",\n',
+            '    "unexpectedFailures":"', vm.toString(orchestrator.ghost_unexpectedFailures()), '",\n',
             '    "totalSwaps":"', vm.toString(orchestrator.ghost_totalSwaps()), '"\n  },'
         );
 
@@ -261,6 +295,7 @@ contract SwarmSimulationTest is Test {
 
     /// @notice Write summary.md: human-readable simulation overview
     function _exportSummaryMarkdown(uint256 tickCount) internal {
+        uint256 seed = vm.envOr("SIMULATION_SEED", uint256(42));
         vm.writeFile("reports/summary.md", "# Simulation Summary\n\n");
 
         // Parameters
@@ -268,7 +303,7 @@ contract SwarmSimulationTest is Test {
             "## Parameters\n\n",
             "| Parameter | Value |\n",
             "|-----------|-------|\n",
-            "| Seed | 42 |\n",
+            "| Seed | ", vm.toString(seed), " |\n",
             "| Agents | 100 |\n",
             "| Ticks | ", vm.toString(tickCount), " |\n",
             "| Tick Duration | 1 week |\n"
@@ -285,6 +320,8 @@ contract SwarmSimulationTest is Test {
             "| Total Match Claimed | ", _formatBtc(orchestrator.ghost_totalMatchClaimed()), " |\n",
             "| Total Actions | ", vm.toString(orchestrator.ghost_totalActions()), " |\n",
             "| Failed Actions | ", vm.toString(orchestrator.ghost_totalFailedActions()), " |\n",
+            "| Expected Failures | ", vm.toString(orchestrator.ghost_expectedFailures()), " |\n",
+            "| Unexpected Failures | ", vm.toString(orchestrator.ghost_unexpectedFailures()), " |\n",
             "| Total Swaps | ", vm.toString(orchestrator.ghost_totalSwaps()), " |"
         ));
 
@@ -323,7 +360,7 @@ contract SwarmSimulationTest is Test {
         }
 
         for (uint256 i = 0; i < 20; i++) {
-            (AgentLib.Archetype archetype,,,,,,uint64 initialCap,) = orchestrator.configs(idx[i]);
+            (AgentLib.Archetype archetype,,,,,,uint64 initialCap,,,) = orchestrator.configs(idx[i]);
             vm.writeLine("reports/summary.md", string.concat(
                 "| ", vm.toString(i + 1),
                 " | #", vm.toString(idx[i]),

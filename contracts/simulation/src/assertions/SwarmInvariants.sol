@@ -78,4 +78,18 @@ library SwarmInvariants {
         }
         return (true, "");
     }
+
+    /// @notice Standalone fuzz invariant: vBTC ratio must stay within [0.5, 1.0]
+    /// @param vbtcRatio The current vBTC/WBTC ratio (18 decimals)
+    /// @return valid True if within bounds
+    /// @return message Error message if out of bounds
+    function invariant_vbtcRatioBounds(uint256 vbtcRatio) internal pure returns (bool valid, string memory message) {
+        if (vbtcRatio > 1.0e18) {
+            return (false, "Ratio ceiling breached");
+        }
+        if (vbtcRatio < 0.5e18) {
+            return (false, "Ratio floor breached");
+        }
+        return (true, "");
+    }
 }
