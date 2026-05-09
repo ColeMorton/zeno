@@ -7,13 +7,14 @@ library AgentLib {
     // ==================== Enums ====================
 
     enum Archetype {
-        DIAMOND_HANDS, // 30 agents: hold to vesting, never early redeem
-        YIELD_FARMER, // 20 agents: separate vBTC, deploy to perps + vol pool
-        MOMENTUM_TRADER, // 15 agents: trend-following perp positions
+        DIAMOND_HANDS, // 25 agents: hold to vesting, never early redeem
+        YIELD_FARMER, // 18 agents: separate vBTC, deploy to perps + vol pool
+        MOMENTUM_TRADER, // 12 agents: trend-following perp positions
         VOLATILITY_PLAYER, // 10 agents: long/short vol pool
         ARBITRAGEUR, // 10 agents: match pool + dormancy hunting
         PANIC_SELLER, // 10 agents: early redeem on drawdowns
-        PREDATOR // 5 agents: poke dormant vaults, claim collateral
+        PREDATOR, // 5 agents: poke dormant vaults, claim collateral
+        SPECULATOR // 10 agents: AMM-only, never mint vaults
     }
 
     enum Action {
@@ -37,6 +38,7 @@ library AgentLib {
         CLAIM_DORMANT,
         SWAP_VBTC_TO_WBTC,
         SWAP_WBTC_TO_VBTC,
+        GRANT_WALLET_DELEGATE,
         ADD_LIQUIDITY
     }
 
@@ -83,6 +85,8 @@ library AgentLib {
         int8 volBias; // -1=short, 0=neutral, 1=long
         uint8 rebalanceFrequency; // ticks between rebalance decisions
         uint64 initialCapitalWbtc; // satoshis (1 den = 10,000 sats = 0.0001 BTC)
+        uint16 mintDelay; // tick before which agent won't mint (staggered bootstrap)
+        uint8 targetVaultCount; // target number of vaults (1-5, archetype-specific)
         Psychology psychology; // per-agent behavioral profile
     }
 
@@ -93,6 +97,14 @@ library AgentLib {
         uint256 shortVolShares;
         bool hasSeparatedVbtc;
         uint256 lastActionTick;
+        // Psychology drift tracking
+        uint256 prevNetWorth; // net worth at previous tick (for drift calculation)
+        // Failure learning
+        Action lastFailedAction; // last action that failed
+        uint8 consecutiveFailures; // count of consecutive failures on same action type
+        uint8 failureSuppressTick; // tick until which the failed action is suppressed
+        // Cooldown tracking
+        uint256[] lastWithdrawTicks; // parallels vaultIds: tick of last withdrawal (0 = never)
     }
 
     struct ActionParams {
@@ -131,10 +143,36 @@ library AgentLib {
         bool dormantClaimable; // a poked vault has passed grace period
         bool hasTreasureNft; // agent owns >= 1 Treasure NFT
         bool[] matchClaimed; // per-vault: already claimed match share
+        uint256 matchPoolShareEstimate; // estimated match share (8 decimals)
+        uint256[] nextWithdrawableTick; // per-vault: tick when withdrawal next allowed (0 = any tick)
+        uint256 withdrawableVaultId; // first vault ID that can be withdrawn now (0 if none)
+
+        // Action-specific eligibility flags (set in _buildPortfolio, read in decide)
+        bool eligibleMintVault;
+        bool eligibleEarlyRedeem;
+        bool eligibleClaimMatch;
+        bool eligiblePokeDormant;
+        bool eligibleGrantWalletDelegate;
+        bool eligibleOpenPerp;
+
+        // Specific target vault IDs for pre-flight validated actions
+        uint256 earlyRedeemVaultId; // first vault eligible for early redeem (0 if none)
+        uint256 matchClaimVaultId; // first vault eligible for match claim (0 if none)
+        uint256 mintBtcTokenVaultId; // first vested vault for mintBtcToken (0 if none)
+
+        // Delegation state
+        uint256 walletTotalDelegatedBps;
+
+        // AMM pool state (for pool-depth-aware swap sizing)
+        bool poolInitialized;
+        uint256 poolWbtcReserve;
+        uint256 poolVbtcReserve;
     }
 
     uint256 private constant PRECISION = 1e18;
     uint256 private constant MIN_COLLATERAL_PERP = 1e6; // 0.01 vBTC
+    uint256 private constant MIN_SWAP = 1e6; // 0.01 BTC — min meaningful AMM swap
+    uint256 private constant MATCH_DUST_THRESHOLD = 1e4; // 0.0001 BTC — skip claims below this
 
     // ==================== Main Decision Function ====================
 
@@ -152,9 +190,14 @@ library AgentLib {
             return ActionParams(Action.NONE, 0, 0, 0);
         }
 
-        // 2a. Prerequisite: mint vault if none (agents keep liquid WBTC based on vaultAllocationPct)
-        if (state.vaultIds.length == 0 && portfolio.wbtcBalance > 0 && portfolio.hasTreasureNft) {
-            uint256 vaultAmount = portfolio.wbtcBalance * uint256(psy.vaultAllocationPct) / 100;
+        // 2a. Prerequisite: mint vault if below target count (staggered by mintDelay)
+        if (
+            state.vaultIds.length < config.targetVaultCount && portfolio.eligibleMintVault
+                && signals.currentTick >= config.mintDelay
+        ) {
+            uint256 totalAllocation = portfolio.wbtcBalance * uint256(psy.vaultAllocationPct) / 100;
+            uint256 remaining = config.targetVaultCount - state.vaultIds.length;
+            uint256 vaultAmount = remaining > 0 ? totalAllocation / remaining : totalAllocation;
             if (vaultAmount > 0) {
                 return ActionParams(Action.MINT_VAULT, vaultAmount, 0, 0);
             }
@@ -162,21 +205,27 @@ library AgentLib {
 
         // 2b. Prerequisite: separate vBTC if vested and agent needs it for DeFi/dormancy
         bool needsVbtc = (psy.strategyMask & (STRAT_PERPS | STRAT_VOL | STRAT_DORMANCY | STRAT_SWAP)) != 0;
-        if (portfolio.hasVestedVault && !state.hasSeparatedVbtc && needsVbtc && state.vaultIds.length > 0) {
-            return ActionParams(Action.MINT_BTC_TOKEN, 0, state.vaultIds[0], 0);
+        if (portfolio.mintBtcTokenVaultId > 0 && !state.hasSeparatedVbtc && needsVbtc) {
+            return ActionParams(Action.MINT_BTC_TOKEN, 0, portfolio.mintBtcTokenVaultId, 0);
         }
 
         // 2c. Seed AMM pool if not yet initialized and agent has both WBTC + vBTC
-        if ((psy.strategyMask & STRAT_SWAP) != 0 && !signals.ammInitialized) {
-            if (portfolio.wbtcBalance > 0 && portfolio.vbtcBalance > 0) {
+        //     OR top up liquidity if pool is shallow (< 1 BTC total reserves)
+        if ((psy.strategyMask & STRAT_SWAP) != 0) {
+            bool needsLiquidity = !signals.ammInitialized;
+            if (signals.ammInitialized) {
+                uint256 totalLiquidity = portfolio.poolWbtcReserve + portfolio.poolVbtcReserve;
+                needsLiquidity = totalLiquidity < 1e8; // 1 BTC threshold
+            }
+            if (needsLiquidity && portfolio.wbtcBalance > 0 && portfolio.vbtcBalance > 0) {
                 return ActionParams(Action.ADD_LIQUIDITY, portfolio.vbtcBalance, 0, 0);
             }
         }
 
         // 3. Panic exit (early redeem on severe drawdown)
         if ((psy.strategyMask & STRAT_EARLY_REDEEM) != 0) {
-            if (signals.priceReturn7d < psy.panicThreshold && state.vaultIds.length > 0) {
-                return ActionParams(Action.EARLY_REDEEM, 0, state.vaultIds[0], 0);
+            if (signals.priceReturn7d < psy.panicThreshold && portfolio.eligibleEarlyRedeem) {
+                return ActionParams(Action.EARLY_REDEEM, 0, portfolio.earlyRedeemVaultId, 0);
             }
         }
 
@@ -208,24 +257,32 @@ library AgentLib {
             if (portfolio.dormantClaimable && portfolio.dormantTargetId > 0 && portfolio.vbtcBalance > 0) {
                 return ActionParams(Action.CLAIM_DORMANT, 0, portfolio.dormantTargetId, 0);
             }
-            if (portfolio.dormantTargetId > 0 && !portfolio.dormantClaimable) {
+            if (portfolio.eligiblePokeDormant) {
                 return ActionParams(Action.POKE_DORMANT, 0, portfolio.dormantTargetId, 0);
             }
         }
 
-        // 6. Withdrawal
-        if (portfolio.hasVestedVault && portfolio.canWithdraw && state.vaultIds.length > 0) {
-            return ActionParams(Action.WITHDRAW, 0, state.vaultIds[0], 0);
+        // 6. Withdrawal — only if a specific vault is past cooldown and has withdrawable amount
+        if (portfolio.withdrawableVaultId > 0) {
+            // Explicit cooldown guard: skip if currentTick < lastWithdrawTick + 4
+            bool cooldownActive = false;
+            for (uint256 i = 0; i < state.vaultIds.length; i++) {
+                if (state.vaultIds[i] == portfolio.withdrawableVaultId) {
+                    if (state.lastWithdrawTicks[i] > 0 && signals.currentTick < state.lastWithdrawTicks[i] + 4) {
+                        cooldownActive = true;
+                    }
+                    break;
+                }
+            }
+            if (!cooldownActive) {
+                return ActionParams(Action.WITHDRAW, 0, portfolio.withdrawableVaultId, 0);
+            }
         }
 
-        // 7. Match claiming (find first unclaimed vested vault)
+        // 7. Match claiming (find first unclaimed vested vault, skip dust-level claims)
         if ((psy.strategyMask & STRAT_MATCH_HUNT) != 0) {
-            if (portfolio.hasVestedVault && signals.matchPoolSize > 0) {
-                for (uint256 i = 0; i < state.vaultIds.length; i++) {
-                    if (portfolio.vaultVested[i] && !portfolio.matchClaimed[i]) {
-                        return ActionParams(Action.CLAIM_MATCH, 0, state.vaultIds[i], 0);
-                    }
-                }
+            if (portfolio.eligibleClaimMatch) {
+                return ActionParams(Action.CLAIM_MATCH, 0, portfolio.matchClaimVaultId, 0);
             }
         }
 
@@ -239,7 +296,7 @@ library AgentLib {
             }
 
             // 8b. Open new perp position
-            if (portfolio.vbtcBalance >= MIN_COLLATERAL_PERP && state.perpPositionIds.length < psy.maxPerpPositions) {
+            if (portfolio.eligibleOpenPerp && state.perpPositionIds.length < psy.maxPerpPositions) {
                 uint256 amount = portfolio.vbtcBalance * uint256(psy.perpAllocationPct) / 100;
                 if (amount < MIN_COLLATERAL_PERP) amount = MIN_COLLATERAL_PERP;
                 if (amount > portfolio.vbtcBalance) amount = portfolio.vbtcBalance;
@@ -324,6 +381,76 @@ library AgentLib {
         return ActionParams(Action.NONE, 0, 0, 0);
     }
 
+    // ==================== Psychology Drift ====================
+
+    /// @notice Mutate psychology based on net worth trajectory (post-action)
+    /// @dev Losers become more panic-prone, winners become more complacent.
+    ///      Bounded to ±2x of original archetype range to prevent crossover.
+    function mutate(
+        Psychology memory psy,
+        uint256 currentNetWorth,
+        uint256 prevNetWorth,
+        int256 originalPanicThreshold,
+        int256 originalExitThreshold
+    ) internal pure returns (Psychology memory) {
+        if (prevNetWorth == 0) return psy;
+
+        // Net worth return as signed 18-decimal fraction
+        int256 nwReturn;
+        if (currentNetWorth >= prevNetWorth) {
+            nwReturn = int256((currentNetWorth - prevNetWorth) * PRECISION / prevNetWorth);
+        } else {
+            nwReturn = -int256((prevNetWorth - currentNetWorth) * PRECISION / prevNetWorth);
+        }
+
+        // Damping factor: 1% adjustment per tick
+        int256 damping = 1e16; // 0.01 in 18 decimals
+        int256 shift = nwReturn * damping / int256(PRECISION);
+
+        // Shift thresholds: losses make them more negative (easier to trigger panic)
+        // Winners push thresholds more negative (harder to trigger panic)
+        psy.panicThreshold += shift;
+        psy.exitThreshold += shift;
+
+        // Bound to 2x of original range (prevent Diamond Hands becoming Panic Sellers)
+        int256 panicFloor = originalPanicThreshold * 2;
+        int256 panicCeiling = originalPanicThreshold / 2;
+        if (psy.panicThreshold < panicFloor) psy.panicThreshold = panicFloor;
+        if (psy.panicThreshold > panicCeiling) psy.panicThreshold = panicCeiling;
+
+        int256 exitFloor = originalExitThreshold * 2;
+        int256 exitCeiling = originalExitThreshold / 2;
+        if (psy.exitThreshold < exitFloor) psy.exitThreshold = exitFloor;
+        if (psy.exitThreshold > exitCeiling) psy.exitThreshold = exitCeiling;
+
+        return psy;
+    }
+
+    /// @notice Record action failure for learning suppression
+    function recordFailure(AgentState memory state, Action failedAction, uint256 currentTick, uint8 rebalanceFrequency)
+        internal
+        pure
+        returns (AgentState memory)
+    {
+        if (failedAction == state.lastFailedAction) {
+            state.consecutiveFailures++;
+            if (state.consecutiveFailures > 3) {
+                // Suppress this action for 2x rebalance intervals
+                state.failureSuppressTick = uint8(currentTick + uint256(rebalanceFrequency) * 2);
+                state.consecutiveFailures = 0;
+            }
+        } else {
+            state.lastFailedAction = failedAction;
+            state.consecutiveFailures = 1;
+        }
+        return state;
+    }
+
+    /// @notice Check if an action is currently suppressed due to repeated failures
+    function isSuppressed(AgentState memory state, Action action, uint256 currentTick) internal pure returns (bool) {
+        return action == state.lastFailedAction && currentTick < uint256(state.failureSuppressTick);
+    }
+
     /// @notice Public swap decision — allows orchestrator to run swap as secondary action
     function decideSwap(
         AgentConfig memory config,
@@ -342,21 +469,23 @@ library AgentLib {
     function generateConfig(uint256 seed, uint256 index) internal pure returns (AgentConfig memory config) {
         uint256 hash = uint256(keccak256(abi.encode(seed, index, "config")));
 
-        // Assign archetype by index range
-        if (index < 30) {
-            config.archetype = Archetype.DIAMOND_HANDS;
-        } else if (index < 50) {
-            config.archetype = Archetype.YIELD_FARMER;
+        // Assign archetype by index range (100 agents total)
+        if (index < 25) {
+            config.archetype = Archetype.DIAMOND_HANDS; // 25
+        } else if (index < 43) {
+            config.archetype = Archetype.YIELD_FARMER; // 18
+        } else if (index < 55) {
+            config.archetype = Archetype.MOMENTUM_TRADER; // 12
         } else if (index < 65) {
-            config.archetype = Archetype.MOMENTUM_TRADER;
+            config.archetype = Archetype.VOLATILITY_PLAYER; // 10
         } else if (index < 75) {
-            config.archetype = Archetype.VOLATILITY_PLAYER;
+            config.archetype = Archetype.ARBITRAGEUR; // 10
         } else if (index < 85) {
-            config.archetype = Archetype.ARBITRAGEUR;
-        } else if (index < 95) {
-            config.archetype = Archetype.PANIC_SELLER;
+            config.archetype = Archetype.PANIC_SELLER; // 10
+        } else if (index < 90) {
+            config.archetype = Archetype.PREDATOR; // 5
         } else {
-            config.archetype = Archetype.PREDATOR;
+            config.archetype = Archetype.SPECULATOR; // 10
         }
 
         // Randomize params within archetype-appropriate ranges
@@ -370,29 +499,49 @@ library AgentLib {
             config.volBias = 0;
             config.patience = uint8(_boundedRandom(hash, "patience", 70, 100));
             config.riskTolerance = uint8(_boundedRandom(hash, "risk", 10, 40));
+            config.mintDelay = uint16(_boundedRandom(hash, "mintDelay", 0, 4)); // Phase I early
+            config.targetVaultCount = uint8(_boundedRandom(hash, "vaultCount", 2, 5)); // multi-vault
         } else if (config.archetype == Archetype.YIELD_FARMER) {
             config.leveragePreference = uint16(_boundedRandom(hash, "lev", 100, 200));
             config.volBias = int8(int256(_boundedRandom(hash, "vol", 0, 2)) - 1);
+            config.mintDelay = uint16(_boundedRandom(hash, "mintDelay", 0, 20)); // Phase I + early II
+            config.targetVaultCount = uint8(_boundedRandom(hash, "vaultCount", 2, 3));
         } else if (config.archetype == Archetype.MOMENTUM_TRADER) {
             config.leveragePreference = uint16(_boundedRandom(hash, "lev", 200, 500));
             config.volBias = 0;
             config.riskTolerance = uint8(_boundedRandom(hash, "risk", 50, 100));
+            config.mintDelay = uint16(_boundedRandom(hash, "mintDelay", 10, 80)); // Phase II
+            config.targetVaultCount = 1;
         } else if (config.archetype == Archetype.VOLATILITY_PLAYER) {
             config.leveragePreference = 100;
             config.volBias = int8(int256(_boundedRandom(hash, "vol", 0, 2)) - 1);
+            config.mintDelay = uint16(_boundedRandom(hash, "mintDelay", 80, 161)); // Late Phase II
+            config.targetVaultCount = 1;
         } else if (config.archetype == Archetype.ARBITRAGEUR) {
             config.leveragePreference = 100;
             config.volBias = 0;
             config.rebalanceFrequency = 1; // check every tick
+            config.mintDelay = uint16(_boundedRandom(hash, "mintDelay", 0, 120)); // Spread I+II
+            config.targetVaultCount = 2; // different delegation configs per vault
         } else if (config.archetype == Archetype.PANIC_SELLER) {
             config.leveragePreference = uint16(_boundedRandom(hash, "lev", 100, 300));
             config.volBias = 0;
             config.patience = uint8(_boundedRandom(hash, "patience", 1, 30));
             config.riskTolerance = uint8(_boundedRandom(hash, "risk", 60, 100));
+            config.mintDelay = uint16(_boundedRandom(hash, "mintDelay", 4, 60)); // Phase I tail + II
+            config.targetVaultCount = 1;
         } else if (config.archetype == Archetype.PREDATOR) {
             config.leveragePreference = 100;
             config.volBias = 0;
             config.rebalanceFrequency = 1;
+            config.mintDelay = uint16(_boundedRandom(hash, "mintDelay", 60, 161)); // Late Phase II
+            config.targetVaultCount = 1;
+        } else if (config.archetype == Archetype.SPECULATOR) {
+            config.leveragePreference = 100;
+            config.volBias = 0;
+            config.rebalanceFrequency = uint8(_boundedRandom(hash, "rebal", 1, 4));
+            config.mintDelay = type(uint16).max; // never mint — AMM-only
+            config.targetVaultCount = 0; // no vaults
         }
 
         // Initial capital: archetype-specific ranges (in satoshis; 1 den = 10,000 sats)
@@ -408,9 +557,11 @@ library AgentLib {
             config.initialCapitalWbtc = uint64(_boundedRandom(hash, "capital", 2e6, 10e6)); // 200-1,000 d
         } else if (config.archetype == Archetype.PANIC_SELLER) {
             config.initialCapitalWbtc = uint64(_boundedRandom(hash, "capital", 1e6, 8e6)); // 100-800 d
-        } else {
-            // PREDATOR
+        } else if (config.archetype == Archetype.PREDATOR) {
             config.initialCapitalWbtc = uint64(_boundedRandom(hash, "capital", 1e6, 5e6)); // 100-500 d
+        } else {
+            // SPECULATOR
+            config.initialCapitalWbtc = uint64(_boundedRandom(hash, "capital", 5e5, 3e6)); // 50-300 d
         }
 
         // Generate unique psychology from archetype template
@@ -535,6 +686,24 @@ library AgentLib {
             psy.trendBias = 0;
             psy.volStrikeThreshold = 4e16;
             psy.vaultAllocationPct = uint8(_boundedRandom(psyHash, "vaultPct", 50, 70));
+        } else if (archetype == Archetype.SPECULATOR) {
+            // External AMM traders: no vaults, only buy/sell vBTC on Curve pool
+            psy.panicThreshold = -int256(_boundedRandom(psyHash, "panic", 10e16, 25e16)); // -10% to -25%
+            psy.exitThreshold = -int256(_boundedRandom(psyHash, "exit", 5e16, 15e16)); // -5% to -15%
+            psy.trendEntryThreshold = int256(_boundedRandom(psyHash, "trend", 1e16, 5e16)); // 1% to 5%
+            psy.strategyMask = STRAT_SWAP;
+            psy.perpAllocationPct = 0;
+            psy.volAllocationPct = 0;
+            psy.maxPerpPositions = 0;
+            psy.activityInterval = 0; // no vaults to prove activity on
+            psy.perpCloseInterval = 0;
+            // 50% trend followers, 50% mean-reversion
+            psy.trendBias = _boundedRandom(psyHash, "bias", 0, 1) == 0 ? int8(-1) : int8(1);
+            psy.volStrikeThreshold = 0;
+            psy.swapAllocationPct = uint8(_boundedRandom(psyHash, "swapPct", 30, 80));
+            psy.swapBuyThreshold = _boundedRandom(psyHash, "swapBuy", 65e16, 80e16);
+            psy.swapSellThreshold = _boundedRandom(psyHash, "swapSell", 85e16, 98e16);
+            psy.vaultAllocationPct = 0; // no vault minting
         }
     }
 
@@ -546,7 +715,7 @@ library AgentLib {
         MarketSignals memory signals,
         Portfolio memory portfolio
     ) private pure returns (ActionParams memory) {
-        uint256 minSwap = MIN_COLLATERAL_PERP;
+        uint256 minSwap = MIN_SWAP;
 
         if (archetype == Archetype.YIELD_FARMER) {
             // Buy vBTC at discount, sell at premium (conditional, not unconditional)
@@ -554,13 +723,15 @@ library AgentLib {
                 uint256 amount = portfolio.wbtcBalance * uint256(psy.swapAllocationPct) / 100;
                 if (amount < minSwap) amount = minSwap;
                 if (amount > portfolio.wbtcBalance) amount = portfolio.wbtcBalance;
-                return ActionParams(Action.SWAP_WBTC_TO_VBTC, amount, 0, 0);
+                amount = _capSwapAmount(Action.SWAP_WBTC_TO_VBTC, amount, portfolio);
+                if (amount > 0) return ActionParams(Action.SWAP_WBTC_TO_VBTC, amount, 0, 0);
             }
             if (signals.vbtcRatio > psy.swapSellThreshold && portfolio.vbtcBalance > minSwap) {
                 uint256 amount = portfolio.vbtcBalance * uint256(psy.swapAllocationPct) / 100;
                 if (amount < minSwap) amount = minSwap;
                 if (amount > portfolio.vbtcBalance) amount = portfolio.vbtcBalance;
-                return ActionParams(Action.SWAP_VBTC_TO_WBTC, amount, 0, 0);
+                amount = _capSwapAmount(Action.SWAP_VBTC_TO_WBTC, amount, portfolio);
+                if (amount > 0) return ActionParams(Action.SWAP_VBTC_TO_WBTC, amount, 0, 0);
             }
         } else if (archetype == Archetype.MOMENTUM_TRADER) {
             // Directional: buy vBTC on positive momentum, sell on negative
@@ -568,31 +739,36 @@ library AgentLib {
                 uint256 amount = portfolio.wbtcBalance * uint256(psy.swapAllocationPct) / 100;
                 if (amount < minSwap) amount = minSwap;
                 if (amount > portfolio.wbtcBalance) amount = portfolio.wbtcBalance;
-                return ActionParams(Action.SWAP_WBTC_TO_VBTC, amount, 0, 0);
+                amount = _capSwapAmount(Action.SWAP_WBTC_TO_VBTC, amount, portfolio);
+                if (amount > 0) return ActionParams(Action.SWAP_WBTC_TO_VBTC, amount, 0, 0);
             }
             if (signals.priceReturn7d < -psy.trendEntryThreshold && portfolio.vbtcBalance > minSwap) {
                 uint256 amount = portfolio.vbtcBalance * uint256(psy.swapAllocationPct) / 100;
                 if (amount < minSwap) amount = minSwap;
                 if (amount > portfolio.vbtcBalance) amount = portfolio.vbtcBalance;
-                return ActionParams(Action.SWAP_VBTC_TO_WBTC, amount, 0, 0);
+                amount = _capSwapAmount(Action.SWAP_VBTC_TO_WBTC, amount, portfolio);
+                if (amount > 0) return ActionParams(Action.SWAP_VBTC_TO_WBTC, amount, 0, 0);
             }
         } else if (archetype == Archetype.ARBITRAGEUR) {
             // Emergency arb: buy aggressively when ratio below extreme stress floor (0.50)
             if (signals.vbtcRatio > 0 && signals.vbtcRatio < 5e17 && portfolio.wbtcBalance > minSwap) {
-                return ActionParams(Action.SWAP_WBTC_TO_VBTC, portfolio.wbtcBalance, 0, 0);
+                uint256 amount = _capSwapAmount(Action.SWAP_WBTC_TO_VBTC, portfolio.wbtcBalance, portfolio);
+                if (amount > 0) return ActionParams(Action.SWAP_WBTC_TO_VBTC, amount, 0, 0);
             }
             // Normal arb: buy below threshold
             if (signals.vbtcRatio > 0 && signals.vbtcRatio < psy.swapBuyThreshold && portfolio.wbtcBalance > minSwap) {
                 uint256 amount = portfolio.wbtcBalance * uint256(psy.swapAllocationPct) / 100;
                 if (amount < minSwap) amount = minSwap;
                 if (amount > portfolio.wbtcBalance) amount = portfolio.wbtcBalance;
-                return ActionParams(Action.SWAP_WBTC_TO_VBTC, amount, 0, 0);
+                amount = _capSwapAmount(Action.SWAP_WBTC_TO_VBTC, amount, portfolio);
+                if (amount > 0) return ActionParams(Action.SWAP_WBTC_TO_VBTC, amount, 0, 0);
             }
             if (signals.vbtcRatio > psy.swapSellThreshold && portfolio.vbtcBalance > minSwap) {
                 uint256 amount = portfolio.vbtcBalance * uint256(psy.swapAllocationPct) / 100;
                 if (amount < minSwap) amount = minSwap;
                 if (amount > portfolio.vbtcBalance) amount = portfolio.vbtcBalance;
-                return ActionParams(Action.SWAP_VBTC_TO_WBTC, amount, 0, 0);
+                amount = _capSwapAmount(Action.SWAP_VBTC_TO_WBTC, amount, portfolio);
+                if (amount > 0) return ActionParams(Action.SWAP_VBTC_TO_WBTC, amount, 0, 0);
             }
         } else if (archetype == Archetype.PANIC_SELLER) {
             // Sell vBTC on drawdowns
@@ -600,11 +776,79 @@ library AgentLib {
                 uint256 amount = portfolio.vbtcBalance * uint256(psy.swapAllocationPct) / 100;
                 if (amount < minSwap) amount = minSwap;
                 if (amount > portfolio.vbtcBalance) amount = portfolio.vbtcBalance;
-                return ActionParams(Action.SWAP_VBTC_TO_WBTC, amount, 0, 0);
+                amount = _capSwapAmount(Action.SWAP_VBTC_TO_WBTC, amount, portfolio);
+                if (amount > 0) return ActionParams(Action.SWAP_VBTC_TO_WBTC, amount, 0, 0);
+            }
+        } else if (archetype == Archetype.SPECULATOR) {
+            // Pure AMM traders: buy low, sell high on vBTC ratio
+            if (psy.trendBias > 0) {
+                // Trend follower: buy vBTC on positive momentum, sell on negative
+                if (signals.priceReturn7d > psy.trendEntryThreshold && portfolio.wbtcBalance > minSwap) {
+                    uint256 amount = portfolio.wbtcBalance * uint256(psy.swapAllocationPct) / 100;
+                    if (amount < minSwap) amount = minSwap;
+                    if (amount > portfolio.wbtcBalance) amount = portfolio.wbtcBalance;
+                    amount = _capSwapAmount(Action.SWAP_WBTC_TO_VBTC, amount, portfolio);
+                    if (amount > 0) return ActionParams(Action.SWAP_WBTC_TO_VBTC, amount, 0, 0);
+                }
+                if (signals.priceReturn7d < -psy.trendEntryThreshold && portfolio.vbtcBalance > minSwap) {
+                    uint256 amount = portfolio.vbtcBalance * uint256(psy.swapAllocationPct) / 100;
+                    if (amount < minSwap) amount = minSwap;
+                    if (amount > portfolio.vbtcBalance) amount = portfolio.vbtcBalance;
+                    amount = _capSwapAmount(Action.SWAP_VBTC_TO_WBTC, amount, portfolio);
+                    if (amount > 0) return ActionParams(Action.SWAP_VBTC_TO_WBTC, amount, 0, 0);
+                }
+            } else {
+                // Mean-reversion: buy vBTC when cheap, sell when expensive
+                if (signals.vbtcRatio > 0 && signals.vbtcRatio < psy.swapBuyThreshold && portfolio.wbtcBalance > minSwap) {
+                    uint256 amount = portfolio.wbtcBalance * uint256(psy.swapAllocationPct) / 100;
+                    if (amount < minSwap) amount = minSwap;
+                    if (amount > portfolio.wbtcBalance) amount = portfolio.wbtcBalance;
+                    amount = _capSwapAmount(Action.SWAP_WBTC_TO_VBTC, amount, portfolio);
+                    if (amount > 0) return ActionParams(Action.SWAP_WBTC_TO_VBTC, amount, 0, 0);
+                }
+                if (signals.vbtcRatio > psy.swapSellThreshold && portfolio.vbtcBalance > minSwap) {
+                    uint256 amount = portfolio.vbtcBalance * uint256(psy.swapAllocationPct) / 100;
+                    if (amount < minSwap) amount = minSwap;
+                    if (amount > portfolio.vbtcBalance) amount = portfolio.vbtcBalance;
+                    amount = _capSwapAmount(Action.SWAP_VBTC_TO_WBTC, amount, portfolio);
+                    if (amount > 0) return ActionParams(Action.SWAP_VBTC_TO_WBTC, amount, 0, 0);
+                }
             }
         }
 
         return ActionParams(Action.NONE, 0, 0, 0);
+    }
+
+    /// @dev Cap swap amount based on pool depth and current ratio to prevent bound breaches.
+    ///      Uses progressively smaller caps as ratio approaches ceiling (buy vBTC) or floor (sell vBTC).
+    function _capSwapAmount(Action action, uint256 amount, Portfolio memory portfolio) private pure returns (uint256) {
+        if (!portfolio.poolInitialized) return 0;
+
+        uint256 poolReserve = (action == Action.SWAP_WBTC_TO_VBTC) ? portfolio.poolWbtcReserve : portfolio.poolVbtcReserve;
+        if (poolReserve == 0) return 0;
+
+        uint256 r = portfolio.poolWbtcReserve * PRECISION / portfolio.poolVbtcReserve;
+        uint256 maxSwap;
+
+        if (action == Action.SWAP_WBTC_TO_VBTC) {
+            // Buying vBTC increases ratio — tighten cap as ratio approaches 1.0
+            if (r <= 75e16) maxSwap = poolReserve / 20;       // 5%
+            else if (r <= 80e16) maxSwap = poolReserve / 40;  // 2.5%
+            else if (r <= 85e16) maxSwap = poolReserve / 80;  // 1.25%
+            else if (r <= 90e16) maxSwap = poolReserve / 160; // 0.625%
+            else if (r <= 95e16) maxSwap = poolReserve / 320; // 0.312%
+            else maxSwap = poolReserve / 640;                 // 0.156%
+        } else {
+            // Selling vBTC decreases ratio — tighten cap as ratio approaches 0.5
+            if (r >= 65e16) maxSwap = poolReserve / 20;       // 5%
+            else if (r >= 60e16) maxSwap = poolReserve / 40;  // 2.5%
+            else if (r >= 55e16) maxSwap = poolReserve / 80;  // 1.25%
+            else maxSwap = poolReserve / 160;                 // 0.625%
+        }
+
+        if (amount > maxSwap) amount = maxSwap;
+        if (amount < MIN_SWAP) return 0;
+        return amount;
     }
 
     // ==================== Helpers ====================

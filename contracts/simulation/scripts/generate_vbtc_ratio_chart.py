@@ -108,7 +108,8 @@ def main():
 
     weeks, ratios = load_market_data(input_path, args.start_week)
     if len(weeks) == 0:
-        raise ValueError(f"No vBTC ratio data found from week {args.start_week} onward")
+        print(f"SKIP: No vBTC ratio data from week {args.start_week} onward (expected for short runs)")
+        return
 
     output_path = Path(args.output)
     generate_chart(weeks, ratios, args.start_week, output_path)

@@ -66,6 +66,9 @@ contract SwarmOrchestrator is SimulationOrchestrator {
     mapping(uint256 => bool) internal _agentHasSeparatedVbtc;
     mapping(uint256 => uint256) internal _agentLastActionTick;
 
+    // Per-agent per-vault last withdrawal tick (cooldown tracking)
+    mapping(uint256 => mapping(uint256 => uint256)) internal _agentLastWithdrawTick; // agentId => vaultId => tick
+
     // Ghost variables for invariant tracking
     uint256 public ghost_totalDeposited;
     uint256 public ghost_totalWithdrawn;
@@ -74,6 +77,8 @@ contract SwarmOrchestrator is SimulationOrchestrator {
     uint256 public ghost_totalMatchClaimed;
     uint256 public ghost_totalActions;
     uint256 public ghost_totalFailedActions;
+    uint256 public ghost_expectedFailures;
+    uint256 public ghost_unexpectedFailures;
     uint256 public ghost_totalSwaps;
 
     // All active perp position IDs (for solvency checks)
@@ -293,13 +298,24 @@ contract SwarmOrchestrator is SimulationOrchestrator {
 
     function _executeAgent(uint256 agentId, AgentLib.MarketSignals memory signals) internal {
         // Build agent state
+        uint256[] memory vaultIds = _agentVaultIds[agentId];
+        uint256[] memory lastWithdrawTicks = new uint256[](vaultIds.length);
+        for (uint256 i = 0; i < vaultIds.length; i++) {
+            lastWithdrawTicks[i] = _agentLastWithdrawTick[agentId][vaultIds[i]];
+        }
+
         AgentLib.AgentState memory state = AgentLib.AgentState({
-            vaultIds: _agentVaultIds[agentId],
+            vaultIds: vaultIds,
             perpPositionIds: _agentPerpIds[agentId],
             longVolShares: _agentLongVolShares[agentId],
             shortVolShares: _agentShortVolShares[agentId],
             hasSeparatedVbtc: _agentHasSeparatedVbtc[agentId],
-            lastActionTick: _agentLastActionTick[agentId]
+            lastActionTick: _agentLastActionTick[agentId],
+            prevNetWorth: 0,
+            lastFailedAction: AgentLib.Action.NONE,
+            consecutiveFailures: 0,
+            failureSuppressTick: 0,
+            lastWithdrawTicks: lastWithdrawTicks
         });
 
         // Build portfolio view
@@ -343,11 +359,14 @@ contract SwarmOrchestrator is SimulationOrchestrator {
         // Secondary action: swap opportunity for STRAT_SWAP agents
         // Models real users who can withdraw AND trade in the same block
         if ((configs[agentId].psychology.strategyMask & AgentLib.STRAT_SWAP) != 0 && signals.ammInitialized) {
-            // Build lightweight portfolio for swap decision (only needs token balances)
+            // Build lightweight portfolio for swap decision (needs token balances + pool depth)
             address swapAgent = agents[agentId];
             AgentLib.Portfolio memory swapPortfolio;
             swapPortfolio.wbtcBalance = protocol.wbtc.balanceOf(swapAgent);
             swapPortfolio.vbtcBalance = protocol.btcToken.balanceOf(swapAgent);
+            swapPortfolio.poolInitialized = true;
+            swapPortfolio.poolWbtcReserve = curvePool.balances(0);
+            swapPortfolio.poolVbtcReserve = curvePool.balances(1);
 
             AgentLib.ActionParams memory swapAction = AgentLib.decideSwap(configs[agentId], signals, swapPortfolio);
             if (swapAction.action != AgentLib.Action.NONE) {
@@ -385,27 +404,27 @@ contract SwarmOrchestrator is SimulationOrchestrator {
         } else if (action.action == AgentLib.Action.PROVE_ACTIVITY) {
             return _execProveActivity(agent, action.targetId);
         } else if (action.action == AgentLib.Action.OPEN_PERP_LONG) {
-            return _execOpenPerp(agentId, agent, action.amount, action.leverage, IPerpetualVault.Side.LONG);
+            return _execOpenPerp(agentId, agent, action.amount, action.leverage, IPerpetualVault.Side.LONG, action.action);
         } else if (action.action == AgentLib.Action.OPEN_PERP_SHORT) {
-            return _execOpenPerp(agentId, agent, action.amount, action.leverage, IPerpetualVault.Side.SHORT);
+            return _execOpenPerp(agentId, agent, action.amount, action.leverage, IPerpetualVault.Side.SHORT, action.action);
         } else if (action.action == AgentLib.Action.CLOSE_PERP) {
             return _execClosePerp(agentId, agent, action.targetId);
         } else if (action.action == AgentLib.Action.DEPOSIT_VOL_LONG) {
-            return _execDepositVol(agentId, agent, action.amount, true);
+            return _execDepositVol(agentId, agent, action.amount, true, action.action);
         } else if (action.action == AgentLib.Action.DEPOSIT_VOL_SHORT) {
-            return _execDepositVol(agentId, agent, action.amount, false);
+            return _execDepositVol(agentId, agent, action.amount, false, action.action);
         } else if (action.action == AgentLib.Action.WITHDRAW_VOL_LONG) {
-            return _execWithdrawVol(agentId, agent, action.amount, true);
+            return _execWithdrawVol(agentId, agent, action.amount, true, action.action);
         } else if (action.action == AgentLib.Action.WITHDRAW_VOL_SHORT) {
-            return _execWithdrawVol(agentId, agent, action.amount, false);
+            return _execWithdrawVol(agentId, agent, action.amount, false, action.action);
         } else if (action.action == AgentLib.Action.POKE_DORMANT) {
             return _execPokeDormant(agent, action.targetId);
         } else if (action.action == AgentLib.Action.CLAIM_DORMANT) {
             return _execClaimDormant(agent, action.targetId);
         } else if (action.action == AgentLib.Action.SWAP_VBTC_TO_WBTC) {
-            return _execSwap(agent, 1, 0, action.amount);
+            return _execSwap(agent, 1, 0, action.amount, action.action);
         } else if (action.action == AgentLib.Action.SWAP_WBTC_TO_VBTC) {
-            return _execSwap(agent, 0, 1, action.amount);
+            return _execSwap(agent, 0, 1, action.amount, action.action);
         } else if (action.action == AgentLib.Action.ADD_LIQUIDITY) {
             return _execAddLiquidity(agent, action.amount);
         }
@@ -413,7 +432,53 @@ contract SwarmOrchestrator is SimulationOrchestrator {
         return false;
     }
 
-    // ==================== Action Executors ====================
+    
+    // ==================== Failure Classification ====================
+
+    /// @notice Classify a revert reason as expected or unexpected failure
+    /// @dev Expected failures: cooldown retries, race conditions, one-shot semantics
+    ///      Unexpected failures: genuine bugs or protocol violations
+    function _countFailure(AgentLib.Action action, bytes memory reason) internal {
+        if (reason.length < 4) {
+            ghost_unexpectedFailures++;
+            return;
+        }
+        bytes4 selector;
+        assembly {
+            selector := mload(add(reason, 32))
+        }
+
+        // WithdrawalTooSoon -> expected (cooldown retry)
+        if (selector == 0x4118819e) {
+            ghost_expectedFailures++;
+        // AlreadyClaimed -> expected (race condition)
+        } else if (selector == 0xb3167bfa) {
+            ghost_expectedFailures++;
+        // AlreadyPoked -> expected (race condition)
+        } else if (selector == 0x28630f73) {
+            ghost_expectedFailures++;
+        // NoPoolAvailable -> expected (pool drained)
+        } else if (selector == 0xc3230ab1) {
+            ghost_expectedFailures++;
+        // NotInitialized -> expected (AMM not yet seeded)
+        } else if (selector == 0x87138d5c) {
+            ghost_expectedFailures++;
+        // StillVesting -> expected only on withdraw (agent tries before vesting)
+        } else if (selector == 0xa4395c9e) {
+            if (action == AgentLib.Action.WITHDRAW) {
+                ghost_expectedFailures++;
+            } else {
+                ghost_unexpectedFailures++;
+            }
+        // RatioBoundsExceeded -> expected (AMM guardrail, agents race toward boundary)
+        } else if (selector == 0x8df4b45e) {
+            ghost_expectedFailures++;
+        } else {
+            ghost_unexpectedFailures++;
+        }
+    }
+
+// ==================== Action Executors ====================
 
     function _execMintVault(uint256 agentId, address agent, uint256 amount) internal returns (bool) {
         // Need a treasure NFT
@@ -426,7 +491,7 @@ contract SwarmOrchestrator is SimulationOrchestrator {
         if (treasureId == type(uint256).max) return false;
 
         _vm.startPrank(agent);
-        try treasure.approve(address(protocol.vault), treasureId) {} catch { _vm.stopPrank(); return false; }
+        try treasure.approve(address(protocol.vault), treasureId) {} catch (bytes memory reason) { _countFailure(AgentLib.Action.MINT_VAULT, reason); _vm.stopPrank(); return false; }
 
         try protocol.vault.mint(
             address(treasure),
@@ -438,7 +503,8 @@ contract SwarmOrchestrator is SimulationOrchestrator {
             _agentVaultIds[agentId].push(vaultId);
             ghost_totalDeposited += amount;
             return true;
-        } catch {
+        } catch (bytes memory reason) {
+            _countFailure(AgentLib.Action.MINT_VAULT, reason);
             _vm.stopPrank();
             return false;
         }
@@ -449,8 +515,10 @@ contract SwarmOrchestrator is SimulationOrchestrator {
         try protocol.vault.withdraw(vaultId) returns (uint256 amount) {
             _vm.stopPrank();
             ghost_totalWithdrawn += amount;
+            _agentLastWithdrawTick[agentId][vaultId] = currentTick;
             return true;
-        } catch {
+        } catch (bytes memory reason) {
+            _countFailure(AgentLib.Action.WITHDRAW, reason);
             _vm.stopPrank();
             return false;
         }
@@ -465,7 +533,8 @@ contract SwarmOrchestrator is SimulationOrchestrator {
             // Remove vault from agent's list
             _removeVaultId(agentId, vaultId);
             return true;
-        } catch {
+        } catch (bytes memory reason) {
+            _countFailure(AgentLib.Action.EARLY_REDEEM, reason);
             _vm.stopPrank();
             return false;
         }
@@ -477,7 +546,8 @@ contract SwarmOrchestrator is SimulationOrchestrator {
             _vm.stopPrank();
             _agentHasSeparatedVbtc[agentId] = true;
             return true;
-        } catch {
+        } catch (bytes memory reason) {
+            _countFailure(AgentLib.Action.MINT_BTC_TOKEN, reason);
             _vm.stopPrank();
             return false;
         }
@@ -489,7 +559,8 @@ contract SwarmOrchestrator is SimulationOrchestrator {
             _vm.stopPrank();
             ghost_totalMatchClaimed += amount;
             return true;
-        } catch {
+        } catch (bytes memory reason) {
+            _countFailure(AgentLib.Action.CLAIM_MATCH, reason);
             _vm.stopPrank();
             return false;
         }
@@ -500,7 +571,8 @@ contract SwarmOrchestrator is SimulationOrchestrator {
         try protocol.vault.proveActivity(vaultId) {
             _vm.stopPrank();
             return true;
-        } catch {
+        } catch (bytes memory reason) {
+            _countFailure(AgentLib.Action.PROVE_ACTIVITY, reason);
             _vm.stopPrank();
             return false;
         }
@@ -511,7 +583,8 @@ contract SwarmOrchestrator is SimulationOrchestrator {
         address agent,
         uint256 amount,
         uint16 leverage,
-        IPerpetualVault.Side side
+        IPerpetualVault.Side side,
+        AgentLib.Action action
     ) internal returns (bool) {
         _vm.startPrank(agent);
         try perpVault.openPosition(amount, leverage, side) returns (uint256 positionId) {
@@ -519,7 +592,8 @@ contract SwarmOrchestrator is SimulationOrchestrator {
             _agentPerpIds[agentId].push(positionId);
             allPerpPositionIds.push(positionId);
             return true;
-        } catch {
+        } catch (bytes memory reason) {
+            _countFailure(action, reason);
             _vm.stopPrank();
             return false;
         }
@@ -531,20 +605,22 @@ contract SwarmOrchestrator is SimulationOrchestrator {
             _vm.stopPrank();
             _removePerpId(agentId, positionId);
             return true;
-        } catch {
+        } catch (bytes memory reason) {
+            _countFailure(AgentLib.Action.CLOSE_PERP, reason);
             _vm.stopPrank();
             return false;
         }
     }
 
-    function _execDepositVol(uint256 agentId, address agent, uint256 amount, bool isLong) internal returns (bool) {
+    function _execDepositVol(uint256 agentId, address agent, uint256 amount, bool isLong, AgentLib.Action action) internal returns (bool) {
         _vm.startPrank(agent);
         if (isLong) {
             try volPool.depositLong(amount) returns (uint256 shares) {
                 _vm.stopPrank();
                 _agentLongVolShares[agentId] += shares;
                 return true;
-            } catch {
+            } catch (bytes memory reason) {
+                _countFailure(action, reason);
                 _vm.stopPrank();
                 return false;
             }
@@ -553,21 +629,23 @@ contract SwarmOrchestrator is SimulationOrchestrator {
                 _vm.stopPrank();
                 _agentShortVolShares[agentId] += shares;
                 return true;
-            } catch {
+            } catch (bytes memory reason) {
+                _countFailure(action, reason);
                 _vm.stopPrank();
                 return false;
             }
         }
     }
 
-    function _execWithdrawVol(uint256 agentId, address agent, uint256 shares, bool isLong) internal returns (bool) {
+    function _execWithdrawVol(uint256 agentId, address agent, uint256 shares, bool isLong, AgentLib.Action action) internal returns (bool) {
         _vm.startPrank(agent);
         if (isLong) {
             try volPool.withdrawLong(shares) returns (uint256) {
                 _vm.stopPrank();
                 _agentLongVolShares[agentId] = 0;
                 return true;
-            } catch {
+            } catch (bytes memory reason) {
+                _countFailure(action, reason);
                 _vm.stopPrank();
                 return false;
             }
@@ -576,7 +654,8 @@ contract SwarmOrchestrator is SimulationOrchestrator {
                 _vm.stopPrank();
                 _agentShortVolShares[agentId] = 0;
                 return true;
-            } catch {
+            } catch (bytes memory reason) {
+                _countFailure(action, reason);
                 _vm.stopPrank();
                 return false;
             }
@@ -588,7 +667,8 @@ contract SwarmOrchestrator is SimulationOrchestrator {
         try protocol.vault.pokeDormant(vaultId) {
             _vm.stopPrank();
             return true;
-        } catch {
+        } catch (bytes memory reason) {
+            _countFailure(AgentLib.Action.POKE_DORMANT, reason);
             _vm.stopPrank();
             return false;
         }
@@ -599,7 +679,8 @@ contract SwarmOrchestrator is SimulationOrchestrator {
         try protocol.vault.claimDormantCollateral(vaultId) returns (uint256) {
             _vm.stopPrank();
             return true;
-        } catch {
+        } catch (bytes memory reason) {
+            _countFailure(AgentLib.Action.CLAIM_DORMANT, reason);
             _vm.stopPrank();
             return false;
         }
@@ -618,27 +699,38 @@ contract SwarmOrchestrator is SimulationOrchestrator {
             // First seed: use INITIAL_VBTC_RATIO as bootstrap price
             wbtcAmount = (vbtcAmount * INITIAL_VBTC_RATIO) / 1e18;
         }
-        if (wbtcAmount > wbtcBalance) wbtcAmount = wbtcBalance;
-        if (wbtcAmount == 0) return false;
+        // Scale vbtcAmount proportionally if wbtcAmount exceeds balance
+        if (wbtcAmount > wbtcBalance) {
+            uint256 originalWbtc = wbtcAmount;
+            wbtcAmount = wbtcBalance;
+            vbtcAmount = (vbtcAmount * wbtcBalance) / originalWbtc;
+        }
+        if (wbtcAmount == 0 || vbtcAmount == 0) return false;
 
         _vm.startPrank(agent);
         uint256[2] memory amounts = [wbtcAmount, vbtcAmount];
         try curvePool.add_liquidity(amounts, 0) {
             _vm.stopPrank();
             return true;
-        } catch {
+        } catch (bytes memory reason) {
+            _countFailure(AgentLib.Action.ADD_LIQUIDITY, reason);
             _vm.stopPrank();
             return false;
         }
     }
 
-    function _execSwap(address agent, int128 i, int128 j, uint256 amount) internal returns (bool) {
+    function _execSwap(address agent, int128 i, int128 j, uint256 amount, AgentLib.Action action) internal returns (bool) {
+        // Pre-flight: check if swap would succeed without breaching ratio bounds
+        uint256 dy = curvePool.get_dy(i, j, amount);
+        if (dy == 0) return false;
+
         _vm.startPrank(agent);
         try curvePool.exchange(i, j, amount, 0) returns (uint256) {
             _vm.stopPrank();
             ghost_totalSwaps++;
             return true;
-        } catch {
+        } catch (bytes memory reason) {
+            _countFailure(action, reason);
             _vm.stopPrank();
             return false;
         }
@@ -658,14 +750,30 @@ contract SwarmOrchestrator is SimulationOrchestrator {
         p.hasVolPosition = state.longVolShares > 0 || state.shortVolShares > 0;
         p.hasTreasureNft = issuers[0].treasureNFT.balanceOf(agent) > 0;
 
+        // AMM pool state
+        p.poolInitialized = curvePool.initialized();
+        if (p.poolInitialized) {
+            p.poolWbtcReserve = curvePool.balances(0);
+            p.poolVbtcReserve = curvePool.balances(1);
+        }
+
+        // Eligibility: can mint vault if has treasure + WBTC
+        p.eligibleMintVault = p.hasTreasureNft && p.wbtcBalance > 0;
+        p.eligibleOpenPerp = p.vbtcBalance >= 1e6; // MIN_COLLATERAL_PERP
+
+        uint256 matchPool = protocol.vault.matchPool();
+        p.walletTotalDelegatedBps = protocol.vault.walletTotalDelegatedBPS(agent);
+        p.eligibleGrantWalletDelegate = p.walletTotalDelegatedBps < 10000;
+
         uint256 vaultCount = state.vaultIds.length;
         p.vaultCollaterals = new uint256[](vaultCount);
         p.vaultVested = new bool[](vaultCount);
         p.matchClaimed = new bool[](vaultCount);
+        p.nextWithdrawableTick = new uint256[](vaultCount);
 
         for (uint256 i = 0; i < vaultCount; i++) {
             uint256 vid = state.vaultIds[i];
-            (,,, uint256 collateral,,,,,) = protocol.vault.getVaultInfo(vid);
+            (,,, uint256 collateral,,,, uint256 btcTokenAmount, uint256 originalMintedAmount) = protocol.vault.getVaultInfo(vid);
             p.vaultCollaterals[i] = collateral;
             p.totalVaultCollateral += collateral;
 
@@ -674,23 +782,74 @@ contract SwarmOrchestrator is SimulationOrchestrator {
             p.matchClaimed[i] = protocol.vault.matchClaimed(vid);
             if (vested) {
                 p.hasVestedVault = true;
-                try protocol.vault.getWithdrawableAmount(vid) returns (uint256 amt) {
-                    if (amt > 0) p.canWithdraw = true;
-                } catch {}
+
+                // First vested vault is eligible for mintBtcToken
+                if (p.mintBtcTokenVaultId == 0) {
+                    p.mintBtcTokenVaultId = vid;
+                }
+
+                // Match claim eligibility: vested + unclaimed + match pool available
+                if (!p.matchClaimed[i] && matchPool > 0) {
+                    p.eligibleClaimMatch = true;
+                    if (p.matchClaimVaultId == 0) {
+                        p.matchClaimVaultId = vid;
+                    }
+                }
+
+                // Compute cooldown using vault's withdrawalCooldown()
+                uint256 nextWithdrawTick = 0;
+                uint256 cooldownExpires = protocol.vault.withdrawalCooldown(vid);
+                if (cooldownExpires > block.timestamp) {
+                    uint256 remaining = cooldownExpires - block.timestamp;
+                    nextWithdrawTick = currentTick + (remaining + 7 days - 1) / (7 days);
+                }
+                p.nextWithdrawableTick[i] = nextWithdrawTick;
+
+                // Only consider this vault withdrawable if cooldown has passed
+                if (nextWithdrawTick == 0 || nextWithdrawTick <= currentTick) {
+                    try protocol.vault.getWithdrawableAmount(vid) returns (uint256 amt) {
+                        if (amt > 0) {
+                            p.canWithdraw = true;
+                            if (p.withdrawableVaultId == 0) {
+                                p.withdrawableVaultId = vid;
+                            }
+                        }
+                    } catch {}
+                }
             } else {
                 p.hasUnvestedVault = true;
+
+                // Early redeem eligibility: no separated vBTC, or enough vBTC to return
+                if (btcTokenAmount == 0 || p.vbtcBalance >= originalMintedAmount) {
+                    p.eligibleEarlyRedeem = true;
+                    if (p.earlyRedeemVaultId == 0) {
+                        p.earlyRedeemVaultId = vid;
+                    }
+                }
             }
+        }
+
+        // Match pool share estimate (for dust-threshold filtering in decision logic)
+        uint256 totalActive = protocol.vault.totalActiveCollateral();
+        if (totalActive > 0 && matchPool > 0 && p.totalVaultCollateral > 0) {
+            p.matchPoolShareEstimate = (matchPool * p.totalVaultCollateral) / totalActive;
+        }
+        // Apply dust threshold retroactively
+        if (p.matchPoolShareEstimate <= 1e4) {
+            p.eligibleClaimMatch = false;
         }
 
         // Dormancy scanning (for agents with STRAT_DORMANCY)
         // Skip entirely before MIN_DORMANCY_TICKS — no vault can be dormant yet
         if (currentTick >= MIN_DORMANCY_TICKS && (configs[agentId].psychology.strategyMask & AgentLib.STRAT_DORMANCY) != 0) {
             p.dormantTargetId = _cachedDormantTarget;
-            // Check if a previously poked vault is now claimable
+            // Check if a previously poked vault is now claimable or pokable
             if (p.dormantTargetId > 0) {
-                try protocol.vault.isDormantEligible(p.dormantTargetId) returns (bool, IVaultNFTDormancy.DormancyState dState) {
+                try protocol.vault.isDormantEligible(p.dormantTargetId) returns (bool eligible, IVaultNFTDormancy.DormancyState dState) {
                     if (dState == IVaultNFTDormancy.DormancyState.CLAIMABLE) {
                         p.dormantClaimable = true;
+                    } else if (eligible && dState == IVaultNFTDormancy.DormancyState.ACTIVE) {
+                        p.eligiblePokeDormant = true;
                     }
                 } catch {}
             }

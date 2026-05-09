@@ -4,13 +4,14 @@
 
 | Archetype | Count | Index Range | Capital (den) | Strategy Mask | Character |
 |-----------|-------|-------------|---------------|---------------|-----------|
-| Diamond Hands | 30 | 0–29 | 500–1,500 | `MATCH_HUNT` | Patient holders |
-| Yield Farmer | 20 | 30–49 | 300–1,200 | `PERPS\|VOL\|MATCH_HUNT\|SWAP` | DeFi optimizers |
-| Momentum Trader | 15 | 50–64 | 100–800 | `PERPS\|MATCH_HUNT\|SWAP` | Trend followers |
-| Volatility Player | 10 | 65–74 | 100–800 | `VOL\|MATCH_HUNT` | Vol surface traders |
-| Arbitrageur | 10 | 75–84 | 200–1,000 | `DORMANCY\|MATCH_HUNT\|SWAP` | Protocol mechanics exploiters |
-| Panic Seller | 10 | 85–94 | 100–800 | `EARLY_REDEEM\|PERPS\|VOL\|SWAP` | Fear-driven exits |
-| Predator | 5 | 95–99 | 100–500 | `DORMANCY\|MATCH_HUNT` | Dormancy hunters |
+| Diamond Hands | 25 | 0–24 | 500–1,500 | `MATCH_HUNT` | Patient holders |
+| Yield Farmer | 18 | 25–42 | 300–1,200 | `PERPS\|VOL\|MATCH_HUNT\|SWAP` | DeFi optimizers |
+| Momentum Trader | 12 | 43–54 | 100–800 | `PERPS\|MATCH_HUNT\|SWAP` | Trend followers |
+| Volatility Player | 10 | 55–64 | 100–800 | `VOL\|MATCH_HUNT` | Vol surface traders |
+| Arbitrageur | 10 | 65–74 | 200–1,000 | `DORMANCY\|MATCH_HUNT\|SWAP` | Protocol mechanics exploiters |
+| Panic Seller | 10 | 75–84 | 100–800 | `EARLY_REDEEM\|PERPS\|VOL\|SWAP` | Fear-driven exits |
+| Predator | 5 | 85–89 | 100–500 | `DORMANCY\|MATCH_HUNT` | Dormancy hunters |
+| Speculator | 10 | 90–99 | 50–300 | `SWAP` | AMM-only external traders |
 
 ## Psychology Templates
 
@@ -43,6 +44,46 @@ Strategy: `EARLY_REDEEM|PERPS|VOL|SWAP`. Capital: 100–800 d (0.01–0.08 BTC),
 ### Predator (5 agents)
 
 Strategy: `DORMANCY|MATCH_HUNT`. Capital: 100–500 d (0.01–0.05 BTC), vault allocation: 50-70%. High composure (panic at -25% to -40%). Focused on poke/claim dormancy mechanics. Activity interval: 7-20 ticks. Critical for testing dormancy lifecycle. Diamond Hands and Panic Sellers provide dormancy targets due to long activity intervals.
+
+### Speculator (10 agents)
+
+Strategy: `SWAP` only. Capital: 50–300 d (0.005–0.03 BTC), vault allocation: 0% (no vaults). Never mints a vault — only trades vBTC on the Curve pool. 50% trend-followers (buy on positive momentum), 50% mean-reversion (buy below ratio threshold, sell above). Swap allocation: 30-80%. Buy threshold: 0.65-0.80, sell threshold: 0.85-0.98. Represents external DeFi users who discover vBTC as a tradeable asset. Adds AMM depth and creates price discovery for the vBTC ratio.
+
+## Staggered Minting (Bootstrap Phase)
+
+Each archetype has a `mintDelay` range (in ticks) controlling when agents first mint:
+
+| Archetype | Mint Delay | Phase Mapping |
+|-----------|-----------|---------------|
+| Diamond Hands | 0–4 | Phase I (early conviction) |
+| Yield Farmer | 0–20 | Phase I + early Phase II |
+| Momentum Trader | 10–80 | Phase II (price-correlated) |
+| Volatility Player | 80–161 | Late Phase II (wait for products) |
+| Arbitrageur | 0–120 | Spread across I + II |
+| Panic Seller | 4–60 | Phase I tail (FOMO) + Phase II |
+| Predator | 60–161 | Late Phase II (wait for targets) |
+| Speculator | never | AMM-only, no vaults |
+
+This creates staggered vesting windows, realistic bootstrap dynamics, and eliminates synchronized post-vesting "big bang" events.
+
+## Multi-Vault Agents
+
+Key archetypes mint multiple vaults via `targetVaultCount`:
+
+| Archetype | Target Vaults | Rationale |
+|-----------|:------------:|-----------|
+| Diamond Hands | 2–5 | DCA-style accumulation, dormancy risk isolation |
+| Yield Farmer | 2–3 | One for holding, one for early-redeem optionality |
+| Arbitrageur | 2 | Different delegation configs per vault |
+| All others | 1 | Single vault sufficient for strategy |
+
+## Psychology Drift
+
+Agent psychology evolves based on net worth trajectory. After each action:
+- `panicThreshold` and `exitThreshold` shift by `1% × netWorthReturn7d`
+- Losers become more panic-prone (thresholds move toward zero)
+- Winners become more complacent (thresholds move away from zero)
+- Bounded to ±2x of original archetype range (prevents crossover)
 
 ## Expected Behavior in Simulation
 
@@ -91,7 +132,7 @@ Expected average vault size is 0.005 WBTC (50 den) per [Minting Economics](../..
 | Panic Seller | 100–800 | 60-80% | 60–640 | 1–13 | Impulsive batch (FOMO), regret later |
 | Predator | 100–500 | 50-70% | 50–350 | 1–7 | Moderate batch |
 
-**Current gap:** The simulation creates 1 vault per agent with `vaultAllocationPct` of capital, rather than N vaults of 0.005 WBTC each. Withdrawals are mathematically equivalent (see Minting Economics Section 5), but multi-vault optionality for partial early redemption is not modeled.
+Multi-vault agents (Diamond Hands 2-5, Yield Farmer 2-3, Arbitrageur 2) create vaults of `allocatedCapital / targetVaultCount` each, exercising partial early redemption optionality and per-vault delegation.
 
 ## Adding a New Archetype
 

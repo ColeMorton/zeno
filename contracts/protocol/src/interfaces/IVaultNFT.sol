@@ -83,6 +83,8 @@ interface IVaultNFT is IERC721, IVaultNFTDormancy, IVaultNFTDelegation {
 
     function getWithdrawableAmount(uint256 tokenId) external view returns (uint256);
 
+    function withdrawalCooldown(uint256 tokenId) external view returns (uint256);
+
     function getCollateralClaim(uint256 tokenId) external view returns (uint256);
 
     function getClaimValue(address holder, uint256 tokenId) external view returns (uint256);

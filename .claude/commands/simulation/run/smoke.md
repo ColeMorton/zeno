@@ -5,7 +5,7 @@ Run the simulation skill to execute a **20-week smoke** swarm simulation.
 ### 1. Run simulation
 
 ```bash
-cd contracts/simulation && forge test --match-test test_swarm_smoke -vvv --gas-limit 999999999999
+cd "$(git rev-parse --show-toplevel)/contracts/simulation" && forge test --match-test test_swarm_smoke -vvv --gas-limit 999999999999
 ```
 
 ### 2. Validate forge output (MANDATORY — do NOT skip)
@@ -19,13 +19,13 @@ test -f contracts/simulation/reports/simulation_summary.json || { echo "ERROR: s
 ### 3. Generate HTML dashboard
 
 ```bash
-cd contracts/simulation && python3 scripts/generate_report.py
+cd "$(git rev-parse --show-toplevel)/contracts/simulation" && python3 scripts/generate_report.py
 ```
 
 ### 3.5. Generate vBTC ratio chart
 
 ```bash
-cd contracts/simulation && python3 scripts/generate_vbtc_ratio_chart.py
+cd "$(git rev-parse --show-toplevel)/contracts/simulation" && python3 scripts/generate_vbtc_ratio_chart.py --start-week 0
 ```
 
 ### 4. Archive results (MANDATORY — do NOT skip)
@@ -43,8 +43,8 @@ cp contracts/simulation/reports/market_data.csv \
    contracts/simulation/reports/simulation_summary.json \
    contracts/simulation/reports/summary.md \
    contracts/simulation/reports/simulation.html \
-   contracts/simulation/reports/vbtc_ratio.png \
    "${RESULTS_DIR}/"
+[ -f contracts/simulation/reports/vbtc_ratio.png ] && cp contracts/simulation/reports/vbtc_ratio.png "${RESULTS_DIR}/"
 ```
 
 ### 5. Update index (MANDATORY — do NOT skip)

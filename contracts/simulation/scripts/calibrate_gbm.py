@@ -180,6 +180,8 @@ def walk_forward(df: pd.DataFrame) -> pd.DataFrame:
             "sigma_low": params["sigma_low"],
             "sigma_high": params["sigma_high"],
             "p_switch": params["p_switch"],
+            "p_switch_low_to_high": params["p_switch_low_to_high"],
+            "p_switch_high_to_low": params["p_switch_high_to_low"],
             "n_low": params["n_low"],
             "n_high": params["n_high"],
             "oos_vol_ratio": vol_ratio,
@@ -203,7 +205,8 @@ def to_solidity_constants(params: dict) -> str:
     sigma_low_fp = int(round(params["sigma_low"] * 1e18))
     sigma_high_fp = int(round(params["sigma_high"] * 1e18))
     mu_fp = int(round(params["mu"] * 1e18))
-    p_switch_bps = int(round(params["p_switch"] * 10000))
+    p_to_high_bps = int(round(params.get("p_switch_to_high", params["p_switch"]) * 10000))
+    p_to_low_bps = int(round(params.get("p_switch_to_low", params["p_switch"]) * 10000))
 
     lines = [
         f"    /// @dev Regime parameters (weekly sigma in 18 decimals, calibrated from BTC-USD {DATA_START}–present)",
@@ -213,8 +216,9 @@ def to_solidity_constants(params: dict) -> str:
         f"    /// @dev Weekly arithmetic drift (CAGR + vol drag correction, {DATA_START}–present)",
         f"    int256 private constant WEEKLY_DRIFT = {mu_fp}; // {params['mu']:.8f} per week",
         f"",
-        f"    /// @dev Regime switching probability per tick (basis points out of 10000)",
-        f"    uint256 private constant REGIME_SWITCH_PROB = {p_switch_bps}; // {params['p_switch']:.4f} = {p_switch_bps}/10000",
+        f"    /// @dev Asymmetric regime switching probabilities (basis points out of 10000)",
+        f"    uint256 private constant P_SWITCH_TO_HIGH = {p_to_high_bps}; // low→high: {params.get('p_switch_to_high', params['p_switch']):.4f}",
+        f"    uint256 private constant P_SWITCH_TO_LOW = {p_to_low_bps}; // high→low: {params.get('p_switch_to_low', params['p_switch']):.4f}",
     ]
     return "\n".join(lines)
 
@@ -282,17 +286,32 @@ def main():
     sigma_high = results["sigma_high"].median()
     p_switch = results["p_switch"].median()
 
-    # Volatility drag correction: PriceSimulator uses arithmetic returns
-    # (price *= 1 + drift + sigma*Z), so E[log(P_new/P_old)] = drift - sigma²/2.
+    # Volatility drag correction: generate_price_series uses log-normal returns
+    # (price *= exp(drift + sigma*Z)), so E[log(P_new/P_old)] = drift.
     # To match the historical CAGR (= mean log return), set:
-    #   drift = mean_log_return + avg(sigma²) / 2
-    # With symmetric switch probability, the stationary regime distribution is 50/50.
-    avg_sigma_sq = 0.5 * sigma_low**2 + 0.5 * sigma_high**2
+    #   drift = mean_log_return + weighted_avg(sigma²) / 2
+    # Weight by ergodic (stationary) regime distribution, NOT 50/50.
+
+    # Asymmetric switch probabilities from walk-forward folds
+    p_to_high = results["p_switch_low_to_high"].median() if "p_switch_low_to_high" in results.columns else p_switch
+    p_to_low = results["p_switch_high_to_low"].median() if "p_switch_high_to_low" in results.columns else p_switch
+
+    # Ergodic regime distribution: pi_high = p_to_high / (p_to_high + p_to_low)
+    p_sum = p_to_high + p_to_low
+    if p_sum > 0:
+        pi_high = p_to_high / p_sum
+        pi_low = 1.0 - pi_high
+    else:
+        pi_high = 0.5
+        pi_low = 0.5
+
+    avg_sigma_sq = pi_low * sigma_low**2 + pi_high * sigma_high**2
     vol_drag = avg_sigma_sq / 2
     drift_corrected = cagr_data["weekly_log_return"] + vol_drag
 
-    print(f"\n  Volatility drag correction:")
-    print(f"    avg(σ²)/2 = 0.5×{sigma_low:.6f}² + 0.5×{sigma_high:.6f}² / 2 = {vol_drag:.8f}")
+    print(f"\n  Volatility drag correction (ergodic weights):")
+    print(f"    p_to_high={p_to_high:.4f}, p_to_low={p_to_low:.4f} → π_low={pi_low:.3f}, π_high={pi_high:.3f}")
+    print(f"    avg(σ²)/2 = {pi_low:.3f}×{sigma_low:.6f}² + {pi_high:.3f}×{sigma_high:.6f}² / 2 = {vol_drag:.8f}")
     print(f"    drift = CAGR_weekly + vol_drag = {cagr_data['weekly_log_return']:.8f} + {vol_drag:.8f} = {drift_corrected:.8f}")
 
     final_params = {
@@ -300,6 +319,8 @@ def main():
         "sigma_low": sigma_low,
         "sigma_high": sigma_high,
         "p_switch": p_switch,
+        "p_switch_to_high": p_to_high,
+        "p_switch_to_low": p_to_low,
     }
 
     # Annualized equivalents for context

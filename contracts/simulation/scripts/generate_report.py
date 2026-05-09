@@ -45,9 +45,11 @@ ACTION_NAMES = [
 
 
 def format_btc(sats: int) -> str:
+    sign = "-" if sats < 0 else ""
+    sats = abs(sats)
     whole = sats // 10**8
     frac = (sats % 10**8) // 10**4
-    return f"{whole}.{frac:04d} BTC"
+    return f"{sign}{whole}.{frac:04d} BTC"
 
 
 def calc_return_pct(final_val: int, initial_val: int) -> float:
@@ -259,6 +261,8 @@ def _card(value, label):
 
 def _summary_cards(summary, success_rate):
     ghost = summary["ghostVariables"]
+    expected = int(ghost.get("expectedFailures", 0))
+    unexpected = int(ghost.get("unexpectedFailures", 0))
     cards = [
         _card(str(summary["tickCount"]), "Simulation Weeks"),
         _card("100", "Total Agents"),
@@ -267,7 +271,7 @@ def _summary_cards(summary, success_rate):
         _card(format_btc(int(ghost["totalForfeited"])), "Total Forfeited"),
         _card(format_btc(int(ghost["totalMatchClaimed"])), "Match Claimed"),
         _card(f"{success_rate}%", "Action Success Rate"),
-        _card(format_btc(int(summary["finalState"]["matchPool"])), "Final Match Pool"),
+        _card(str(unexpected), "Unexpected Failures"),
     ]
     return '<div class="cards">' + "".join(cards) + '</div>'
 

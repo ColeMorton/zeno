@@ -394,6 +394,15 @@ contract VaultNFT is ERC721, IVaultNFT {
         return _lastWithdrawal[tokenId];
     }
 
+    function withdrawalCooldown(uint256 tokenId) external view returns (uint256) {
+        _requireOwned(tokenId);
+        uint256 lastWithdrawal_ = _lastWithdrawal[tokenId];
+        if (lastWithdrawal_ == 0) {
+            return 0;
+        }
+        return lastWithdrawal_ + VaultMath.WITHDRAWAL_PERIOD;
+    }
+
     function lastActivity(uint256 tokenId) external view returns (uint256) {
         _requireOwned(tokenId);
         return _lastActivity[tokenId];

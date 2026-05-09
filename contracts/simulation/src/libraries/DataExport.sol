@@ -29,7 +29,8 @@ library DataExport {
         if (action == 17) return "CLAIM_DORMANT";
         if (action == 18) return "SWAP_VBTC_TO_WBTC";
         if (action == 19) return "SWAP_WBTC_TO_VBTC";
-        if (action == 20) return "ADD_LIQUIDITY";
+        if (action == 20) return "GRANT_WALLET_DELEGATE";
+        if (action == 21) return "ADD_LIQUIDITY";
         return "UNKNOWN";
     }
 

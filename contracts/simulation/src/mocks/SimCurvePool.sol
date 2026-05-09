@@ -7,6 +7,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// @title SimCurvePool - Constant-product AMM implementing ICurveCryptoSwap for simulation
 /// @dev coin[0] = WBTC, coin[1] = vBTC. Price = reserve0 * 1e18 / reserve1 (vBTC price in WBTC terms).
 ///      Pool starts empty and is seeded by agents via add_liquidity() after first vesting.
+///      Ratio is bounded in [0.5e18, 1.0e18] to prevent economic explosion.
 contract SimCurvePool is ICurveCryptoSwap {
     IERC20 public immutable coin0; // WBTC
     IERC20 public immutable coin1; // vBTC
@@ -24,10 +25,14 @@ contract SimCurvePool is ICurveCryptoSwap {
     uint256 private constant BPS = 10000;
     uint256 private constant EMA_ALPHA = 1e17; // 10% weight to new observation
 
+    uint256 public constant RATIO_CEILING = 1.0e18;
+    uint256 public constant RATIO_FLOOR = 0.5e18;
+
     error NotInitialized();
     error InvalidCoinIndex(int128 i);
     error InsufficientOutput(uint256 dy, uint256 min_dy);
     error ZeroAmount();
+    error RatioBoundsExceeded(uint256 ratioBefore, uint256 ratioAfter);
 
     constructor(address _coin0, address _coin1) {
         coin0 = IERC20(_coin0);
@@ -41,6 +46,11 @@ contract SimCurvePool is ICurveCryptoSwap {
         if (amounts[0] > 0) coin0.transferFrom(msg.sender, address(this), amounts[0]);
         if (amounts[1] > 0) coin1.transferFrom(msg.sender, address(this), amounts[1]);
 
+        uint256 oldRatio;
+        if (initialized) {
+            oldRatio = reserve0 * PRECISION / reserve1;
+        }
+
         reserve0 = coin0.balanceOf(address(this));
         reserve1 = coin1.balanceOf(address(this));
 
@@ -49,7 +59,14 @@ contract SimCurvePool is ICurveCryptoSwap {
             uint256 spot = reserve0 * PRECISION / reserve1;
             oraclePrice = spot;
             lastSpotPrice = spot;
+            if (spot > RATIO_CEILING || spot < RATIO_FLOOR) {
+                revert RatioBoundsExceeded(0, spot);
+            }
         } else if (initialized) {
+            uint256 newRatio = reserve0 * PRECISION / reserve1;
+            if (newRatio > RATIO_CEILING || newRatio < RATIO_FLOOR) {
+                revert RatioBoundsExceeded(oldRatio, newRatio);
+            }
             _updateOracle();
         }
 
@@ -67,6 +84,28 @@ contract SimCurvePool is ICurveCryptoSwap {
         // Constant-product: dy = reserveOut * dx_after_fee / (reserveIn + dx_after_fee)
         uint256 dxAfterFee = dx * (BPS - FEE_BPS) / BPS;
         dy = reserveOut * dxAfterFee / (reserveIn + dxAfterFee);
+
+        uint256 oldRatio = reserve0 * PRECISION / reserve1;
+
+        // Compute expected post-swap reserves for ratio check
+        uint256 newReserve0;
+        uint256 newReserve1;
+        if (i == 0 && j == 1) {
+            // WBTC -> vBTC: reserve0 increases, reserve1 decreases
+            newReserve0 = reserve0 + dx;
+            newReserve1 = reserve1 - dy;
+        } else if (i == 1 && j == 0) {
+            // vBTC -> WBTC: reserve0 decreases, reserve1 increases
+            newReserve0 = reserve0 - dy;
+            newReserve1 = reserve1 + dx;
+        } else {
+            revert InvalidCoinIndex(i);
+        }
+
+        uint256 newRatio = newReserve0 * PRECISION / newReserve1;
+        if (newRatio > RATIO_CEILING || newRatio < RATIO_FLOOR) {
+            revert RatioBoundsExceeded(oldRatio, newRatio);
+        }
 
         if (dy < min_dy) revert InsufficientOutput(dy, min_dy);
 
@@ -88,7 +127,26 @@ contract SimCurvePool is ICurveCryptoSwap {
         if (!initialized || dx == 0) return 0;
         (, , uint256 reserveIn, uint256 reserveOut) = _getReserves(i, j);
         uint256 dxAfterFee = dx * (BPS - FEE_BPS) / BPS;
-        return reserveOut * dxAfterFee / (reserveIn + dxAfterFee);
+        uint256 dy = reserveOut * dxAfterFee / (reserveIn + dxAfterFee);
+
+        // Compute expected post-swap reserves for ratio check
+        uint256 newReserve0;
+        uint256 newReserve1;
+        if (i == 0 && j == 1) {
+            newReserve0 = reserve0 + dx;
+            newReserve1 = reserve1 - dy;
+        } else if (i == 1 && j == 0) {
+            newReserve0 = reserve0 - dy;
+            newReserve1 = reserve1 + dx;
+        } else {
+            revert InvalidCoinIndex(i);
+        }
+
+        uint256 newRatio = newReserve0 * PRECISION / newReserve1;
+        if (newRatio > RATIO_CEILING || newRatio < RATIO_FLOOR) {
+            return 0;
+        }
+        return dy;
     }
 
     // ==================== Oracle ====================

@@ -23,19 +23,30 @@ import numpy as np
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "reports"
 
 # Calibrated parameters (from walk-forward analysis, see calibrate_gbm.py)
-WEEKLY_DRIFT = 0.013104373957047678
+# Volatility and regime switching are scenario-independent (calibrated from history)
 LOW_VOL_SIGMA = 0.073475307025204032
 HIGH_VOL_SIGMA = 0.112592509543873504
-REGIME_SWITCH_PROB = 0.0982
+P_SWITCH_TO_HIGH = 0.1100  # low-vol → high-vol (empirically faster)
+P_SWITCH_TO_LOW = 0.0864   # high-vol → low-vol (empirically slower)
+
+# Scenario-specific drift rates (only drift changes between scenarios)
+SCENARIO_DRIFTS = {
+    "bull": 0.013104373957047678,    # ~56% CAGR (historical calibration)
+    "moderate": 0.003846,             # ~22% CAGR (institutional forward consensus)
+    "stagnant": 0.000962,             # ~5% CAGR (post-maturation, gold-like)
+    "bear": -0.001923,                # ~-10% CAGR (extended bear cycle)
+}
+DEFAULT_SCENARIO = "bull"
 
 PRECISION = 10**18
 
 
-def generate(seed: int, ticks: int, initial_price: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Generate GBM price series with regime switching.
+def generate(seed: int, ticks: int, initial_price: float, scenario: str = DEFAULT_SCENARIO) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Generate GBM price series with asymmetric regime switching.
 
     Returns (prices, regimes, ticks_arr) where prices are in USD float.
     """
+    drift = SCENARIO_DRIFTS[scenario]
     rng = np.random.default_rng(seed)
 
     prices = np.empty(ticks)
@@ -45,13 +56,14 @@ def generate(seed: int, ticks: int, initial_price: float) -> tuple[np.ndarray, n
     regime = 0  # start low-vol
 
     for t in range(ticks):
-        # Regime switching
-        if rng.random() < REGIME_SWITCH_PROB:
+        # Asymmetric regime switching: faster to panic, slower to calm
+        p_switch = P_SWITCH_TO_HIGH if regime == 0 else P_SWITCH_TO_LOW
+        if rng.random() < p_switch:
             regime = 1 - regime
 
         sigma = LOW_VOL_SIGMA if regime == 0 else HIGH_VOL_SIGMA
         z = rng.standard_normal()
-        price *= np.exp(WEEKLY_DRIFT + sigma * z)
+        price *= np.exp(drift + sigma * z)
 
         prices[t] = price
         regimes[t] = regime
@@ -187,13 +199,15 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--ticks", type=int, default=320)
     parser.add_argument("--initial-price", type=float, default=60_000.0)
+    parser.add_argument("--scenario", type=str, default=DEFAULT_SCENARIO, choices=SCENARIO_DRIFTS.keys(),
+                        help="Price scenario: bull (~56%% CAGR), moderate (~22%%), stagnant (~5%%), bear (~-10%%)")
     parser.add_argument("--output", type=str, default=str(REPORTS_DIR / "price_series.csv"))
     args = parser.parse_args()
 
     output_path = Path(args.output)
 
     # Generate
-    prices, regimes, _ = generate(args.seed, args.ticks, args.initial_price)
+    prices, regimes, _ = generate(args.seed, args.ticks, args.initial_price, args.scenario)
 
     # Export CSV
     export_csv(prices, regimes, output_path)
@@ -201,6 +215,7 @@ def main():
     # Validate
     stats = validate(prices, regimes, args.initial_price)
     stats["seed"] = args.seed
+    stats["scenario"] = args.scenario
 
     # Export validation JSON
     json_path = output_path.parent / "price_validation.json"
@@ -213,6 +228,7 @@ def main():
     # Print summary
     n_years = args.ticks / 52.0
     print(f"=== PRICE SERIES GENERATED ===")
+    print(f"Scenario: {args.scenario} (drift={SCENARIO_DRIFTS[args.scenario]:.6f})")
     print(f"Seed: {args.seed} | Ticks: {args.ticks} ({n_years:.1f} years) | Initial: ${args.initial_price:,.0f}")
     print(f"Final: ${prices[-1]:,.0f} | Min: ${prices.min():,.0f} | Max: ${prices.max():,.0f}")
     print(f"Total return: {stats['totalReturnPct']}% | CAGR: {float(stats['annualizedCAGR']):.2%}")

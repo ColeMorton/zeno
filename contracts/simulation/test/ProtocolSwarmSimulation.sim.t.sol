@@ -29,11 +29,12 @@ contract ProtocolSwarmSimulationTest is Test {
     }
 
     function setUp() public {
+        uint256 seed = vm.envOr("SIMULATION_SEED", uint256(42));
         orchestrator = new ProtocolSwarmOrchestrator();
         orchestrator.setVm(vm);
         orchestrator.deployProtocol();
         orchestrator.deployIssuer("ProtocolSwarm");
-        orchestrator.initializeAgents(42);
+        orchestrator.initializeAgents(seed);
 
         (VaultNFT vault, BtcToken btcToken, MockWBTC wbtc) = orchestrator.getProtocol();
         _vault = vault;

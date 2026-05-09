@@ -23,7 +23,7 @@ Build context by reading the relevant source files based on what the user needs:
 | Invariants | `src/assertions/CrossLayerInvariants.sol`, `src/assertions/SwarmInvariants.sol` |
 | HTML dashboard | `src/libraries/HtmlReport.sol` |
 | Data export (CSV/JSON) | `src/libraries/DataExport.sol` |
-| Mocks | `src/mocks/MockCurvePool.sol`, `src/mocks/MockTWAPOracle.sol` |
+| Mocks | `src/mocks/SimCurvePool.sol` (agent AMM), `src/mocks/MockCurvePool.sol` (perp oracle), `src/mocks/MockTWAPOracle.sol` |
 | Handler-based fuzzing | `src/handlers/CrossLayerHandler.sol` |
 | Price generation/validation | `scripts/generate_price_series.py` |
 | Existing tests | `test/*.sim.t.sol` |
@@ -78,7 +78,8 @@ _generateReport()
 | `HtmlReport` | `src/libraries/HtmlReport.sol` | HTML dashboard string builder |
 | `DataExport` | `src/libraries/DataExport.sol` | CSV/JSON string builders for structured export |
 | `CrossLayerHandler` | `src/handlers/CrossLayerHandler.sol` | Stateful fuzz handler with ghost variables |
-| `MockCurvePool` | `src/mocks/MockCurvePool.sol` | Controllable `price_oracle()` |
+| `SimCurvePool` | `src/mocks/SimCurvePool.sol` | Agent-driven AMM with real token reserves, constant-product pricing, ratio ceiling at 1.0. Used by agents for vBTC/WBTC swaps |
+| `MockCurvePool` | `src/mocks/MockCurvePool.sol` | Controllable `price_oracle()` used by PerpetualVault for mark-to-market. Not used for swaps |
 | `MockTWAPOracle` | `src/mocks/MockTWAPOracle.sol` | Controllable `getTWAP()` |
 
 ## Agent Framework
@@ -210,6 +211,16 @@ function invariant_collateralConservation() public {
     );
 }
 ```
+
+## Failure Diagnosis
+
+See `references/diagnostics.md` for the authoritative error catalog. Key benchmarks:
+- <20% failure rate: excellent
+- 20-40%: good
+- 40-60%: acceptable
+- 60%+: broken
+
+Five systemic root causes: (A) aggregate vs vault-specific mismatches, (B) cooldown retry spam, (C) multi-agent race conditions, (D) stale vault IDs, (E) delegation BPS overflow.
 
 ## Net Worth Valuation
 

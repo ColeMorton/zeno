@@ -8,7 +8,7 @@
       "files": [],
       "assertions": [
         {"text": "Identifies all 4 required files: AgentLib.sol, SwarmOrchestrator.sol, HtmlReport.sol, docs/Swarm_Simulation.md", "type": "file_coverage"},
-        {"text": "Adds WHALE to the Archetype enum in AgentLib.sol", "type": "code_correctness"},
+        {"text": "Sets strategy mask using correct flag constants (e.g., STRAT_PERPS | STRAT_MATCH_HUNT = 0x01 | 0x10)", "type": "code_correctness"},
         {"text": "Adjusts agent distribution to accommodate 5 Whale agents", "type": "code_correctness"},
         {"text": "Provides deterministic config generation with 10x capital multiplier", "type": "code_correctness"},
         {"text": "Implements decide() branch with Diamond Hands hold behavior + higher leverage perp logic", "type": "code_correctness"}
@@ -24,7 +24,7 @@
         {"text": "Traces ghost variables (ghost_totalDeposited, ghost_totalWithdrawn, ghost_totalForfeited, ghost_totalMatchClaimed)", "type": "debugging_approach"},
         {"text": "Suggests adding diagnostic logging around tick 800", "type": "debugging_approach"},
         {"text": "Identifies likely root causes (match pool accounting, early redemption, withdrawal edge cases)", "type": "root_cause_analysis"},
-        {"text": "Provides Foundry reproduction command", "type": "actionability"}
+        {"text": "References specific failure root cause categories from the diagnostic framework (race conditions, cooldown retry spam, stale vault IDs)", "type": "domain_knowledge"}
       ]
     },
     {
@@ -38,6 +38,72 @@
         {"text": "Derives returns from existing netWorthAt snapshot data", "type": "efficiency"},
         {"text": "Modifies HtmlReport.sol to add new visualization", "type": "code_correctness"},
         {"text": "Handles fixed-point arithmetic correctly (18-decimal precision)", "type": "code_correctness"}
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Our simulation ran with seed 42 for 320 weeks and the summary shows 58% action failure rate. The top failing actions are POKE_DORMANT (82% failure), CLAIM_MATCH (65% failure), and WITHDRAW_AS_DELEGATE (71% failure). Diagnose the root causes for each and propose decision logic changes in AgentLib.sol to bring the overall failure rate below 40%.",
+      "expected_output": "Root cause analysis referencing the five systemic failure categories, with specific AgentLib.sol code changes targeting each failing action",
+      "files": [],
+      "assertions": [
+        {"text": "Identifies multi-agent race conditions as primary POKE_DORMANT failure cause — multiple agents targeting the same dormant vault within a single tick", "type": "root_cause_analysis"},
+        {"text": "Identifies cooldown retry spam as a CLAIM_MATCH contributor — agents retry every rebalance interval despite already-claimed vault", "type": "root_cause_analysis"},
+        {"text": "Identifies delegation BPS overflow or cooldown mismatch as WITHDRAW_AS_DELEGATE failure cause", "type": "root_cause_analysis"},
+        {"text": "Proposes per-vault tracking (e.g., matchClaimed flag or portfolio field) to avoid redundant match claims", "type": "actionability"},
+        {"text": "References failure rate benchmarks: <20% excellent, 20-40% good, 40-60% acceptable, 60%+ broken", "type": "domain_knowledge"}
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "I want to stress-test the protocol under a sustained bear market. Configure the price model for a -10% annualized CAGR scenario and generate a 512-week price series. Explain how the drift parameter changes while keeping volatility calibration intact, and show me the exact command to generate and validate the series.",
+      "expected_output": "Correct bear scenario configuration with drift value, explanation of scenario-independent volatility, vol drag correction formula, and exact generation command",
+      "files": [],
+      "assertions": [
+        {"text": "Uses --scenario bear flag (or equivalent drift value -0.001923) for generate_price_series.py", "type": "code_correctness"},
+        {"text": "States that sigma (0.073475 / 0.112593) and regime switch probabilities (11.00% / 8.64%) are scenario-independent — only drift changes", "type": "domain_knowledge"},
+        {"text": "Explains vol drag correction formula: drift = CAGR_weekly + avg(sigma^2)/2 where avg(sigma^2) uses ergodic regime distribution pi_high = P(low->high) / (P(low->high) + P(high->low))", "type": "domain_knowledge"},
+        {"text": "Provides complete generation command: python generate_price_series.py --seed 42 --ticks 512 --scenario bear", "type": "actionability"},
+        {"text": "Notes asymmetric regime switching — faster transition into high-vol (~11%) vs slower recovery (~8.64%) — as empirically calibrated behavior", "type": "domain_knowledge"}
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Add a new invariant to the simulation that verifies the SimCurvePool vBTC/WBTC ratio never exceeds 1.0 after any swap. The invariant should check both the spot price and the EMA oracle price, and it should be added to the existing invariant checking framework. Also explain why the ratio must be capped at 1.0.",
+      "expected_output": "New invariant in SwarmInvariants.sol with economic rationale, spot + oracle checks, and integration with _checkInvariants()",
+      "files": [],
+      "assertions": [
+        {"text": "Explains economic rationale: vBTC above parity creates risk-free profit via separate-and-sell arbitrage loop", "type": "domain_knowledge"},
+        {"text": "Adds assertion to SwarmInvariants.sol (not CrossLayerInvariants — AMM is simulation-layer)", "type": "code_correctness"},
+        {"text": "Checks spot_price() <= 1e18 using correct 18-decimal precision", "type": "code_correctness"},
+        {"text": "Also checks price_oracle() <= 1e18 (EMA can lag but should converge)", "type": "code_correctness"},
+        {"text": "Distinguishes SimCurvePool (agent-driven AMM with real reserves) from MockCurvePool (controllable oracle for PerpetualVault)", "type": "domain_knowledge"},
+        {"text": "Integrates with existing _checkInvariants() call pattern (every INVARIANT_CHECK_INTERVAL ticks)", "type": "code_correctness"}
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "I'm seeing that Diamond Hands agents are early-redeeming around tick 400, which shouldn't happen. Their panicThreshold starts at -30% to -50%, but by tick 400 they seem to be panicking at -5% drawdowns. Investigate the psychology drift mechanism and identify whether there's a bug in the threshold bounding logic in AgentLib.sol.",
+      "expected_output": "Analysis of mutate() function, identification that Diamond Hands lack STRAT_EARLY_REDEEM flag making the scenario impossible, and explanation of bounding arithmetic for negative thresholds",
+      "files": [],
+      "assertions": [
+        {"text": "Identifies the mutate() function in AgentLib.sol as the psychology drift mechanism", "type": "code_reference"},
+        {"text": "Recognizes Diamond Hands have strategyMask = STRAT_MATCH_HUNT only (no STRAT_EARLY_REDEEM flag), so early redemption is impossible regardless of threshold", "type": "domain_knowledge"},
+        {"text": "Traces the decide() guard: if ((psy.strategyMask & STRAT_EARLY_REDEEM) != 0) blocks the early-redeem path for Diamond Hands", "type": "code_correctness"},
+        {"text": "Analyzes bounding arithmetic: originalPanicThreshold * 2 for -30e16 = -60e16 (wider bound), /2 = -15e16 (tighter bound) — correctly interprets floor/ceiling semantics for negative values", "type": "code_correctness"},
+        {"text": "References Diamond Hands expected behavior from archetypes documentation: very high panic thresholds, no DeFi exposure, MATCH_HUNT only", "type": "domain_knowledge"}
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "Design a targeted stress test scenario that exercises the delegation withdrawal flow end-to-end. The test should: (1) have a Yield Farmer grant wallet-level delegation to an Arbitrageur, (2) advance time past vesting + 30-day cooldown, (3) have the Arbitrageur execute a delegated withdrawal, and (4) verify ghost variable accounting remains correct. Implement this as a new test function in SwarmSimulation.sim.t.sol.",
+      "expected_output": "New test function with correct agent index ranges, time advancement past 1129-day vesting + 30-day cooldown, delegation BPS, and ghost variable verification",
+      "files": [],
+      "assertions": [
+        {"text": "Uses correct agent index ranges from archetype distribution (Yield Farmer 25-42, Arbitrageur 65-74)", "type": "domain_knowledge"},
+        {"text": "Advances time correctly: vm.warp past 1129 days for vesting + 30 days for withdrawal cooldown", "type": "code_correctness"},
+        {"text": "Calls grantWithdrawalDelegate with valid BPS (1-10000) and checks walletTotalDelegatedBPS doesn't overflow", "type": "code_correctness"},
+        {"text": "Verifies ghost_totalWithdrawn is incremented after withdrawAsDelegate", "type": "code_correctness"},
+        {"text": "Implements the test in test/SwarmSimulation.sim.t.sol using the orchestrator's vm.prank pattern", "type": "code_correctness"}
       ]
     }
   ]

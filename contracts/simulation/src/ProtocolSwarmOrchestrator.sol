@@ -49,6 +49,9 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
     mapping(uint256 => bool) internal _agentVbtcRecombined;
     mapping(uint256 => bool) internal _vaultMatchClaimed; // vaultId => already claimed match
 
+    // Per-agent per-vault last withdrawal tick (cooldown tracking)
+    mapping(uint256 => mapping(uint256 => uint256)) internal _agentLastWithdrawTick; // agentId => vaultId => tick
+
     // Delegation tracking
     mapping(uint256 => uint256) internal _agentDelegationGrantCount; // agentId => count of delegates granted
     mapping(uint256 => uint256[]) internal _delegatedToAgents; // grantor agentId => delegate agent indices
@@ -170,13 +173,20 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
     // ==================== Agent Execution ====================
 
     function _executeAgent(uint256 agentId, ProtocolAgentLib.MarketSignals memory signals) internal {
+        uint256[] memory vaultIds = _agentVaultIds[agentId];
+        uint256[] memory lastWithdrawTicks = new uint256[](vaultIds.length);
+        for (uint256 i = 0; i < vaultIds.length; i++) {
+            lastWithdrawTicks[i] = _agentLastWithdrawTick[agentId][vaultIds[i]];
+        }
+
         ProtocolAgentLib.AgentState memory state = ProtocolAgentLib.AgentState({
-            vaultIds: _agentVaultIds[agentId],
+            vaultIds: vaultIds,
             hasSeparatedVbtc: _agentHasSeparatedVbtc[agentId],
             lastActionTick: _agentLastActionTick[agentId],
             lastMintTick: _agentLastMintTick[agentId],
             lastSeparateTick: _agentLastSeparateTick[agentId],
-            vbtcRecombined: _agentVbtcRecombined[agentId]
+            vbtcRecombined: _agentVbtcRecombined[agentId],
+            lastWithdrawTicks: lastWithdrawTicks
         });
 
         ProtocolAgentLib.Portfolio memory portfolio = _buildPortfolio(agentId, state);
@@ -217,7 +227,7 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
         if (action.action == ProtocolAgentLib.Action.MINT_VAULT) {
             return _execMintVault(agentId, agent, action.amount);
         } else if (action.action == ProtocolAgentLib.Action.WITHDRAW) {
-            return _execWithdraw(agent, action.targetId);
+            return _execWithdraw(agentId, agent, action.targetId);
         } else if (action.action == ProtocolAgentLib.Action.EARLY_REDEEM) {
             return _execEarlyRedeem(agentId, agent, action.targetId);
         } else if (action.action == ProtocolAgentLib.Action.MINT_BTC_TOKEN) {
@@ -275,11 +285,12 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
         }
     }
 
-    function _execWithdraw(address agent, uint256 vaultId) internal returns (bool) {
+    function _execWithdraw(uint256 agentId, address agent, uint256 vaultId) internal returns (bool) {
         _vm.startPrank(agent);
         try protocol.vault.withdraw(vaultId) returns (uint256 amount) {
             _vm.stopPrank();
             ghost_totalWithdrawn += amount;
+            _agentLastWithdrawTick[agentId][vaultId] = currentTick;
             return true;
         } catch {
             _vm.stopPrank();
@@ -466,8 +477,11 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
         p.wbtcBalance = protocol.wbtc.balanceOf(agent);
         p.vbtcBalance = protocol.btcToken.balanceOf(agent);
 
+        uint256 vaultCount = state.vaultIds.length;
+        p.nextWithdrawableTick = new uint256[](vaultCount);
+
         // Vault-specific eligibility scan
-        for (uint256 i = 0; i < state.vaultIds.length; i++) {
+        for (uint256 i = 0; i < vaultCount; i++) {
             uint256 vid = state.vaultIds[i];
 
             // Verify vault still exists (ownership check)
@@ -486,12 +500,24 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
                 p.hasVestedVault = true;
                 if (p.vestedVaultId == 0) p.vestedVaultId = vid;
 
-                // Check withdrawable (specific vault with cooldown passed)
-                try protocol.vault.getWithdrawableAmount(vid) returns (uint256 amt) {
-                    if (amt > 0 && p.withdrawableVaultId == 0) {
-                        p.withdrawableVaultId = vid;
-                    }
-                } catch {}
+                // Compute cooldown using vault's withdrawalCooldown()
+                uint256 nextWithdrawTick = 0;
+                uint256 cooldownExpires = protocol.vault.withdrawalCooldown(vid);
+                if (cooldownExpires > block.timestamp) {
+                    uint256 remaining = cooldownExpires - block.timestamp;
+                    nextWithdrawTick = currentTick + (remaining + 7 days - 1) / (7 days);
+                }
+                p.nextWithdrawableTick[i] = nextWithdrawTick;
+
+                // Only consider this vault withdrawable if cooldown has passed
+                if (nextWithdrawTick == 0 || nextWithdrawTick <= currentTick) {
+                    // Check withdrawable (specific vault with cooldown passed)
+                    try protocol.vault.getWithdrawableAmount(vid) returns (uint256 amt) {
+                        if (amt > 0 && p.withdrawableVaultId == 0) {
+                            p.withdrawableVaultId = vid;
+                        }
+                    } catch {}
+                }
 
                 // Check match claimable (specific vault, not yet claimed)
                 if (!_vaultMatchClaimed[vid] && p.matchClaimableVaultId == 0) {

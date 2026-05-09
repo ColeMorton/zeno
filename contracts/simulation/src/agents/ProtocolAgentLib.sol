@@ -78,6 +78,8 @@ library ProtocolAgentLib {
         uint256 lastMintTick;       // for multi-vault accumulator
         uint256 lastSeparateTick;   // for vBTC lifecycle
         bool vbtcRecombined;        // track separate/recombine cycle
+        // Cooldown tracking
+        uint256[] lastWithdrawTicks; // parallels vaultIds: tick of last withdrawal (0 = never)
     }
 
     struct ActionParams {
@@ -110,6 +112,7 @@ library ProtocolAgentLib {
         uint256 unvestedVaultId;        // specific unvested vault for early redeem
         uint256 vestedVaultId;          // specific vested vault for mintBtcToken/returnBtcToken
         uint256 anyValidVaultId;        // any existing vault for prove activity
+        uint256[] nextWithdrawableTick; // per-vault: tick when withdrawal next allowed (0 = any tick)
         // Dormancy
         uint256 dormantTargetId;
         bool dormantClaimable;
@@ -247,9 +250,21 @@ library ProtocolAgentLib {
             }
         }
 
-        // 12. Withdrawal — use specific withdrawable vault
+        // 12. Withdrawal — use specific withdrawable vault, respecting agent cooldown
         if (portfolio.withdrawableVaultId > 0) {
-            return ActionParams(Action.WITHDRAW, 0, portfolio.withdrawableVaultId, 0, 0);
+            // Explicit cooldown guard: skip if currentTick < lastWithdrawTick + 4
+            bool cooldownActive = false;
+            for (uint256 i = 0; i < state.vaultIds.length; i++) {
+                if (state.vaultIds[i] == portfolio.withdrawableVaultId) {
+                    if (state.lastWithdrawTicks[i] > 0 && signals.currentTick < state.lastWithdrawTicks[i] + 4) {
+                        cooldownActive = true;
+                    }
+                    break;
+                }
+            }
+            if (!cooldownActive) {
+                return ActionParams(Action.WITHDRAW, 0, portfolio.withdrawableVaultId, 0, 0);
+            }
         }
 
         // 13. Match claiming — use specific vault eligible for match claim
