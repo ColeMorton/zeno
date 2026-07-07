@@ -1,0 +1,892 @@
+<title>Zeno: Tides of Patience</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --abyss:#050e17; --abyss2:#030a11; --deep:#0b2130; --deep2:#0e2a3d;
+    --tide:#26d0d9; --tide-dim:#0f7f86; --gold:#f5c451; --coral:#ff5d6c;
+    --kelp:#6fe0a8; --foam:#dff2f5; --mute:#7fa0b0; --line:#153650;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --serif:Georgia,"Iowan Old Style","Times New Roman",serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--abyss);color:var(--foam);font-family:var(--sans);overflow:hidden;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:none}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--tide);outline-offset:2px}
+  .tnum{font-variant-numeric:tabular-nums}
+  .mono{font-family:var(--mono)}
+
+  #app{display:grid;grid-template-columns:1fr 388px;grid-template-rows:1fr auto;height:100vh}
+  @media(max-width:920px){#app{grid-template-columns:1fr;grid-template-rows:42vh 1fr auto}}
+
+  #stage{position:relative;grid-row:1/2;grid-column:1/2;overflow:hidden;border-right:1px solid var(--line)}
+  @media(max-width:920px){#stage{grid-column:1/2;border-right:none;border-bottom:1px solid var(--line)}}
+  #fx{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #stageHud{position:absolute;inset:0;pointer-events:none;padding:18px;display:flex;flex-direction:column;justify-content:space-between}
+  .stageTop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .voyage .day{font-family:var(--serif);font-size:32px;font-weight:600;line-height:1;text-shadow:0 2px 20px #000c}
+  .voyage .sub{color:var(--foam);opacity:.7;font-size:11px;text-transform:uppercase;letter-spacing:.15em;margin-top:5px;text-shadow:0 1px 8px #000}
+  .progress{height:6px;border-radius:6px;background:#00000066;overflow:hidden;border:1px solid #ffffff22;width:190px;margin-top:9px}
+  .progress>i{display:block;height:100%;background:linear-gradient(90deg,var(--tide-dim),var(--tide));width:0;transition:width .3s}
+  .pricePill{text-align:right;text-shadow:0 2px 16px #000c}
+  .pricePill .p{font-family:var(--mono);font-size:28px;font-weight:600;line-height:1}
+  .pricePill .d{font-family:var(--mono);font-size:13px;margin-top:4px}
+  .up{color:var(--kelp)} .down{color:var(--coral)}
+  .mood{align-self:center;text-align:center;font-family:var(--serif);font-style:italic;opacity:.9;
+    text-shadow:0 2px 22px #000;max-width:62%;font-size:16px}
+
+  /* HUD panel */
+  #panel{grid-row:1/3;grid-column:2/3;background:linear-gradient(180deg,var(--deep),var(--abyss2));
+    border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  @media(max-width:920px){#panel{grid-row:2/3;grid-column:1/2;border-left:none}}
+  .brand{padding:15px 17px 11px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .brand h1{margin:0;font-family:var(--serif);font-size:20px;font-weight:600}
+  .brand h1 b{color:var(--tide)}
+  .brand .tag{color:var(--mute);font-size:10px;text-transform:uppercase;letter-spacing:.18em;margin-top:3px}
+  .scroll{overflow-y:auto;flex:1;min-height:0;padding:13px 15px 18px;display:flex;flex-direction:column;gap:13px}
+  .scroll::-webkit-scrollbar{width:9px}.scroll::-webkit-scrollbar-thumb{background:#1c405c;border-radius:8px}
+  .scroll::-webkit-scrollbar-track{background:transparent}
+
+  .card{background:#0a1e2d;border:1px solid var(--line);border-radius:13px;padding:13px}
+  .card h2{margin:0 0 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.15em;color:var(--mute);font-weight:600;display:flex;justify-content:space-between;align-items:center}
+
+  .worth{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .worth .big{font-family:var(--mono);font-size:26px;font-weight:600}
+  .worth .btc{font-family:var(--mono);color:var(--gold);font-size:13px}
+  .holds{display:flex;gap:14px;margin-top:8px;font-family:var(--mono);font-size:12px;color:var(--mute)}
+  .holds b{color:var(--foam)} .holds .vb{color:var(--gold)}
+  .rankline{margin-top:9px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mute)}
+  .rankbadge{font-family:var(--mono);font-weight:700;color:var(--abyss);background:var(--tide);border-radius:6px;padding:2px 8px}
+  .chartwrap{position:relative;margin-top:11px}
+  .chartwrap.big{margin-top:12px}
+  #chart{width:100%;height:84px;display:block}
+  .chartwrap.big #chart{height:172px}
+  .chartlbl{position:absolute;top:2px;right:4px;font-family:var(--mono);font-size:10px;color:var(--mute)}
+  .chartcard{background:linear-gradient(180deg,#0c2333,#0a1c2a)}
+  .chartcard h2{align-items:baseline}
+  .pxbig{font-family:var(--mono);font-size:19px;font-weight:600;color:var(--foam);letter-spacing:0}
+  .pxdelta{font-family:var(--mono);font-size:12px;margin-left:2px}
+  .chartmeta{margin-top:9px;font-family:var(--mono);font-size:11px;color:var(--mute);display:flex;justify-content:space-between;gap:8px}
+  .chartmeta b{color:var(--foam)}
+  details.acc{padding:0}
+  details.acc>summary{list-style:none;cursor:pointer;padding:13px;display:flex;align-items:center;justify-content:space-between}
+  details.acc>summary::-webkit-details-marker{display:none}
+  details.acc>summary::after{content:"+";color:var(--mute);font-family:var(--mono);font-size:15px}
+  details.acc[open]>summary::after{content:"\2212"}
+  details.acc>summary h2{margin:0}
+  details.acc>*:not(summary){padding:0 13px 13px}
+
+  .vault{border:1px solid var(--line);border-radius:11px;padding:10px 11px;margin-top:9px;background:#08192636;
+    display:grid;grid-template-columns:1fr auto;gap:6px;cursor:pointer;transition:border-color .15s,background .15s}
+  .vault:hover{border-color:var(--tide-dim)}
+  .vault.sel{border-color:var(--tide);background:var(--deep2);box-shadow:0 0 0 1px var(--tide) inset}
+  .vault .vt{font-size:13px;display:flex;align-items:center;gap:7px}
+  .vault .vsub{font-size:11px;color:var(--mute);font-family:var(--mono);margin-top:2px}
+  .vault .amt{font-family:var(--mono);font-size:13.5px;color:var(--gold);text-align:right}
+  .vault .amtsub{font-size:10px;color:var(--gold);opacity:.8;text-align:right}
+  .chip{font-size:9px;text-transform:uppercase;letter-spacing:.07em;padding:2px 6px;border-radius:20px;border:1px solid currentColor;white-space:nowrap}
+  .chip.vest{color:var(--tide)} .chip.ripe{color:var(--kelp)} .chip.sep{color:var(--gold)} .chip.dorm{color:var(--coral)}
+  .zeno{height:4px;border-radius:4px;background:#0c2537;margin-top:8px;overflow:hidden;grid-column:1/3}
+  .zeno>i{display:block;height:100%;background:linear-gradient(90deg,var(--tide-dim),var(--tide))}
+  .zeno.ripe>i{background:linear-gradient(90deg,var(--coral),var(--gold),var(--kelp))}
+  .empty{color:var(--mute);font-size:12px;font-style:italic;padding:8px 2px;line-height:1.5}
+
+  .rivals .r{display:grid;grid-template-columns:12px 1fr auto auto;gap:9px;align-items:center;padding:7px 0;border-top:1px solid #0e2537;font-size:12px;cursor:pointer}
+  .rivals .r:first-of-type{border-top:none}
+  .rivals .r:hover{color:var(--foam)}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .rivals .rw{font-family:var(--mono);color:var(--mute)}
+  .mini{font-size:10px;border:1px solid currentColor;border-radius:6px;padding:2px 7px;opacity:.4}
+  .mini.on{opacity:1}
+  .mini.mark{color:var(--tide)} .mini.raid{color:var(--coral);box-shadow:0 0 10px #ff5d6c44}
+
+  .log{display:flex;flex-direction:column;gap:6px;max-height:168px;overflow-y:auto;font-size:12px}
+  .log .e{display:flex;gap:8px;line-height:1.4}
+  .log .e .t{font-family:var(--mono);color:var(--mute);font-size:10px;flex:none;padding-top:1px;min-width:30px}
+  .log .e.good .m{color:var(--kelp)} .log .e.bad .m{color:var(--coral)} .log .e.gold .m{color:var(--gold)} .log .e.info .m{color:var(--foam)}
+
+  /* dock */
+  #dock{grid-row:2/3;grid-column:1/2;background:var(--abyss2);border-top:1px solid var(--line);padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+  @media(max-width:920px){#dock{grid-row:3/4}}
+  .selbar{display:flex;align-items:center;gap:10px;min-height:20px;font-size:12.5px;color:var(--mute);flex-wrap:wrap}
+  .selbar b{color:var(--foam);font-family:var(--mono)}
+  .acts{display:flex;flex-wrap:wrap;gap:9px}
+  .act{border:1px solid var(--line);background:#0b2333;border-radius:10px;padding:8px 13px;font-size:12.5px;
+    display:flex;flex-direction:column;gap:2px;min-width:104px;text-align:left;transition:border-color .12s,transform .05s,background .12s}
+  .act:hover:not(:disabled){border-color:var(--tide-dim);background:var(--deep2)}
+  .act:active:not(:disabled){transform:translateY(1px)}
+  .act:disabled{opacity:.36;cursor:not-allowed}
+  .act .k{font-weight:600;display:flex;align-items:center;gap:6px}
+  .act .h{font-size:10px;color:var(--mute);font-family:var(--mono);white-space:nowrap}
+  .act .kbd{font-size:8.5px;border:1px solid var(--line);border-radius:4px;padding:0 3px;color:var(--mute);font-family:var(--mono)}
+  .act.prime{border-color:var(--tide-dim);background:linear-gradient(180deg,#0e2a3d,#0b2333)}
+  .act.prime .k{color:var(--tide)}
+  .act.gold .k{color:var(--gold)} .act.warn:hover:not(:disabled){border-color:var(--coral);background:#2a1114}
+  .act.warn .k{color:var(--coral)}
+  .trend{font-size:9px;font-family:var(--mono)}
+
+  .conds{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--mute)}
+  .conds .grp{display:flex;align-items:center;gap:7px}
+  .conds label{text-transform:uppercase;letter-spacing:.1em;font-size:9.5px}
+  .conds input[type=range]{width:80px;accent-color:var(--tide)}
+  .conds .val{font-family:var(--mono);color:var(--foam);min-width:32px}
+  .tbtn{border:1px solid var(--line);background:#0b2333;border-radius:8px;min-width:34px;height:30px;font-size:13px;display:grid;place-items:center;padding:0 8px}
+  .tbtn.on{border-color:var(--tide);color:var(--tide)}
+  .speedseg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .speedseg button{background:#0b2333;padding:5px 9px;font-family:var(--mono);font-size:11px;border-left:1px solid var(--line)}
+  .speedseg button:first-child{border-left:none}
+  .speedseg button.on{background:var(--tide-dim);color:#04121a;font-weight:700}
+  .regseg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .regseg button{background:#0b2333;padding:5px 9px;font-size:10.5px;border-left:1px solid var(--line);text-transform:uppercase;letter-spacing:.06em}
+  .regseg button:first-child{border-left:none}
+  .regseg button.on{background:var(--tide-dim);color:#04121a;font-weight:700}
+  .seedbox{background:#0b2333;border:1px solid var(--line);border-radius:8px;color:var(--foam);font-family:var(--mono);font-size:11px;width:88px;padding:5px 8px}
+
+  /* modal */
+  /* pop-ups render as a bottom drawer that slides up, not a centred overlay */
+  .backdrop{position:fixed;inset:0;z-index:50;background:#020810aa;backdrop-filter:blur(2px);display:flex;align-items:flex-end;justify-content:center;padding:0;opacity:0;pointer-events:none;transition:opacity .2s}
+  .backdrop.show{opacity:1;pointer-events:auto}
+  .modal{width:min(720px,100%);background:linear-gradient(180deg,#0d2536,#08151f);border:1px solid var(--tide-dim);border-bottom:none;
+    border-radius:20px 20px 0 0;padding:14px 26px 26px;box-shadow:0 -24px 80px #000c, 0 0 0 1px #ffffff10 inset;
+    max-height:86vh;overflow-y:auto;transform:translateY(100%);transition:transform .24s cubic-bezier(.2,.8,.2,1)}
+  .backdrop.show .modal{transform:none}
+  .modal::before{content:"";display:block;width:44px;height:4px;border-radius:3px;background:#2c4d64;margin:0 auto 14px}
+  .modal h3{margin:0 0 4px;font-family:var(--serif);font-size:21px}
+  .modal .sub{color:var(--mute);font-size:12.5px;margin-bottom:16px}
+  .treasures{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:16px;max-height:184px;overflow-y:auto}
+  .tcard{border:1px solid var(--line);border-radius:11px;padding:9px 11px;min-width:112px;background:#0a1e2d;cursor:pointer;transition:border-color .12s,transform .12s}
+  .tcard:hover{border-color:var(--tide-dim)}
+  .tcard.sel{border-color:var(--gold);transform:translateY(-3px);box-shadow:0 6px 20px #f5c45122}
+  .tcard .em{font-size:20px}
+  .tcard .tn{font-size:11.5px;margin-top:5px;font-family:var(--serif)}
+  .sliderrow{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .sliderrow input[type=range]{flex:1;accent-color:var(--gold)}
+  .amtfield{display:flex;align-items:baseline;gap:4px;font-family:var(--mono)}
+  .amtfield input{width:74px;background:#0a1e2d;border:1px solid var(--line);border-radius:7px;color:var(--gold);font-family:var(--mono);font-size:15px;padding:5px 7px;text-align:right}
+  .amtfield .u{color:var(--gold)}
+  .maxb{border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-family:var(--mono);font-size:11px;color:var(--tide)}
+  .maxb:hover{border-color:var(--tide)}
+  .preview{background:#081824;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:12.5px;line-height:1.7;color:var(--mute);margin-bottom:14px}
+  .preview b{color:var(--foam);font-family:var(--mono)} .preview .g{color:var(--gold);font-family:var(--mono)} .preview .k{color:var(--kelp);font-family:var(--mono)} .preview .c{color:var(--coral);font-family:var(--mono)}
+  .ladder{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--mute);margin-bottom:16px}
+  .ladder input[type=range]{flex:1;accent-color:var(--tide)}
+  .mrow{display:flex;gap:10px;justify-content:flex-end}
+  .mbtn{border-radius:10px;padding:9px 20px;font-size:13.5px;font-family:var(--serif)}
+  .mbtn.ghost{border:1px solid var(--line);color:var(--mute)} .mbtn.ghost:hover{color:var(--foam);border-color:var(--mute)}
+  .mbtn.prime{background:linear-gradient(180deg,#12405a,#0e3247);border:1px solid var(--tide);color:var(--foam)} .mbtn.prime:hover{box-shadow:0 0 22px #26d0d955}
+  .mbtn.danger{background:linear-gradient(180deg,#3a1216,#2a0e12);border:1px solid var(--coral);color:#ffd9dd} .mbtn.danger:hover{box-shadow:0 0 22px #ff5d6c44}
+  .mbtn:disabled{opacity:.4;cursor:not-allowed}
+  .tabbar{display:flex;gap:6px;margin-bottom:13px}
+  .tabbar button{border:1px solid var(--line);border-radius:8px;padding:6px 13px;font-size:12px;color:var(--mute);background:#0a1e2d}
+  .tabbar button.on{border-color:var(--tide);color:var(--foam);background:var(--deep2)}
+  .dblk .meta{font-size:11.5px;color:var(--mute);font-family:var(--mono);margin-bottom:10px;line-height:1.6}
+  .dblk .meta b{color:var(--foam)} .dblk .meta .g{color:var(--gold)} .dblk .meta .k{color:var(--kelp)} .dblk .meta .c{color:var(--coral)}
+  .drow{display:flex;align-items:center;gap:10px;margin-top:9px}
+  .drow input[type=range]{flex:1;accent-color:var(--tide)}
+  .drow .amt{font-family:var(--mono);font-size:12.5px;min-width:74px;text-align:right;color:var(--foam)}
+  .dbtn{border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:12px;background:#0b2333}
+  .dbtn:hover:not(:disabled){background:var(--deep2)} .dbtn:disabled{opacity:.4;cursor:not-allowed}
+  .dbtn.buy{border-color:var(--kelp);color:var(--kelp)} .dbtn.sell{border-color:var(--coral);color:var(--coral)} .dbtn.gold{border-color:var(--gold);color:var(--gold)}
+  .stormbar{height:8px;border-radius:6px;background:linear-gradient(90deg,#26506a,#6fe0a8,#f5c451,#ff5d6c);position:relative;margin:6px 0 10px}
+  .stormbar>i{position:absolute;top:-3px;width:3px;height:14px;background:#fff;border-radius:2px;box-shadow:0 0 6px #fff}
+  .bz{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px;max-height:340px;overflow-y:auto}
+  .bzcard{border:1px solid var(--line);border-radius:11px;padding:11px;background:#0a1e2d;text-align:center}
+  .bzcard .em{font-size:24px} .bzcard .tn{font-size:12px;font-family:var(--serif);margin-top:4px} .bzcard .tr{font-size:9px;letter-spacing:.06em;margin-top:2px}
+  .bzcard .buy{margin-top:8px;width:100%;border:1px solid var(--gold);color:var(--gold);border-radius:8px;padding:6px;font-family:var(--mono);font-size:12px;background:transparent}
+  .bzcard .buy:hover:not(:disabled){background:#2a230e} .bzcard .buy:disabled{opacity:.4;cursor:not-allowed}
+  .badges{display:flex;flex-wrap:wrap;gap:6px}
+  .badge{font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--tide-dim);color:var(--tide);display:flex;gap:4px;align-items:center}
+  .badge.locked{border-color:var(--line);color:var(--mute);opacity:.6}
+
+  /* start + end veils */
+  .veil{position:absolute;inset:0;z-index:20;display:grid;place-items:center;background:radial-gradient(130% 100% at 50% -10%,#0c2b44 0%,#030a11 72%);text-align:center;padding:26px}
+  .veil .box{max-width:600px}
+  .veil h1{font-family:var(--serif);font-size:46px;margin:0 0 6px}
+  .veil h1 b{color:var(--tide)}
+  .veil .lede{font-family:var(--serif);font-style:italic;opacity:.92;font-size:18px;margin:0 0 20px}
+  .veil p{color:var(--mute);font-size:13.5px;line-height:1.68;max-width:490px;margin:0 auto 10px}
+  .veil .how{display:grid;grid-template-columns:1fr 1fr;gap:9px 24px;text-align:left;margin:20px auto 24px;max-width:490px;font-size:12.5px}
+  .veil .how b{color:var(--tide)} .veil .how .g b{color:var(--gold)} .veil .how .c b{color:var(--coral)}
+  .cta{font-family:var(--serif);font-size:18px;padding:13px 34px;border-radius:12px;border:1px solid var(--tide);background:linear-gradient(180deg,#103247,#0b2536);color:var(--foam);letter-spacing:.02em}
+  .cta:hover{box-shadow:0 0 30px #26d0d955}
+  .end .rows{display:flex;flex-direction:column;gap:7px;margin:16px auto 22px;max-width:440px;text-align:left}
+  .end .row{display:grid;grid-template-columns:30px 1fr auto;gap:11px;align-items:center;padding:9px 13px;border:1px solid var(--line);border-radius:10px;font-size:14px}
+  .end .row.you{border-color:var(--gold);background:var(--deep2)}
+  .end .row .pl{font-family:var(--mono)} .end .row .r{font-family:var(--serif);color:var(--mute);text-align:center}
+  .hidden{display:none!important}
+
+  .toaster{position:absolute;left:50%;top:76px;transform:translateX(-50%);z-index:15;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+  .toast{background:#0b2740f2;border:1px solid var(--tide);border-radius:11px;padding:10px 16px;font-size:13px;box-shadow:0 10px 34px #000a;display:flex;align-items:center;gap:12px;pointer-events:auto;animation:pop .28s ease}
+  .toast.g{border-color:var(--gold)} .toast.b{border-color:var(--coral)}
+  .toast button{border:1px solid currentColor;border-radius:7px;padding:3px 10px;font-size:11px;color:var(--tide)}
+  .toast.g button{color:var(--gold)} .toast.b button{color:var(--coral)}
+  @keyframes pop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div id="app">
+  <div id="stage">
+    <canvas id="fx"></canvas>
+    <div id="stageHud">
+      <div class="stageTop">
+        <div class="voyage">
+          <div class="day tnum" id="dayNum">Day 0</div>
+          <div class="sub" id="dayPhase">of 1129 &#xB7; The Vesting Passage</div>
+          <div class="progress"><i id="voyBar"></i></div>
+        </div>
+        <div class="pricePill">
+          <div class="p tnum" id="px">$0</div>
+          <div class="d tnum" id="pxd">&#x2013;</div>
+        </div>
+      </div>
+      <div class="mood" id="mood"></div>
+      <div></div>
+    </div>
+    <div class="toaster" id="toaster"></div>
+
+    <div class="veil" id="startVeil"><div class="box">
+      <h1><b>ZENO</b> &#xB7; Tides of Patience</h1>
+      <div class="lede">Bitcoin is a sea. Time is the only ship that crosses it.</div>
+      <p>You are a <b>Keeper</b>. Lock treasure and Bitcoin into a <b>Vault</b> and sail <b>1129 days</b>
+      across the Sea of Volatility. Endure the crossing and draw <b>1% every 30 days, forever</b> &#x2014; a
+      withdrawal that shrinks but never reaches zero. Zeno's paradox, made seaworthy.</p>
+      <p>Five rival Keepers sail beside you. When they lose their nerve and abandon ship, their forfeited
+      Bitcoin rains on every Keeper still afloat. <b>Patience is the meta.</b></p>
+      <div class="how">
+        <div><b>Mint</b> &#x2014; lock treasure + a chosen amount of BTC</div>
+        <div class="c"><b>Abandon</b> &#x2014; bail early, forfeit the rest, lose the treasure</div>
+        <div class="g"><b>Strip</b> &#x2014; once vested, carve collateral into vBTC, 1:1</div>
+        <div><b>Draw</b> &#x2014; after vesting, take 1% per 30 days</div>
+        <div class="g"><b>Match rain</b> &#x2014; quitters' losses become your gains</div>
+        <div class="c"><b>Raid</b> &#x2014; claim a rival's abandoned reserve, 1:1</div>
+      </div>
+      <button class="cta" id="setSail">&#x2693; Set Sail</button>
+      <p style="margin-top:18px;font-size:11.5px">A seeded price simulation &#x2014; no real Bitcoin, no wallet, no risk.
+      A sandbox for testing the Zeno Greenfield protocol.</p>
+    </div></div>
+
+    <div class="veil end hidden" id="endVeil"><div class="box">
+      <h1 id="endTitle">Landfall</h1>
+      <div class="lede" id="endLede"></div>
+      <div class="rows" id="endRows"></div>
+      <button class="cta" id="again">Sail Again</button>
+    </div></div>
+  </div>
+
+  <div id="panel">
+    <div class="brand">
+      <div><h1><b>ZENO</b> &#xB7; Tides</h1><div class="tag">Keeper's Instruments</div></div>
+    </div>
+    <div class="scroll">
+      <div class="card">
+        <h2>Your Fortune</h2>
+        <div class="worth"><div class="big tnum" id="worthUsd">$0</div><div class="btc tnum" id="worthBtc">0 &#x20BF;</div></div>
+        <div class="holds"><span>hold <b id="holdBtc">10.000 &#x20BF;</b></span><span class="vb">vBTC <b class="vb" id="holdVbtc">0.000</b></span></div>
+        <div class="rankline"><span class="rankbadge" id="rankBadge">&#x2014;</span><span id="rankTxt">among the keepers</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Your Vaults &#xB7; <span id="vaultCount">0</span></h2>
+        <div id="vaultList"></div>
+      </div>
+
+      <details class="card acc">
+        <summary><h2>Match Pool <span id="poolHint" style="color:var(--gold)"></span></h2></summary>
+        <div style="font-family:var(--mono);font-size:11.5px;color:var(--mute);line-height:1.7;margin-top:9px" id="poolTxt"></div>
+      </details>
+
+      <details class="card acc">
+        <summary><h2>Ship's Log</h2></summary>
+        <div class="log" id="log" style="margin-top:9px"></div>
+      </details>
+    </div>
+  </div>
+
+  <div id="dock">
+    <div class="selbar" id="selBar">Select a vault, or press <b>M</b> to mint one.</div>
+    <div class="acts" id="acts"></div>
+    <div class="conds">
+      <div class="grp">
+        <button class="tbtn" id="pauseBtn" title="Pause / resume (Space)">&#x23F8;</button>
+        <div class="speedseg" id="speedSeg"></div>
+      </div>
+      <div class="grp"><label>Regime</label><div class="regseg" id="regSeg"></div></div>
+      <div class="grp"><label>Drift &#x3BC;</label><input type="range" id="muR" min="-40" max="120" value="55"><span class="val tnum" id="muV">+55%</span></div>
+      <div class="grp"><label>Storm &#x3C3;</label><input type="range" id="sgR" min="20" max="150" value="75"><span class="val tnum" id="sgV">75%</span></div>
+      <div class="grp"><label>Seed</label><input class="seedbox" id="seed" value="satoshi"><button class="tbtn" id="reseed" title="New voyage">&#x21BB;</button></div>
+      <div class="grp"><button class="tbtn" id="muteBtn" title="Sound">&#x1F50A;</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="backdrop" id="backdrop"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+
+<script>
+"use strict";
+function showFatal(msg){let b=document.getElementById("fatal");if(!b){b=document.createElement("div");b.id="fatal";
+  b.style.cssText="position:fixed;left:0;right:0;top:0;z-index:9999;background:#ff5d6c;color:#000;font:12px ui-monospace,monospace;padding:8px;white-space:pre-wrap";
+  document.body.appendChild(b);}b.textContent="ERR: "+msg;}
+window.addEventListener("error",e=>showFatal((e.message||e.error)+" @"+(e.filename||"")+":"+e.lineno));
+
+/* ===================================================== ROOT NODE: PRICE (seeded GBM) */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function seedFromStr(s){let h=1779033703^s.length;for(let i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=h<<13|h>>>19}return(h>>>0)||1}
+function gauss(rng){let u=0,v=0;while(u===0)u=rng();while(v===0)v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+class PriceEngine{
+  constructor(seed,muA,sigA){this.rng=mulberry32(seedFromStr(seed));this.mu=muA;this.sig=sigA;this.p=30000;this.hist=[this.p];this.day=0;this.win=[];}
+  set(muA,sigA){this.mu=muA;this.sig=sigA;}
+  step(){const dt=1/365,z=gauss(this.rng);const prev=this.p;
+    this.p=Math.max(150,this.p*Math.exp((this.mu-0.5*this.sig*this.sig)*dt+this.sig*Math.sqrt(dt)*z));this.day++;
+    this.hist.push(this.p);if(this.hist.length>4200)this.hist.shift();
+    this.win.push(this.p/prev-1);if(this.win.length>21)this.win.shift();return this.p;}
+  dayChange(){const n=this.hist.length;return n<2?0:this.p/this.hist[n-2]-1;}
+  trend(){const n=this.hist.length,k=Math.min(30,n-1);return k<1?0:this.p/this.hist[n-1-k]-1;}
+  vol(){if(this.win.length<3)return this.sig;let m=0;for(const r of this.win)m+=r;m/=this.win.length;
+    let s=0;for(const r of this.win)s+=(r-m)*(r-m);return Math.sqrt(s/this.win.length*365);}
+}
+
+/* ===================================================== ZENO SANDBOX (port of ZenoVault.sol) */
+const VEST=1129, WPERIOD=30, RATE=0.01, DORMANCY=1129, GRACE=30;
+// Display tiers (authentic Zeno wealth tiers) \u2014 frame colours from the docs.
+const TIERS=[
+  {n:"Bronze",  c:"#CD7F32", p:1,  buy:0.25},
+  {n:"Silver",  c:"#C0C0C0", p:2,  buy:0.6},
+  {n:"Gold",    c:"#FFD700", p:4,  buy:1.6},
+  {n:"Platinum",c:"#E5E4E2", p:8,  buy:3.8},
+  {n:"Diamond", c:"#E8F4FF", p:16, buy:9},
+];
+// Treasure catalog: [name, emoji, tierIndex]. Oceanic relics across the 5 tiers.
+const CATALOG=[
+  ["Driftwood Charm","\u{1FAB5}",0],["Barnacle Coin","\u{1FA99}",0],["Frayed Net","\u{1FAA2}",0],["Gull Feather","\u{1FAB6}",0],["Cracked Buoy","\u{1F6DF}",0],["Sea-Worn Cork","\u{1F376}",0],
+  ["Salt-Glass Compass","\u{1F9ED}",1],["Coral Astrolabe","\u{1F52D}",1],["Tide Whistle","\u{1F4EF}",1],["Mariner's Knot","\u27B0",1],["Brass Sextant","\u{1F4D0}",1],
+  ["Kraken's Tooth","\u{1F9B7}",2],["Anchor of Ys","\u2693",2],["Siren's Ledger","\u{1F4DC}",2],["Tideworn Idol","\u{1F5FF}",2],
+  ["Abyssal Pearl","\u{1FAE7}",3],["Drowned Crown","\u{1F451}",3],["Leviathan Scale","\u{1F409}",3],
+  ["Bottled Nova","\u{1F30C}",4],["Heart of the Deep","\u{1F4A0}",4],
+];
+const TMETA={};CATALOG.forEach(([n,e,t])=>TMETA[n]={emoji:e,tier:t,color:TIERS[t].c,prestige:TIERS[t].p,tierName:TIERS[t].n,buy:TIERS[t].buy});
+const EMOJI=Object.fromEntries(CATALOG.map(([n,e])=>[n,e]));
+function byTier(t){return CATALOG.filter(([,,ti])=>ti===t).map(([n])=>n);}
+function randTreasure(rng,maxTier){const t=Math.min(maxTier,Math.floor(rng()* (maxTier+1)));const pool=byTier(t);return pool[Math.floor(rng()*pool.length)];}
+// Achievements (milestone rewards). Each grants a treasure of the given tier when its trigger fires.
+const ACHIEVEMENTS=[
+  {id:"first_watch",  name:"First Watch",  tier:0, hint:"Seal your first vault"},
+  {id:"trade_winds",  name:"Trade Winds",  tier:1, hint:"Strip a vault into vBTC"},
+  {id:"landfall",     name:"Landfall",     tier:1, hint:"Carry a vault to full vesting"},
+  {id:"storm_rider",  name:"Storm Rider",  tier:2, hint:"Hold through a \u221215% day"},
+  {id:"match_baron",  name:"Match Baron",  tier:2, hint:"Harvest 2 \u20BF from the match pool"},
+  {id:"deep_diver",   name:"Deep Diver",   tier:2, hint:"Use the Deeps (market/yield/storm)"},
+  {id:"grave_robber", name:"Grave Robber", tier:3, hint:"Claim a rival's abandoned reserve"},
+  {id:"expeditioner", name:"Expeditioner", tier:1, hint:"Send a vault on an expedition"},
+  {id:"diamond_hands",name:"Diamond Hands",tier:4, hint:"Redeem a fully-vested vault in full"},
+];
+const ACHMAP=Object.fromEntries(ACHIEVEMENTS.map(a=>[a.id,a]));
+class World{
+  constructor(){this.matchIndex=0;this.totalActive=0;this.strippedReserve=0;this.vbtcSupply=0;this.vaultSeq=1;this.vaults=new Map();this.players=[];
+    // vBTC derivatives (the "Deeps"). Conservation: vBTC only moves between holders (players, mkt reserve, yv vault, vol pools, house).
+    this.mkt={btc:0,vbtc:0}; this.yv={vbtc:0}; this.vol={long:0,short:0,house:0,strike:0.55}; this.feeBtc=0;}
+  // vBTC is backed 1:1 by immunized per-vault reserve — par is the NAV floor, always.
+  poolRate(){return 1;}
+  _settle(v){const acc=v.collateral*(this.matchIndex-v.snap);v.snap=this.matchIndex;
+    if(acc>0){v.collateral+=acc;this.totalActive+=acc;v.owner.matchTaken+=acc;}return acc;}
+  mint(owner,amount,treasure){if(amount<=0||owner.btc<amount-1e-12)return null;owner.btc-=amount;const id=this.vaultSeq++;
+    const v={id,owner,treasure,collateral:amount,reserve:0,snap:this.matchIndex,mintedDay:owner.game.day,lastWithdraw:0,lastActivity:owner.game.day,pokedDay:0,initial:amount,lastExpedition:-999};
+    this.vaults.set(id,v);owner.vaults.push(v);this.totalActive+=amount;owner.stats.minted++;return v;}
+  vested(v){return v.owner.game.day>=v.mintedDay+VEST;}
+  canWithdraw(v){if(!this.vested(v)||v.collateral<=1e-12)return false;const last=v.lastWithdraw||(v.mintedDay+VEST-WPERIOD);return v.owner.game.day>=last+WPERIOD;}
+  nextDraw(v){const last=v.lastWithdraw||(v.mintedDay+VEST-WPERIOD);return Math.max(0,last+WPERIOD-v.owner.game.day);}
+  // 1% of ACTIVE collateral only — the stripped reserve is immunized.
+  withdraw(v){if(!this.canWithdraw(v))return 0;this._settle(v);const amt=v.collateral*RATE;if(amt<=0)return 0;
+    v.collateral-=amt;this.totalActive-=amt;v.lastWithdraw=v.owner.game.day;this._touch(v);v.owner.btc+=amt;v.owner.stats.drawn+=amt;return amt;}
+  // Recombination before redemption: an outstanding strip blocks both exits.
+  earlyRedeem(v){if(v.reserve>1e-12)return null;this._settle(v);const col=v.collateral;this.totalActive-=col;
+    const el=v.owner.game.day-v.mintedDay;let ret=col*Math.min(el,VEST)/VEST,forf=col-ret;
+    if(forf>1e-12&&this.totalActive>1e-12)this.matchIndex+=forf/this.totalActive;else{ret=col;forf=0;}
+    this._destroy(v);v.owner.btc+=ret;v.owner.stats.abandoned++;return{ret,forf};}
+  redeem(v){if(!this.vested(v)||v.reserve>1e-12)return 0;this._settle(v);
+    const col=v.collateral;this.totalActive-=col;this._destroy(v);v.owner.btc+=col;v.owner.stats.redeemed++;return col;}
+  // Strip: move active collateral into the immunized reserve, mint vBTC 1:1.
+  // Fractional and repeatable — vested vaults only (StillVesting in the contract):
+  // vesting is the time lock, and stripping must not provide early liquidity against it.
+  strip(v,amount){if(!this.vested(v))return 0;this._settle(v);amount=Math.min(amount,v.collateral);if(amount<=1e-12)return 0;
+    v.collateral-=amount;this.totalActive-=amount;v.reserve+=amount;this.strippedReserve+=amount;
+    this.vbtcSupply+=amount;v.owner.vbtc+=amount;this._touch(v);v.owner.stats.stripped++;return amount;}
+  // Recombine: burn vBTC 1:1, reserve returns to active collateral. Fractional.
+  recombine(v,amount){amount=Math.min(amount,v.reserve,v.owner.vbtc);if(amount<=1e-12)return 0;this._settle(v);
+    v.owner.vbtc-=amount;this.vbtcSupply-=amount;v.reserve-=amount;this.strippedReserve-=amount;
+    v.collateral+=amount;this.totalActive+=amount;this._touch(v);return amount;}
+  dormant(v){return v.reserve>1e-12&&(v.owner.game.day>=v.lastActivity+DORMANCY)&&(v.owner.vbtc<v.reserve-1e-9);}
+  poke(v){if(!this.dormant(v)||v.pokedDay)return false;v.pokedDay=v.owner.game.day;return true;}
+  canClaim(v){return v.pokedDay&&v.owner.game.day>=v.pokedDay+GRACE;}
+  // Fractional dormancy claim: burn vBTC 1:1 for reserve collateral. Only the reserve
+  // transfers — the vault, treasure, and active collateral SURVIVE with the owner.
+  claimDormant(v,claimer,amount){if(!this.canClaim(v))return 0;amount=Math.min(amount==null?v.reserve:amount,v.reserve,claimer.vbtc);
+    if(amount<=1e-12)return 0;claimer.vbtc-=amount;this.vbtcSupply-=amount;v.reserve-=amount;this.strippedReserve-=amount;
+    claimer.btc+=amount;claimer.stats.raided++;v.owner.stats.lost++;
+    if(v.reserve<=1e-12){v.reserve=0;v.pokedDay=0;}return amount;}
+  // ---- Expeditions: mid-voyage risk/reward that gives the vesting middle something to do. ----
+  canExpedition(v){const d=v.owner.game.day;return (d-v.mintedDay>=30)&&(d-v.lastExpedition>=120);}
+  expeditionOdds(calm){return 0.42+calm*0.42;} // 42%\u201384% by sea calm
+  expedition(v,rng,calm){const stake=v.collateral*0.03;v.lastExpedition=v.owner.game.day;
+    if(rng()<this.expeditionOdds(calm))return {ok:true,stake};
+    // failure: the stake is lost to the sea \u2014 forfeited into the match pool (feeds the patient).
+    // Stakes come from ACTIVE collateral only; the stripped reserve never sails.
+    this._settle(v);v.collateral-=stake;this.totalActive-=stake;
+    if(this.totalActive>1e-9)this.matchIndex+=stake/this.totalActive;
+    return {ok:false,forfeit:stake};}
+  _touch(v){v.lastActivity=v.owner.game.day;v.pokedDay=0;}
+  _destroy(v){this.vaults.delete(v.id);const a=v.owner.vaults,i=a.indexOf(v);if(i>=0)a.splice(i,1);}
+  // ---- Tides Market (Curve pool): trade BTC<->vBTC against a protocol-owned reserve (constant product). ----
+  // Genesis strip by the house: seeded vBTC is backed 1:1 by house reserve, keeping supply == strippedReserve.
+  seedMarket(v){this.strippedReserve+=v;this.vbtcSupply+=v;this.mkt.vbtc=v;this.mkt.btc=v*0.85;} // seed at ~0.85 discount to par
+  mktPrice(){return this.mkt.vbtc>0?this.mkt.btc/this.mkt.vbtc:1;}
+  buyVbtc(pl,btcIn){if(btcIn<=0||pl.btc<btcIn-1e-12||this.mkt.vbtc<=0)return 0;const k=this.mkt.btc*this.mkt.vbtc;
+    const fee=btcIn*0.0026,eff=btcIn-fee;const nb=this.mkt.btc+eff;let vOut=this.mkt.vbtc-k/nb;if(vOut<=0||vOut>=this.mkt.vbtc)return 0;
+    this.mkt.btc=nb+fee;this.mkt.vbtc-=vOut;pl.btc-=btcIn;pl.vbtc+=vOut;return vOut;}
+  sellVbtc(pl,vIn){if(vIn<=0||pl.vbtc<vIn-1e-9)return 0;const k=this.mkt.btc*this.mkt.vbtc;
+    const fee=vIn*0.0026,eff=vIn-fee;const nv=this.mkt.vbtc+eff;let bOut=this.mkt.btc-k/nv;if(bOut<=0||bOut>=this.mkt.btc)return 0;
+    this.mkt.vbtc=nv+fee;this.mkt.btc-=bOut;pl.vbtc-=vIn;pl.btc+=bOut;return bOut;}
+  // ---- Deep Current (yvBTC): stake vBTC, earn BTC yield (modelled Curve fees + CRV, external reward). ----
+  stakeYv(pl,vIn){if(vIn<=0||pl.vbtc<vIn-1e-9)return 0;pl.vbtc-=vIn;this.yv.vbtc+=vIn;pl.yvStaked+=vIn;return vIn;}
+  unstakeYv(pl,vIn){vIn=Math.min(vIn,pl.yvStaked);if(vIn<=0)return 0;this.yv.vbtc-=vIn;pl.vbtc+=vIn;pl.yvStaked-=vIn;return vIn;}
+  accrueYv(pl){if(pl.yvStaked<=0)return 0;const y=pl.yvStaked*(0.09/365);pl.btc+=y;pl.yvEarned+=y;return y;} // ~9% APY in BTC, vBTC at par
+  // ---- Maelstrom (Volatility Pool): stake vBTC long/short vs strike; settle strictly zero-sum (value moves long<->short). ----
+  seedVol(h){this.strippedReserve+=2*h;this.vbtcSupply+=2*h;this.vol.long=h;this.vol.short=h;} // house liquidity both sides (genesis strip)
+  betVol(pl,side,vIn){if(vIn<=0||pl.vbtc<vIn-1e-9)return 0;if(pl.volStake>0&&pl.volSide!==side)return 0;pl.vbtc-=vIn;this.vol[side]+=vIn;pl.volStake+=vIn;pl.volSide=side;return vIn;}
+  exitVol(pl){const s=pl.volStake;if(s<=0)return 0;this.vol[pl.volSide]-=Math.min(this.vol[pl.volSide],s);pl.vbtc+=s;pl.volStake=0;pl.volSide=null;return s;}
+  settleVol(realizedVol){const g=realizedVol-this.vol.strike;const f=Math.max(-0.4,Math.min(0.4,g*1.3));// storm>0 favours long
+    const win=f>0?"long":"short",lose=f>0?"short":"long",frac=Math.abs(f);
+    const Wt=this.vol[win],Lt=this.vol[lose];if(Wt<=1e-9||Lt<=1e-9){this.vol.strike+=(realizedVol-this.vol.strike)*0.25;return;}
+    const transfer=Lt*frac;// value moved from losing pool to winning pool (conserved)
+    for(const pl of this.players){if(pl.volStake>0){if(pl.volSide===win)pl.volStake*=(Wt+transfer)/Wt;else pl.volStake*=(1-frac);}}
+    this.vol[win]=Wt+transfer;this.vol[lose]=Lt-transfer;this.vol.strike+=(realizedVol-this.vol.strike)*0.25;}
+  // vBTC valued at par (the reserve NAV floor). Vaults contribute active collateral only —
+  // the stripped reserve belongs to whoever holds the vBTC.
+  netWorthBtc(pl){let s=pl.btc+pl.vbtc+pl.yvStaked+pl.volStake;for(const v of pl.vaults)s+=v.collateral;return s;}
+}
+
+/* ===================================================== PLAYERS + BOT MINDS */
+class Player{constructor(game,name,color,btc,arche){this.game=game;this.name=name;this.color=color;this.btc=btc;this.vbtc=0;this.vaults=[];this.human=false;this.archetype=arche;this.matchTaken=0;this.treasures=[];this.achievements=new Set();this.yvStaked=0;this.volStake=0;this.volSide=null;this.yvEarned=0;this.stats={minted:0,drawn:0,abandoned:0,redeemed:0,stripped:0,raided:0,lost:0};this.cool=0;}}
+const MINDS={
+  diamond:{color:"#8fd3ff",label:"never sells, fears nothing",act(p,g,W){if(p.btc>0.6&&p.vaults.length<3&&g.rng()<0.02)return{t:"mint",amt:Math.min(p.btc*0.7,1.6)};for(const v of p.vaults)if(W.canWithdraw(v))return{t:"withdraw",v};return null;}},
+  panic:{color:"#ff8f6c",label:"flees at the first squall",act(p,g,W){const tr=g.px.trend();for(const v of p.vaults)if(!W.vested(v)&&tr<-0.22&&g.rng()<0.10)return{t:"abandon",v};if(p.btc>0.7&&!p.vaults.length&&tr>0.15&&g.rng()<0.03)return{t:"mint",amt:p.btc*0.5};for(const v of p.vaults)if(W.canWithdraw(v))return{t:"withdraw",v};return null;}},
+  momentum:{color:"#c7a0ff",label:"chases every green candle",act(p,g,W){const tr=g.px.trend();if(p.btc>0.5&&tr>0.12&&p.vaults.length<4&&g.rng()<0.06)return{t:"mint",amt:Math.min(p.btc*0.6,2)};for(const v of p.vaults){if(!W.vested(v)&&tr<-0.3&&g.rng()<0.05)return{t:"abandon",v};if(W.canWithdraw(v))return{t:"withdraw",v};}return null;}},
+  whale:{color:"#f5c451",label:"vast, patient, market-moving",act(p,g,W){if(p.btc>2&&p.vaults.length<2&&g.rng()<0.02)return{t:"mint",amt:p.btc*0.8};for(const v of p.vaults)if(W.canWithdraw(v))return{t:"withdraw",v};return null;}},
+  farmer:{color:"#6fe0a8",label:"squeezes liquidity from time",act(p,g,W){for(const v of p.vaults){if(W.vested(v)&&v.reserve<=0&&v.collateral>0.2&&g.rng()<0.08)return{t:"strip",v};if(W.canWithdraw(v))return{t:"withdraw",v};}if(p.btc>0.5&&p.vaults.length<3&&g.rng()<0.03)return{t:"mint",amt:p.btc*0.5};return null;}},
+};
+
+/* ===================================================== AUDIO */
+class Sound{constructor(){this.ok=false;this.on=true;}
+  init(){if(this.ok)return;try{const AC=window.AudioContext||window.webkitAudioContext;this.ac=new AC();this.master=this.ac.createGain();this.master.gain.value=0.5;this.master.connect(this.ac.destination);
+    this.drone=this.ac.createOscillator();this.drone.type="sawtooth";this.drone.frequency.value=52;this.lp=this.ac.createBiquadFilter();this.lp.type="lowpass";this.lp.frequency.value=300;this.dg=this.ac.createGain();this.dg.gain.value=0.05;
+    this.drone.connect(this.lp);this.lp.connect(this.dg);this.dg.connect(this.master);this.drone.start();this.ok=true;}catch(e){this.ok=false;}}
+  ambient(tr,vol){if(!this.ok||!this.on)return;const t=this.ac.currentTime;this.drone.frequency.setTargetAtTime(46+Math.max(-14,Math.min(22,tr*80)),t,0.6);this.lp.frequency.setTargetAtTime(210+Math.min(1500,vol*850)+Math.max(0,tr)*650,t,0.6);this.dg.gain.setTargetAtTime(0.035+Math.min(0.05,vol*0.045),t,0.8);}
+  blip(f,d,type,g){if(!this.ok||!this.on)return;const t=this.ac.currentTime,o=this.ac.createOscillator(),gn=this.ac.createGain();o.type=type||"triangle";o.frequency.value=f;gn.gain.setValueAtTime(0,t);gn.gain.linearRampToValueAtTime(g||0.18,t+0.01);gn.gain.exponentialRampToValueAtTime(0.001,t+(d||0.15));o.connect(gn);gn.connect(this.master);o.start(t);o.stop(t+(d||0.15)+0.02);}
+  chord(fs,d){for(const f of fs)this.blip(f,d,"triangle",0.12);}
+  coin(){this.chord([880,1174,1568],0.5);}
+  thunder(){if(!this.ok||!this.on)return;const t=this.ac.currentTime,b=this.ac.createBuffer(1,this.ac.sampleRate*0.6,this.ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);const s=this.ac.createBufferSource();s.buffer=b;const f=this.ac.createBiquadFilter();f.type="lowpass";f.frequency.value=360;const g=this.ac.createGain();g.gain.value=0.4;s.connect(f);f.connect(g);g.connect(this.master);s.start();}
+}
+
+/* ===================================================== GAME CONTROLLER */
+class Game{
+  constructor(){this.snd=new Sound();this.speed=6;this.paused=false;this.acc=0;this.last=0;this.day=0;this.running=false;this.ended=false;this.rain=[];this.flash=0;this.selId=null;this.inspect=null;this.ladder=[];this.autopaused=false;}
+  setup(seed,mu,sig){this.px=new PriceEngine(seed,mu,sig);this.rng=mulberry32(seedFromStr(seed+"|minds"));this.W=new World();
+    this.day=0;this.rain=[];this.selId=null;this.inspect=null;this.ladder=[];this.ended=false;this.autopaused=false;
+    this.you=new Player(this,"You","#f5c451",12,null);this.you.human=true;
+    // starting hand: a spread across low/mid tiers plus one gold
+    this.you.treasures=["Driftwood Charm","Barnacle Coin","Salt-Glass Compass","Coral Astrolabe","Kraken's Tooth"];
+    // Equal starting capital \u2014 outcome should reflect strategy (patience), not who began richest.
+    const roster=[["Old Satoshi","diamond",12],["Panic Pete","panic",12],["Greedy Gwei","momentum",12],["Whale Wanda","whale",12],["Yield Yuki","farmer",12]];
+    this.bots=roster.map(([n,a,b],i)=>{const p=new Player(this,n,MINDS[a].color,b,a);p.treasures=[randTreasure(this.rng,3),randTreasure(this.rng,4),randTreasure(this.rng,2)];return p;});
+    this.W.players=[this.you,...this.bots];
+    this.W.seedMarket(12); this.W.seedVol(3); // protocol-owned liquidity for market + storm pools
+    this.volSettle=0; this.bazaar=[]; this.refreshBazaar();
+    this.log=[];this.logEvent("info","The fleet sets sail. 1129 days to the Vesting Shore.");}
+  refreshBazaar(){const r=this.rng||mulberry32(1);this.bazaar=[];const tiers=[0,0,1,1,2,3];
+    for(const t of tiers){const pool=byTier(t);const name=pool[Math.floor((this.rng?this.rng():Math.random())*pool.length)];
+      this.bazaar.push({name,price:TMETA[name].buy*(0.9+ (this.rng?this.rng():0.5)*0.3)});}
+    // one rare wildcard
+    const dn=byTier(4)[Math.floor((this.rng?this.rng():0)*byTier(4).length)];this.bazaar.push({name:dn,price:TMETA[dn].buy});}
+  grant(id){if(this.you.achievements.has(id))return;this.you.achievements.add(id);const a=ACHMAP[id];if(!a)return;
+    const pool=byTier(a.tier);const t=pool[Math.floor(this.rng()*pool.length)];this.you.treasures.push(t);
+    this.logEvent("gold","Achievement \u2014 "+a.name+"! You earn "+TMETA[t].tierName+" treasure "+t+".");this.snd&&this.snd.chord([784,1047,1319],0.5);
+    this.toast("\u{1F3C5} "+a.name+" \u00B7 +"+t,"g");}
+
+  logEvent(k,m){this.log.unshift({d:this.day,kind:k,msg:m});if(this.log.length>44)this.log.pop();UI.renderLog();}
+  toast(msg,cls,verb,fn){UI.toast(msg,cls,verb,fn);}
+
+  tickDay(){const p=this.px.step();this.day=this.px.day;const dc=this.px.dayChange();
+    if(dc<-0.10){this.flash=1;this.snd.thunder();if(dc<-0.14){this.logEvent("bad","A tempest! Bitcoin plunges "+(dc*100).toFixed(0)+"% in a day.");this._dipNudge(dc);}}
+    else if(dc>0.10){this.flash=-1;this.logEvent("good","Fair winds \u2014 Bitcoin surges +"+(dc*100).toFixed(0)+"%.");}
+    // ladder (DCA) mints
+    for(let i=this.ladder.length-1;i>=0;i--){const L=this.ladder[i];if(this.day>=L.day){const v=this.W.mint(this.you,Math.min(L.amt,this.you.btc),L.treasure);if(v)this.logEvent("info","Ladder mint: Vault #"+v.id+" \u00B7 "+L.amt.toFixed(3)+" \u20BF.");this.ladder.splice(i,1);}}
+    // bots
+    for(const b of this.bots){if(b.cool>0){b.cool--;continue;}const it=MINDS[b.archetype].act(b,this,this.W);if(it)this.execBot(b,it);}
+    // mid-voyage expeditions \u2014 keeps the vesting middle alive and feeds the match pool
+    const appetite={diamond:0.005,panic:0,momentum:0.018,whale:0.004,farmer:0.011};
+    for(const b of this.bots){const ap=appetite[b.archetype]||0;if(ap<=0)continue;for(const v of b.vaults){if(this.W.canExpedition(v)&&this.rng()<ap){this.botExpedition(b,v);break;}}}
+    // milestones + auto-pause beats
+    if(this.day===VEST){this.logEvent("gold","Landfall \u2014 vaults begin to vest. Draw 1% every 30 days now.");this._autopause("Landfall! Your vaults can now be drawn.");}
+    const firstVest=this.you.vaults.find(v=>this.W.vested(v)&&v.mintedDay+VEST===this.day);
+    if(firstVest){this.grant("landfall");this.toast("Vault #"+firstVest.id+" vested.","g","Draw",()=>{this.selId=firstVest.id;this.actWithdraw(firstVest);});}
+    // calm-seas expedition nudge during the vesting middle
+    if(this.day%90===0&&this.day>60&&this.day<VEST&&this._calm()>0.62){const ev=this.you.vaults.find(x=>this.W.canExpedition(x));if(ev)this.toast("Calm seas \u2014 Vault #"+ev.id+" could chart the deep.","g","Select",()=>{this.selId=ev.id;UI.syncEvery();});}
+    // vBTC deeps: accrue yield, settle the storm every 7 days
+    this.W.accrueYv(this.you);
+    if(this.day-this.volSettle>=7){this.volSettle=this.day;if(this.W.vol.long+this.W.vol.short>1e-9)this.W.settleVol(this.px.vol());}
+    // milestone triggers
+    if(dc<-0.15&&this.you.vaults.length)this.grant("storm_rider");
+    if(this.you.matchTaken>2)this.grant("match_baron");
+    if(this.day%150===0&&this.day>0)this.refreshBazaar();
+    if(this.day>=VEST+400&&!this.ended)this.end();
+    if(this.day%2===0)this.snd.ambient(this.px.trend(),this.px.vol());
+    this.flash*=0.86;this.rain=this.rain.filter(r=>(r.life-=1)>0);
+    UI.syncEvery();}
+  _dipNudge(dc){const v=this.you.vaults.find(x=>!this.W.vested(x));if(v)this.toast("BTC "+(dc*100).toFixed(0)+"% \u2014 hold or abandon #"+v.id+"?","b","Inspect",()=>{this.selId=v.id;UI.syncEvery();});}
+  _autopause(msg){if(!this.paused){this.paused=true;this.autopaused=true;document.getElementById("pauseBtn").textContent="\u25B6";document.getElementById("pauseBtn").classList.add("on");this.toast(msg,"g","Resume",()=>{this.paused=false;document.getElementById("pauseBtn").textContent="\u23F8";document.getElementById("pauseBtn").classList.remove("on");});}}
+
+  execBot(b,it){b.cool=3+Math.floor(this.rng()*6);const W=this.W;
+    if(it.t==="mint"){const tr=b.treasures.shift()||"Nameless Relic";W.mint(b,Math.max(0.2,it.amt),tr);}
+    else if(it.t==="withdraw")W.withdraw(it.v);
+    else if(it.t==="strip")W.strip(it.v,it.v.collateral*0.5); // fractional: keep half active, half as liquid vBTC
+    else if(it.t==="abandon"){const r=W.earlyRedeem(it.v);if(r&&r.forf>0.01){this.rainTreasure();this.logEvent("gold",b.name+" abandons ship \u2014 "+r.forf.toFixed(3)+" \u20BF rains on the patient.");this.snd.coin();this.toast(b.name+" panicked! Match pool +"+r.forf.toFixed(3)+" \u20BF","g");}}}
+  rainTreasure(){for(let i=0;i<30;i++)this.rain.push({x:Math.random(),y:-Math.random()*0.3,vy:0.005+Math.random()*0.012,life:130+Math.random()*60,r:2+Math.random()*3});}
+
+  // ---- human actions
+  actMint(amt,treasure,ladderN){if(ladderN&&ladderN>1){const each=amt/ladderN,span=Math.min(VEST-2,600);const first=this.W.mint(this.you,Math.min(each,this.you.btc),treasure);this.you.treasures=this.you.treasures.filter(t=>t!==treasure);if(first)this.selId=first.id;
+      // schedule the rest (reuse same treasure name label; they are fungible flavor)
+      for(let i=1;i<ladderN;i++)this.ladder.push({day:this.day+Math.round(span*i/ladderN),amt:each,treasure:treasure});
+      this.logEvent("info","Laddering "+amt.toFixed(3)+" \u20BF into "+ladderN+" vaults across the cycle.");this.snd.blip(520,0.14,"triangle",0.16);UI.syncEvery();return;}
+    const v=this.W.mint(this.you,amt,treasure);if(!v){this.toast("Not enough Bitcoin in your hold.","b");return;}
+    this.you.treasures=this.you.treasures.filter(t=>t!==treasure);this.selId=v.id;this.snd.blip(520,0.14,"triangle",0.16);
+    this.grant("first_watch");this.logEvent("info","You seal "+treasure+" with "+amt.toFixed(3)+" \u20BF into Vault #"+v.id+".");UI.syncEvery();}
+  actWithdraw(v){const a=this.W.withdraw(v);if(a>0){this.snd.blip(680,0.16,"triangle",0.16);this.logEvent("good","You draw "+a.toFixed(4)+" \u20BF from Vault #"+v.id+".");UI.syncEvery();}}
+  actDrawAll(){let tot=0,n=0;for(const v of[...this.you.vaults])if(this.W.canWithdraw(v)){tot+=this.W.withdraw(v);n++;}if(n){this.snd.coin();this.logEvent("good","You draw from "+n+" vaults \u2014 +"+tot.toFixed(4)+" \u20BF.");UI.syncEvery();}else this.toast("No vaults are ready to draw.","b");}
+  actAbandon(v){const r=this.W.earlyRedeem(v);if(!r){this.toast("Strip outstanding \u2014 recombine "+v.reserve.toFixed(3)+" vBTC first.","b");return;}this.snd.blip(170,0.3,"sawtooth",0.14);this.logEvent("bad","You abandon Vault #"+v.id+" \u2014 recover "+r.ret.toFixed(3)+" \u20BF, forfeit "+r.forf.toFixed(3)+" \u20BF, lose the treasure.");this.selId=null;UI.syncEvery();}
+  actStrip(v){if(!this.W.vested(v)){this.toast("Vault #"+v.id+" is still vesting — strip unlocks at landfall (day "+(v.mintedDay+VEST)+").","b");return;}
+    const amt=this.W.strip(v,v.collateral);if(amt>0){this.grant("trade_winds");this.snd.chord([660,990],0.35);this.logEvent("gold","You strip Vault #"+v.id+" \u2014 "+amt.toFixed(3)+" \u20BF immunized in reserve, "+amt.toFixed(3)+" vBTC minted 1:1.");UI.syncEvery();}}
+  actRecombine(v){const amt=this.W.recombine(v,Math.min(this.you.vbtc,v.reserve));if(amt>0){this.snd.blip(440,0.2,"triangle",0.14);this.logEvent("info","You recombine "+amt.toFixed(3)+" vBTC into Vault #"+v.id+" (1:1).");UI.syncEvery();}else this.toast("Need vBTC to recombine \u2014 reserve holds "+v.reserve.toFixed(3)+" \u20BF.","b");}
+  actRedeem(v){if(v.reserve>1e-12){if(this.you.vbtc<v.reserve-1e-9){this.toast("Recombine first: the "+v.reserve.toFixed(3)+" \u20BF reserve needs that much vBTC.","b");return;}this.W.recombine(v,v.reserve);}
+    const tr=v.treasure;const c=this.W.redeem(v);if(c>0){this.you.treasures.push(tr);this.grant("diamond_hands");this.snd.coin();this.logEvent("good","You redeem Vault #"+v.id+" in full \u2014 "+c.toFixed(3)+" \u20BF and "+tr+" return to your hold.");this.selId=null;UI.syncEvery();}}
+  actPoke(v){if(this.W.poke(v)){this.logEvent("bad","You mark "+v.owner.name+"'s Vault #"+v.id+" abandoned. 30-day grace begins.");this.snd.blip(240,0.2,"sawtooth",0.14);UI.syncEvery();}}
+  actRaid(v){if(this.you.vbtc<=1e-9){this.toast("Raiding needs vBTC to burn.","b");return;}const nm=v.owner.name;const col=this.W.claimDormant(v,this.you,Math.min(this.you.vbtc,v.reserve));if(col>0){this.grant("grave_robber");this.snd.coin();this.logEvent("gold","You raid "+nm+"'s Vault #"+v.id+" reserve \u2014 burn "+col.toFixed(3)+" vBTC, claim "+col.toFixed(3)+" \u20BF 1:1. The vault itself survives.");this.toast("Raid successful! +"+col.toFixed(3)+" \u20BF","g");UI.syncEvery();}}
+  // ---- Deeps (vBTC) actions ----
+  actBuyVbtc(btcIn){const v=this.W.buyVbtc(this.you,btcIn);if(v>0){this.grant("deep_diver");this.snd.blip(700,0.14,"triangle",0.14);this.logEvent("info","Tides Market: bought "+v.toFixed(3)+" vBTC for "+btcIn.toFixed(3)+" \u20BF.");UI.syncEvery();}else this.toast("Trade too large for the pool.","b");}
+  actSellVbtc(vIn){const b=this.W.sellVbtc(this.you,vIn);if(b>0){this.grant("deep_diver");this.snd.blip(500,0.14,"triangle",0.14);this.logEvent("info","Tides Market: sold "+vIn.toFixed(3)+" vBTC for "+b.toFixed(3)+" \u20BF.");UI.syncEvery();}else this.toast("Trade too large for the pool.","b");}
+  actStakeYv(vIn){if(this.W.stakeYv(this.you,vIn)>0){this.grant("deep_diver");this.snd.chord([600,900],0.3);this.logEvent("info","Deep Current: staked "+vIn.toFixed(3)+" vBTC for ~9% yield.");UI.syncEvery();}}
+  actUnstakeYv(vIn){if(this.W.unstakeYv(this.you,vIn)>0){this.snd.blip(480,0.16,"triangle",0.14);this.logEvent("info","Deep Current: unstaked "+vIn.toFixed(3)+" vBTC.");UI.syncEvery();}}
+  actBet(side,vIn){if(this.W.betVol(this.you,side,vIn)>0){this.grant("deep_diver");this.snd.blip(side==="long"?820:300,0.2,"sawtooth",0.14);this.logEvent("info","Maelstrom: staked "+vIn.toFixed(3)+" vBTC on "+(side==="long"?"STORM":"CALM")+".");UI.syncEvery();}else this.toast("Pick one side and enough vBTC.","b");}
+  actExitBet(){const s=this.W.exitVol(this.you);if(s>0){this.snd.blip(440,0.16,"triangle",0.14);this.logEvent("info","Maelstrom: withdrew "+s.toFixed(3)+" vBTC.");UI.syncEvery();}}
+  _calm(){return Math.max(0,Math.min(1,1.3-this.px.vol()));}
+  botExpedition(b,v){const r=this.W.expedition(v,this.rng,this._calm());if(r.ok){b.treasures.push(randTreasure(this.rng,3));}b.stats.expeditions=(b.stats.expeditions||0)+1;}
+  actExpedition(v){const calm=this._calm();const r=this.W.expedition(v,this.rng,calm);this.grant("expeditioner");
+    if(r.ok){const t=randTreasure(this.rng,3);this.you.treasures.push(t);this.snd.chord([700,1050],0.35);this.logEvent("gold","Expedition from Vault #"+v.id+" returns with "+TMETA[t].tierName+" treasure "+t+"!");this.toast("Expedition success! +"+t,"g");}
+    else{this.snd.blip(200,0.25,"sawtooth",0.14);this.logEvent("bad","Expedition from Vault #"+v.id+" lost to the deep \u2014 "+r.forfeit.toFixed(3)+" \u20BF forfeited to the pool.");this.toast("Expedition lost "+r.forfeit.toFixed(3)+" \u20BF to the sea","b");}
+    UI.syncEvery();}
+  actBuyTreasure(i){const off=this.bazaar[i];if(!off)return;if(this.you.btc<off.price){this.toast("Not enough Bitcoin.","b");return;}this.you.btc-=off.price;this.you.treasures.push(off.name);this.bazaar.splice(i,1);this.snd.chord([659,988],0.3);this.logEvent("gold","Bazaar: acquired "+TMETA[off.name].tierName+" treasure "+off.name+" for "+off.price.toFixed(2)+" \u20BF.");UI.syncEvery();}
+  prestige(){let p=0;for(const t of this.you.treasures)p+=(TMETA[t]?.prestige||0);for(const v of this.you.vaults)p+=(TMETA[v.treasure]?.prestige||0);p+=this.you.achievements.size*3;return p;}
+
+  frame(ts){if(!this.running)return;if(!this.last)this.last=ts;let dt=(ts-this.last)/1000;this.last=ts;if(dt>0.25)dt=0.25;
+    if(!this.paused&&!this.ended){this.acc+=dt*this.speed;let s=0;while(this.acc>=1&&s<40){this.acc-=1;this.tickDay();s++;if(this.ended)break;}}
+    Render.frame(this,ts/1000);requestAnimationFrame(this.frame.bind(this));}
+  start(){this.running=true;this.last=0;requestAnimationFrame(this.frame.bind(this));}
+  end(){this.ended=true;UI.showEnd();}
+}
+
+/* ===================================================== RENDER: price chart (main viewport) */
+const Render=(()=>{
+  const cv=document.getElementById("fx"),ctx=cv.getContext("2d");
+  let W=0,H=0,DPR=1,moodT=0.5,marks=[];
+  function init(){resize();}
+  function resize(){DPR=Math.min(2,window.devicePixelRatio||1);const r=cv.getBoundingClientRect();W=Math.max(40,r.width);H=Math.max(40,r.height);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+  window.addEventListener("resize",resize);
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  function hx(h){const n=parseInt(h.slice(1),16);return[n>>16&255,n>>8&255,n&255];}
+  function mix(a,b,t){const A=hx(a),B=hx(b);return`rgb(${A.map((v,i)=>Math.round(lerp(v,B[i],t))).join(",")})`;}
+  function frame(game,t){
+    if(!W)resize();
+    ctx.clearRect(0,0,W,H);
+    if(!game.W)return;
+    const px=game.px,hist=px.hist,day=game.day,tr=px.trend();
+    const mood=Math.max(0,Math.min(1,(tr+0.3)/0.6));moodT+=(mood-moodT)*0.05;
+    const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,mix("#1a0f24","#0a1f2a",moodT));bg.addColorStop(1,"#050d15");ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+    if(game.flash&&Math.abs(game.flash)>0.02){ctx.fillStyle=game.flash>0?`rgba(255,60,80,${0.1*game.flash})`:`rgba(150,255,200,${0.08*-game.flash})`;ctx.fillRect(0,0,W,H);}
+    const padL=14,padR=72,padT=78,padB=34,cw=W-padL-padR,ch=H-padT-padB;
+    const xMax=Math.max(1200,day+30),X=d=>padL+(d/xMax)*cw;
+    const shown=hist.slice(0,day+1);let mn=Math.min(...shown),mx=Math.max(...shown);if(mx===mn)mx=mn*1.001+1;const pd=(mx-mn)*0.12;mn-=pd;mx+=pd;
+    const Y=p=>padT+ch-((p-mn)/(mx-mn))*ch;
+    ctx.lineWidth=1;ctx.font="10px ui-monospace,monospace";
+    ctx.strokeStyle="rgba(255,255,255,0.05)";ctx.fillStyle="#5f7f90";ctx.textAlign="left";
+    for(let i=0;i<=4;i++){const p=mn+(mx-mn)*i/4,y=Y(p);ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(padL+cw,y);ctx.stroke();ctx.fillText("$"+Math.round(p).toLocaleString(),padL+cw+6,y+3);}
+    ctx.textAlign="center";ctx.fillStyle="#4d6b7c";
+    for(const d of [0,282,564,846]){const x=X(d);ctx.strokeStyle="rgba(255,255,255,0.04)";ctx.beginPath();ctx.moveTo(x,padT);ctx.lineTo(x,padT+ch);ctx.stroke();ctx.fillText("d"+d,x,padT+ch+16);}
+    const xl=X(1129);ctx.strokeStyle="rgba(245,196,81,0.5)";ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(xl,padT-6);ctx.lineTo(xl,padT+ch);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle="#f5c451";ctx.textAlign="center";ctx.fillText("LANDFALL 1129",xl,padT-10);
+    marks=[];
+    for(const v of game.you.vaults){const md=v.mintedDay,x0=X(md),x1=X(md+VEST),ripe=game.W.vested(v),tc=TMETA[v.treasure]||{color:"#26d0d9"},sel=game.selId===v.id;
+      ctx.fillStyle=ripe?"rgba(111,224,168,0.28)":"rgba(38,208,217,0.18)";ctx.fillRect(x0,padT+ch+22,Math.max(2,x1-x0),3);
+      const mp=hist[Math.min(md,hist.length-1)]||px.p,my=Y(mp);
+      ctx.beginPath();ctx.arc(x0,my,sel?7:5,0,7);ctx.fillStyle=v.reserve>1e-12?"#f5c451":(ripe?"#6fe0a8":tc.color);ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=sel?12:6;ctx.fill();ctx.shadowBlur=0;
+      if(sel){ctx.strokeStyle="#f5c451";ctx.lineWidth=2;ctx.beginPath();ctx.arc(x0,my,10,0,7);ctx.stroke();}
+      marks.push({id:v.id,x:x0,y:my,r:13});}
+    const up=shown[shown.length-1]>=shown[0],line=up?"#6fe0a8":"#ff5d6c",lx=X(day);
+    ctx.beginPath();shown.forEach((p,d)=>{const x=X(d),y=Y(p);d?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+    ctx.lineTo(lx,padT+ch);ctx.lineTo(padL,padT+ch);ctx.closePath();
+    const fg=ctx.createLinearGradient(0,padT,0,padT+ch);fg.addColorStop(0,up?"rgba(111,224,168,0.22)":"rgba(255,93,108,0.22)");fg.addColorStop(1,"rgba(5,13,21,0)");ctx.fillStyle=fg;ctx.fill();
+    ctx.beginPath();shown.forEach((p,d)=>{const x=X(d),y=Y(p);d?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.strokeStyle=line;ctx.lineWidth=2;ctx.shadowColor=line;ctx.shadowBlur=8;ctx.stroke();ctx.shadowBlur=0;
+    const ey=Y(px.p);ctx.beginPath();ctx.arc(lx,ey,4,0,7);ctx.fillStyle=line;ctx.shadowColor=line;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;
+    ctx.fillStyle=line;ctx.font="600 13px ui-monospace,monospace";const rightSide=lx>W-150;ctx.textAlign=rightSide?"right":"left";ctx.fillText("$"+Math.round(px.p).toLocaleString(),rightSide?lx-8:lx+8,ey-8);
+    ctx.globalCompositeOperation="lighter";
+    for(const r of game.rain){r.y+=r.vy;const rx=r.x*W,ry=padT+r.y*ch;ctx.beginPath();ctx.arc(rx,ry,r.r,0,7);ctx.fillStyle="#f5c451";ctx.globalAlpha=Math.min(1,r.life/70)*0.8;ctx.fill();}
+    ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";
+  }
+  function hitVault(mx,my){for(const m of marks){if((mx-m.x)**2+(my-m.y)**2<=m.r*m.r)return m.id;}return null;}
+  return{init,resize,frame,hitVault};
+})();
+
+/* ===================================================== MODAL SYSTEM (replaces prompt/confirm) */
+const Modal=(()=>{
+  const bd=document.getElementById("backdrop"),md=document.getElementById("modal");let onEsc=null;
+  function close(){bd.classList.remove("show");onEsc=null;}
+  function open(build,esc){md.innerHTML="";build(md);bd.classList.add("show");onEsc=esc||close;const f=md.querySelector("input,button");if(f)f.focus();}
+  bd.addEventListener("click",e=>{if(e.target===bd)close();});
+  window.addEventListener("keydown",e=>{if(bd.classList.contains("show")&&e.key==="Escape"){e.preventDefault();close();}});
+  return{open,close,isOpen:()=>bd.classList.contains("show")};
+})();
+
+/* ===================================================== UI */
+const UI=(()=>{
+  const $=id=>document.getElementById(id);
+  const usd=b=>"$"+Math.round(b*game.px.p).toLocaleString();
+  const btc=b=>b.toFixed(3)+" \u20BF";
+  let cctx;
+  function vaultChip(v){if(v.pokedDay)return["dorm","RAIDABLE"];if(v.reserve>1e-12)return["sep","STRIPPED"];if(game.W.vested(v))return["ripe","VESTED"];return["vest","VESTING"];}
+
+  function renderVaults(){const box=$("vaultList");$("vaultCount").textContent=game.you.vaults.length+(game.ladder.length?" (+"+game.ladder.length+" laddered)":"");
+    if(!game.you.vaults.length){box.innerHTML='<div class="empty">No vaults yet. Press <b style="color:var(--tide)">M<\/b> or the Mint button to seal treasure and Bitcoin into your first vault.<\/div>';return;}
+    box.innerHTML="";for(const v of game.you.vaults){const[cls,txt]=vaultChip(v);const el=document.createElement("div");el.className="vault"+(game.selId===v.id?" sel":"");
+      const prog=Math.min(1,(game.day-v.mintedDay)/VEST),ripe=game.W.vested(v),zeno=v.collateral/v.initial;
+      el.innerHTML=`<div><div class="vt">Vault #${v.id} <span class="chip ${cls}">${txt}<\/span><\/div><div class="vsub">${EMOJI[v.treasure]||"\u25C6"} ${v.treasure} \u00B7 ${ripe?"day "+VEST+"/"+VEST:"day "+(game.day-v.mintedDay)+"/"+VEST}<\/div><\/div>
+        <div><div class="amt">${v.collateral.toFixed(3)} \u20BF<\/div>${v.reserve>1e-12?'<div class="amtsub">+'+v.reserve.toFixed(3)+' in reserve<\/div>':""}<\/div>
+        <div class="zeno ${ripe?"ripe":""}"><i style="width:${(ripe?zeno*100:prog*100).toFixed(1)}%"><\/i><\/div>`;
+      el.onclick=()=>{game.selId=v.id;syncEvery();};box.appendChild(el);}}
+
+
+  function renderActions(){const box=$("acts"),you=game.you,W=game.W,v=game.selId?W.vaults.get(game.selId):null;const acts=[];
+    const tr=game.px.trend(),trlbl=`<span class="trend ${tr>=0?'up':'down'}">${tr>=0?'\u25B2':'\u25BC'}${(tr*100).toFixed(0)}%<\/span>`;
+    acts.push({k:'Mint <span class="kbd">M<\/span>',h:you.treasures.length?you.treasures.length+" treasures":"no treasure",cls:"prime",dis:!you.treasures.length||you.btc<0.01,fn:openMint,extra:trlbl});
+    acts.push({k:'Bazaar <span class="kbd">B<\/span>',h:game.bazaar.length+" for sale",cls:"",dis:false,fn:openBazaar});
+    acts.push({k:'Deeps <span class="kbd">V<\/span>',h:you.vbtc.toFixed(2)+" vBTC \u00B7 "+W.mktPrice().toFixed(2),cls:"gold",dis:false,fn:openDeeps});
+    const ready=you.vaults.filter(x=>W.canWithdraw(x)).length;
+    if(ready>1)acts.push({k:'Draw All <span class="kbd">D<\/span>',h:ready+" vaults ready",cls:"gold",dis:false,fn:()=>game.actDrawAll()});
+    // raid opportunities on rival vaults surface here (no rival panel)
+    for(const b of game.bots){let done=false;for(const rv of b.vaults){
+      if(W.canClaim(rv)){acts.push({k:"Raid "+b.name,h:"claim up to "+rv.reserve.toFixed(2)+" \u20BF 1:1",cls:"warn",dis:you.vbtc<=1e-9,fn:()=>confirmRaid(rv)});done=true;break;}
+      if(W.dormant(rv)&&!rv.pokedDay){acts.push({k:"Mark "+b.name,h:"flag abandoned vault",cls:"warn",dis:false,fn:()=>game.actPoke(rv)});done=true;break;}}
+      if(done)break;}
+    if(v){
+      acts.push({k:'Draw <span class="kbd">D<\/span>',h:W.canWithdraw(v)?"+"+(v.collateral*RATE).toFixed(3)+" \u20BF":(W.vested(v)?"in "+W.nextDraw(v)+" d":"vests in "+(v.mintedDay+VEST-game.day)+" d"),cls:"",dis:!W.canWithdraw(v),fn:()=>game.actWithdraw(v)});
+      if(!W.vested(v)){const forf=v.collateral*(1-Math.min(1,(game.day-v.mintedDay)/VEST));acts.push({k:'Abandon <span class="kbd">A<\/span>',h:v.reserve>1e-12?"recombine first":"forfeit "+forf.toFixed(3)+" \u20BF",cls:"warn",dis:v.reserve>1e-12,fn:()=>confirmAbandon(v)});}
+      else acts.push({k:'Redeem <span class="kbd">R<\/span>',h:(v.collateral+v.reserve).toFixed(3)+" \u20BF + treasure",cls:"gold",dis:v.reserve>1e-12&&you.vbtc<v.reserve-1e-9,fn:()=>v.reserve>1e-12?confirmRedeem(v):game.actRedeem(v)});
+      if(v.collateral>1e-12)acts.push({k:'Strip <span class="kbd">S<\/span>',h:W.vested(v)?"\u2192 "+v.collateral.toFixed(3)+" vBTC 1:1":"vesting \u00b7 unlocks in "+(v.mintedDay+VEST-game.day)+" d",cls:"gold",dis:!W.vested(v),fn:()=>game.actStrip(v)});
+      if(v.reserve>1e-12)acts.push({k:"Recombine",h:"burn up to "+v.reserve.toFixed(2)+" vBTC 1:1",cls:"",dis:you.vbtc<=1e-9,fn:()=>game.actRecombine(v)});
+      if(W.canExpedition(v))acts.push({k:"Expedition",h:Math.round(W.expeditionOdds(game._calm())*100)+"% \u00B7 risk "+(v.collateral*0.03).toFixed(3)+" \u20BF",cls:"",dis:false,fn:()=>confirmExpedition(v)});
+    }
+    box.innerHTML="";for(const a of acts){const b=document.createElement("button");b.className="act "+(a.cls||"");b.disabled=a.dis;b.innerHTML=`<span class="k">${a.k}${a.extra||""}<\/span><span class="h">${a.h}<\/span>`;b.onclick=a.fn;box.appendChild(b);}
+    const sb=$("selBar");
+    if(v)sb.innerHTML=`Vault <b>#${v.id}<\/b> \u00B7 ${EMOJI[v.treasure]||"\u25C6"} ${v.treasure} \u00B7 <b>${v.collateral.toFixed(3)} \u20BF<\/b> \u00B7 `+(W.vested(v)?'<span style="color:var(--kelp)">vested<\/span>':`vesting (${Math.max(0,v.mintedDay+VEST-game.day)} d left)`)+(v.reserve>1e-12?` \u00B7 <span style='color:var(--gold)'>${v.reserve.toFixed(3)} \u20BF stripped<\/span>`:"");
+    else sb.innerHTML="Select a vault to act on it, or press <b>M<\/b> to mint. <b>D<\/b> draw \u00B7 <b>S<\/b> strip \u00B7 <b>R<\/b> redeem \u00B7 <b>Space<\/b> pause";}
+
+  function renderWorth(){const nw=game.W.netWorthBtc(game.you);$("worthUsd").textContent=usd(nw);$("worthBtc").textContent=btc(nw);
+    $("holdBtc").textContent=game.you.btc.toFixed(3)+" \u20BF";$("holdVbtc").textContent=game.you.vbtc.toFixed(3);
+    const ranked=[...game.W.players].sort((a,b)=>game.W.netWorthBtc(b)-game.W.netWorthBtc(a)),rank=ranked.indexOf(game.you)+1;
+    $("rankBadge").textContent=(["","1st","2nd","3rd","4th","5th","6th"][rank]||rank+"th");$("rankTxt").textContent="of "+game.W.players.length+" keepers afloat";}
+
+  function renderPool(){const W=game.W;$("poolHint").textContent=game.you.matchTaken>0?"+"+game.you.matchTaken.toFixed(3)+" \u20BF earned":"";
+    $("poolTxt").innerHTML=`Match index <b class="mono" style="color:var(--foam)">${W.matchIndex.toFixed(4)}<\/b> \u00B7 active collateral <b class="mono" style="color:var(--foam)">${W.totalActive.toFixed(2)} \u20BF<\/b><br>vBTC afloat <b class="mono" style="color:var(--gold)">${W.vbtcSupply.toFixed(3)}<\/b> backed 1:1 by <b class="mono" style="color:var(--gold)">${W.strippedReserve.toFixed(3)}<\/b> \u20BF immunized reserve (par floor)`;}
+
+  function renderLog(){const box=$("log");if(!box)return;box.innerHTML="";for(const e of game.log.slice(0,20)){const d=document.createElement("div");d.className="e "+e.kind;d.innerHTML=`<span class="t">d${e.d}<\/span><span class="m">${e.msg}<\/span>`;box.appendChild(d);}}
+
+  function moodText(tr,dc){if(dc<-0.12)return "The sea rises to swallow the timid.";if(dc>0.12)return "The tide turns golden.";if(tr>0.25)return "Following seas. The patient are doubly rewarded.";if(tr<-0.2)return "Grey water. Hold your course; the shore does not move.";if(tr<-0.05)return "Restless swells test every Keeper's nerve.";return "Calm passage. Time does the work.";}
+
+  function syncEvery(){$("dayNum").textContent="Day "+game.day;$("voyBar").style.width=Math.min(100,game.day/VEST*100)+"%";
+    $("dayPhase").textContent=game.day<VEST?"of 1129 \u00B7 The Vesting Passage":"Perpetual waters \u00B7 draw 1% / 30 days";
+    const dc=game.px.dayChange();$("px").textContent="$"+Math.round(game.px.p).toLocaleString();
+    const pd=$("pxd");pd.textContent=(dc>=0?"\u25B2 +":"\u25BC ")+(dc*100).toFixed(1)+"%";pd.className="d tnum "+(dc>=0?"up":"down");
+    $("mood").textContent=moodText(game.px.trend(),dc);
+    renderWorth();renderVaults();renderPool();renderActions();}
+
+  // ---- toasts (one actionable at a time, queue rest)
+  let tq=[],showing=0;
+  function toast(msg,cls,verb,fn){tq.push({msg,cls,verb,fn});pump();}
+  function pump(){const box=$("toaster");if(showing>=1||!tq.length)return;const{msg,cls,verb,fn}=tq.shift();showing++;
+    const el=document.createElement("div");el.className="toast "+(cls||"");el.innerHTML=`<span>${msg}<\/span>`;
+    if(verb&&fn){const b=document.createElement("button");b.textContent=verb;b.onclick=()=>{fn();el.remove();showing--;pump();};el.appendChild(b);}
+    box.appendChild(el);setTimeout(()=>{if(el.parentNode){el.remove();showing--;pump();}},verb?4200:2600);}
+
+  // ---- mint modal
+  function openMint(){const you=game.you;if(!you.treasures.length||you.btc<0.01)return;
+    Modal.open(m=>{let sel=you.treasures[0],amt=Math.min(2,you.btc),ladderN=1;
+      m.innerHTML=`<h3>Seal a Vault<\/h3><div class="sub">Lock a treasure and Bitcoin for 1129 days. Choose your commitment.<\/div>
+        <div class="treasures" id="tr"><\/div>
+        <div class="sliderrow"><input type="range" id="amt" min="0.01" max="${you.btc.toFixed(2)}" step="0.01" value="${amt.toFixed(2)}">
+          <div class="amtfield"><input id="amtN" type="number" min="0.01" max="${you.btc.toFixed(2)}" step="0.01" value="${amt.toFixed(2)}"><span class="u">\u20BF<\/span><\/div>
+          <button class="maxb" id="maxb">MAX<\/button><\/div>
+        <div class="ladder"><span>Ladder into<\/span><input type="range" id="lad" min="1" max="4" step="1" value="1"><span class="mono" id="ladV" style="color:var(--tide)">1 vault<\/span><\/div>
+        <div class="preview" id="prev"><\/div>
+        <div class="mrow"><button class="mbtn ghost" id="cancel">Cancel<\/button><button class="mbtn prime" id="seal">\u2693 Seal Vault<\/button><\/div>`;
+      const trBox=m.querySelector("#tr");
+      const counts={};you.treasures.forEach(t=>counts[t]=(counts[t]||0)+1);
+      const names=Object.keys(counts).sort((a,b)=>(TMETA[b]?.tier||0)-(TMETA[a]?.tier||0));
+      if(!names.includes(sel))sel=names[0];
+      names.forEach(t=>{const meta=TMETA[t]||{color:"#26d0d9",tierName:"?"};const c=document.createElement("div");c.className="tcard"+(t===sel?" sel":"");
+        c.style.borderColor=t===sel?"":meta.color+"66";
+        c.innerHTML=`<div class="em">${EMOJI[t]||"\u25C6"}<\/div><div class="tn">${t}<\/div><div style="font-size:9px;letter-spacing:.06em;color:${meta.color};margin-top:2px">${meta.tierName.toUpperCase()}${counts[t]>1?" \u00D7"+counts[t]:""}<\/div>`;
+        c.onclick=()=>{sel=t;[...trBox.children].forEach(x=>x.classList.remove("sel"));c.classList.add("sel");upd();};trBox.appendChild(c);});
+      const amtR=m.querySelector("#amt"),amtN=m.querySelector("#amtN"),lad=m.querySelector("#lad");
+      function upd(){amt=Math.max(0.01,Math.min(you.btc,parseFloat(amtR.value)||0));ladderN=+lad.value;m.querySelector("#ladV").textContent=ladderN+(ladderN>1?" vaults (DCA)":" vault");
+        const draw=amt*RATE,yr=amt*0.12;m.querySelector("#prev").innerHTML=`Locks until <b>day ${game.day+VEST}<\/b> (${VEST} sim-days).<br>First draw \u2248 <span class="k">${draw.toFixed(3)} \u20BF/30d<\/span>, ~<span class="k">${yr.toFixed(3)} \u20BF/yr<\/span> \u2014 grows as the match pool pays in.<br>Wallet after: <b>${(you.btc-amt).toFixed(3)} \u20BF<\/b>${ladderN>1?`<br><span class="g">Ladders ${(amt/ladderN).toFixed(3)} \u20BF \u00D7 ${ladderN} across the cycle.<\/span>`:""}`;
+        m.querySelector("#seal").disabled=amt<=0;}
+      amtR.oninput=()=>{amtN.value=(+amtR.value).toFixed(2);upd();};
+      amtN.oninput=()=>{amtR.value=amtN.value;upd();};
+      m.querySelector("#maxb").onclick=()=>{amtR.value=you.btc.toFixed(2);amtN.value=you.btc.toFixed(2);upd();};
+      lad.oninput=upd;
+      m.querySelector("#cancel").onclick=Modal.close;
+      m.querySelector("#seal").onclick=()=>{Modal.close();game.actMint(amt,sel,ladderN);};
+      m.querySelector("#seal").addEventListener("keydown",e=>{if(e.key==="Enter")m.querySelector("#seal").click();});
+      upd();});}
+
+  function confirmAbandon(v){const forf=v.collateral*(1-Math.min(1,(game.day-v.mintedDay)/VEST)),ret=v.collateral-forf;
+    Modal.open(m=>{m.innerHTML=`<h3>Abandon Vault #${v.id}?<\/h3><div class="sub">This is irreversible.<\/div>
+      <div class="preview">Recover <span class="k">${ret.toFixed(3)} \u20BF<\/span>, forfeit <span class="c">${forf.toFixed(3)} \u20BF<\/span> to rival Keepers, and lose <b>${v.treasure}<\/b> forever.<\/div>
+      <div class="mrow"><button class="mbtn ghost" id="c">Keep Sailing<\/button><button class="mbtn danger" id="ok">Abandon Ship<\/button><\/div>`;
+      m.querySelector("#c").onclick=Modal.close;m.querySelector("#ok").onclick=()=>{Modal.close();game.actAbandon(v);};});}
+  function confirmRedeem(v){Modal.open(m=>{m.innerHTML=`<h3>Redeem Vault #${v.id}?<\/h3><div class="sub">Recombination before redemption: burns vBTC 1:1 to clear the reserve, then returns everything.<\/div>
+      <div class="preview">Burn <span class="g">${v.reserve.toFixed(3)} vBTC<\/span> \u2192 recover <span class="k">${(v.collateral+v.reserve).toFixed(3)} \u20BF<\/span> and <b>${v.treasure}<\/b>.<\/div>
+      <div class="mrow"><button class="mbtn ghost" id="c">Cancel<\/button><button class="mbtn prime" id="ok">Redeem<\/button><\/div>`;
+      m.querySelector("#c").onclick=Modal.close;m.querySelector("#ok").onclick=()=>{Modal.close();game.actRedeem(v);};});}
+  function confirmRaid(v){const amt=Math.min(game.you.vbtc,v.reserve);Modal.open(m=>{m.innerHTML=`<h3>Raid ${v.owner.name}'s Vault #${v.id}?<\/h3><div class="sub">Burn vBTC to claim abandoned reserve, 1:1.<\/div>
+      <div class="preview">Burn <span class="g">${amt.toFixed(3)} vBTC<\/span> \u2192 claim <span class="k">${amt.toFixed(3)} \u20BF<\/span> of the reserve. The vault, its treasure, and its active collateral stay with ${v.owner.name}.<\/div>
+      <div class="mrow"><button class="mbtn ghost" id="c">Cancel<\/button><button class="mbtn danger" id="ok">\u2694 Raid<\/button><\/div>`;
+      m.querySelector("#c").onclick=Modal.close;m.querySelector("#ok").onclick=()=>{Modal.close();game.actRaid(v);};});}
+  function confirmExpedition(v){const calm=game._calm(),odds=Math.round(game.W.expeditionOdds(calm)*100),stake=v.collateral*0.03;
+    Modal.open(m=>{m.innerHTML=`<h3>Chart the Deep \u00B7 Vault #${v.id}<\/h3><div class="sub">Send this vault to explore the sea. Calmer waters, better odds.<\/div>
+      <div class="preview">Success <span class="k">${odds}%<\/span> \u2192 recover a <b>treasure<\/b> and keep your stake.<br>Failure <span class="c">${100-odds}%<\/span> \u2192 forfeit <span class="c">${stake.toFixed(3)} \u20BF<\/span> to the match pool.<br><span style="font-size:11px">The sea is currently ${calm>0.6?"<span class='k'>calm<\/span>":calm>0.3?"restless":"<span class='c'>stormy<\/span>"}.<\/span><\/div>
+      <div class="mrow"><button class="mbtn ghost" id="c">Not now<\/button><button class="mbtn prime" id="ok">\u26F5 Set out<\/button><\/div>`;
+      m.querySelector("#c").onclick=Modal.close;m.querySelector("#ok").onclick=()=>{Modal.close();game.actExpedition(v);};});}
+
+  // ---- The Deeps: vBTC market / yield / volatility ----
+  let deepTab="market";
+  function openDeeps(){Modal.open(m=>renderDeeps(m));}
+  function renderDeeps(m){const W=game.W,you=game.you,rate=W.poolRate(),price=W.mktPrice(),disc=(1-price)*100;
+    const storm=game.px.vol(),strike=W.vol.strike,longT=W.vol.long,shortT=W.vol.short;
+    m.innerHTML=`<h3>The Deeps \u00B7 vBTC<\/h3><div class="sub">Your liquidity layer. Hold <b class="mono" style="color:var(--gold)">${you.vbtc.toFixed(3)} vBTC<\/b> \u00B7 <b class="mono">${you.btc.toFixed(3)} \u20BF<\/b> \u00B7 NAV floor <b class="mono">1.000<\/b> (1:1 reserve).<\/div>
+      <div class="tabbar">
+        <button data-t="market" class="${deepTab==="market"?"on":""}">\u{1F30A} Tides Market<\/button>
+        <button data-t="yield" class="${deepTab==="yield"?"on":""}">\u{1F4A7} Deep Current<\/button>
+        <button data-t="storm" class="${deepTab==="storm"?"on":""}">\u{1F300} Maelstrom<\/button>
+      <\/div><div id="dcontent"><\/div>
+      <div class="mrow" style="margin-top:14px"><button class="mbtn ghost" id="dclose">Close<\/button><\/div>`;
+    m.querySelectorAll(".tabbar button").forEach(b=>b.onclick=()=>{deepTab=b.dataset.t;renderDeeps(m);});
+    m.querySelector("#dclose").onclick=Modal.close;
+    const c=m.querySelector("#dcontent");
+    if(deepTab==="market"){const maxBuy=Math.min(you.btc,3),maxSell=Math.min(you.vbtc,3);
+      const band=disc>=0?`<b class="g">${disc.toFixed(0)}% discount<\/b>`:`<b class="c">${(-disc).toFixed(0)}% premium<\/b>`;
+      c.innerHTML=`<div class="dblk"><div class="meta">vBTC trades at a ${band} to par (Curve pool) \u2014 par is the hard NAV floor: every vBTC is backed 1:1 by immunized vault reserve. Buy discounted vBTC to <b>raid<\/b> or <b>recombine<\/b> (the arbitrage that disciplines the float); sell for instant liquidity.<br>Price now <b class="g">${price.toFixed(3)} \u20BF/vBTC<\/b>.<\/div>
+        <div class="drow"><input type="range" id="bAmt" min="0" max="${maxBuy.toFixed(2)}" step="0.01" value="${(maxBuy/2).toFixed(2)}"><span class="amt" id="bOut">\u2014<\/span><button class="dbtn buy" id="bBtn">Buy vBTC<\/button><\/div>
+        <div class="drow"><input type="range" id="sAmt" min="0" max="${Math.max(0.01,maxSell).toFixed(2)}" step="0.01" value="${(maxSell/2).toFixed(2)}"><span class="amt" id="sOut">\u2014<\/span><button class="dbtn sell" id="sBtn">Sell vBTC<\/button><\/div><\/div>`;
+      const bAmt=c.querySelector("#bAmt"),sAmt=c.querySelector("#sAmt");
+      const estBuy=x=>{const k=W.mkt.btc*W.mkt.vbtc,nb=W.mkt.btc+x*0.9974;return x<=0?0:W.mkt.vbtc-k/nb;};
+      const estSell=x=>{const k=W.mkt.btc*W.mkt.vbtc,nv=W.mkt.vbtc+x*0.9974;return x<=0?0:W.mkt.btc-k/nv;};
+      const upd=()=>{c.querySelector("#bOut").textContent="+"+estBuy(+bAmt.value).toFixed(3)+" vBTC";c.querySelector("#sOut").textContent="+"+estSell(+sAmt.value).toFixed(3)+" \u20BF";};
+      bAmt.oninput=upd;sAmt.oninput=upd;upd();
+      c.querySelector("#bBtn").onclick=()=>{game.actBuyVbtc(+bAmt.value);renderDeeps(m);};
+      c.querySelector("#sBtn").onclick=()=>{game.actSellVbtc(+sAmt.value);renderDeeps(m);};
+    } else if(deepTab==="yield"){const maxS=Math.min(you.vbtc,5);
+      c.innerHTML=`<div class="dblk"><div class="meta">Stake vBTC into <b>yvBTC<\/b> and earn <b class="k">~9% APY in \u20BF<\/b> from pool fees \u2014 income that fights the \u221212%/yr carry. Unstake anytime.<br>Staked: <b class="g">${you.yvStaked.toFixed(3)} vBTC<\/b> \u00B7 earned so far <b class="k">${you.yvEarned.toFixed(4)} \u20BF<\/b>.<\/div>
+        <div class="drow"><input type="range" id="stAmt" min="0" max="${Math.max(0.01,maxS).toFixed(2)}" step="0.01" value="${(maxS/2).toFixed(2)}"><span class="amt" id="stO">\u2014<\/span><button class="dbtn gold" id="stBtn">Stake<\/button><\/div>
+        <div class="drow"><input type="range" id="unAmt" min="0" max="${Math.max(0.01,you.yvStaked).toFixed(2)}" step="0.01" value="${(you.yvStaked/2).toFixed(2)}"><span class="amt">unstake<\/span><button class="dbtn" id="unBtn">Unstake<\/button><\/div><\/div>`;
+      const stAmt=c.querySelector("#stAmt");const upd=()=>c.querySelector("#stO").textContent="~"+(+stAmt.value*rate*0.09).toFixed(3)+" \u20BF/yr";stAmt.oninput=upd;upd();
+      c.querySelector("#stBtn").onclick=()=>{game.actStakeYv(+stAmt.value);renderDeeps(m);};
+      c.querySelector("#unBtn").onclick=()=>{game.actUnstakeYv(+c.querySelector("#unAmt").value);renderDeeps(m);};
+    } else {const pos=you.volStake>0?`On <b class="${you.volSide==="long"?"c":"k"}">${you.volSide==="long"?"STORM":"CALM"}<\/b>: <b class="g">${you.volStake.toFixed(3)} vBTC<\/b>`:"No wager.";
+      const gaugePos=Math.max(4,Math.min(96,((storm-0.2)/1.0)*100));
+      c.innerHTML=`<div class="dblk"><div class="meta">Wager vBTC on the sea itself. <b class="c">STORM<\/b> pays when volatility rises above the strike; <b class="k">CALM<\/b> pays when it falls. Settles every 7 days.<br>Realized vol <b>${(storm*100).toFixed(0)}%<\/b> vs strike <b>${(strike*100).toFixed(0)}%<\/b>. ${pos}<\/div>
+        <div class="stormbar"><i style="left:${gaugePos}%"><\/i><\/div>
+        <div class="drow"><input type="range" id="vAmt" min="0" max="${Math.max(0.01,Math.min(you.vbtc,3)).toFixed(2)}" step="0.01" value="${(Math.min(you.vbtc,3)/2).toFixed(2)}"><span class="amt" id="vO"><\/span><\/div>
+        <div class="drow"><button class="dbtn sell" id="longBtn" style="flex:1">\u{1F300} Bet STORM<\/button><button class="dbtn buy" id="shortBtn" style="flex:1">\u{1F30A} Bet CALM<\/button>${you.volStake>0?'<button class="dbtn" id="exitBtn">Withdraw<\/button>':""}<\/div><\/div>`;
+      const vAmt=c.querySelector("#vAmt");const upd=()=>c.querySelector("#vO").textContent=(+vAmt.value).toFixed(2)+" vBTC";vAmt.oninput=upd;upd();
+      c.querySelector("#longBtn").onclick=()=>{game.actBet("long",+vAmt.value);renderDeeps(m);};
+      c.querySelector("#shortBtn").onclick=()=>{game.actBet("short",+vAmt.value);renderDeeps(m);};
+      if(you.volStake>0)c.querySelector("#exitBtn").onclick=()=>{game.actExitBet();renderDeeps(m);};
+    }
+  }
+
+  // ---- Bazaar: acquire more treasures ----
+  function openBazaar(){Modal.open(m=>renderBazaar(m));}
+  function renderBazaar(m){const you=game.you;
+    m.innerHTML=`<h3>The Floating Bazaar<\/h3><div class="sub">Acquire treasures to seal into vaults. You hold <b class="mono">${you.btc.toFixed(3)} \u20BF<\/b> \u00B7 <b>${you.treasures.length}<\/b> treasures.<\/div>
+      <div class="bz" id="bz"><\/div>
+      <div class="mrow" style="margin-top:14px"><button class="mbtn ghost" id="bzc">Close<\/button><\/div>`;
+    const bz=m.querySelector("#bz");
+    if(!game.bazaar.length)bz.innerHTML='<div class="empty">The bazaar is bare \u2014 it restocks over the voyage.<\/div>';
+    game.bazaar.forEach((off,i)=>{const meta=TMETA[off.name];const el=document.createElement("div");el.className="bzcard";
+      el.innerHTML=`<div class="em">${meta.emoji}<\/div><div class="tn">${off.name}<\/div><div class="tr" style="color:${meta.color}">${meta.tierName.toUpperCase()}<\/div>
+        <button class="buy" ${you.btc<off.price?"disabled":""}>${off.price.toFixed(2)} \u20BF<\/button>`;
+      el.querySelector(".buy").onclick=()=>{game.actBuyTreasure(i);renderBazaar(m);};bz.appendChild(el);});
+    m.querySelector("#bzc").onclick=Modal.close;}
+
+  function showEnd(){const rows=[...game.W.players].sort((a,b)=>game.W.netWorthBtc(b)-game.W.netWorthBtc(a)),you=rows.indexOf(game.you)+1;
+    const nth=["","1st","2nd","3rd","4th","5th","6th"][you]||you+"th";
+    $("endTitle").textContent=you===1?"You made landfall first.":"Landfall.";
+    $("endLede").textContent=you===1?"No Keeper crossed the Sea of Volatility with more.":"You finished "+nth+" of "+rows.length+". The patient endure.";
+    const box=$("endRows");box.innerHTML="";rows.forEach((pl,i)=>{const nw=game.W.netWorthBtc(pl);const el=document.createElement("div");el.className="row"+(pl.human?" you":"");
+      el.innerHTML=`<span class="r">${["\u{1F947}","\u{1F948}","\u{1F949}","4","5","6"][i]||i+1}<\/span><span>${pl.name}${pl.human?"":' <span style="color:var(--mute);font-size:11px">\u00B7 '+MINDS[pl.archetype].label+'<\/span>'}<\/span><span class="pl">${nw.toFixed(2)} \u20BF \u00B7 $${Math.round(nw*game.px.p).toLocaleString()}<\/span>`;box.appendChild(el);});
+    const earned=[...game.you.achievements].map(id=>ACHMAP[id]?.name).filter(Boolean);
+    const pr=document.createElement("div");pr.style.cssText="margin-top:6px;color:var(--mute);font-size:13px;line-height:1.6";
+    pr.innerHTML=`Collection prestige <b style="color:var(--gold);font-family:var(--mono)">${game.prestige()}<\/b> \u00B7 ${game.you.achievements.size}/${ACHIEVEMENTS.length} deeds earned${earned.length?'<br><span style="font-size:11.5px">'+earned.join(" \u00B7 ")+'<\/span>':""}`;
+    box.appendChild(pr);
+    $("endVeil").classList.remove("hidden");}
+
+  return{syncEvery,renderLog,toast,showEnd,openMint,openDeeps,openBazaar,drawAll:()=>game.actDrawAll()};
+})();
+
+/* ===================================================== BOOT + CONTROLS */
+let game=new Game();
+function readConds(){return{seed:document.getElementById("seed").value.trim()||"satoshi",mu:+document.getElementById("muR").value/100,sig:+document.getElementById("sgR").value/100};}
+function newVoyage(){const c=readConds();game.setup(c.seed,c.mu,c.sig);Render.resize();UI.syncEvery();UI.renderLog();document.getElementById("endVeil").classList.add("hidden");}
+function boot(){
+  const seg=document.getElementById("speedSeg");[["\u00BD",3],["1\u00D7",6],["2\u00D7",14],["4\u00D7",30],["8\u00D7",70]].forEach(([l,v])=>{const b=document.createElement("button");b.textContent=l;if(v===game.speed)b.classList.add("on");b.onclick=()=>{game.speed=v;[...seg.children].forEach(x=>x.classList.remove("on"));b.classList.add("on");};seg.appendChild(b);});
+  const reg=document.getElementById("regSeg");[["Bull",0.9,0.6],["Base",0.55,0.75],["Chop",0.1,0.9],["Bear",-0.25,1.0]].forEach(([l,mu,sg],i)=>{const b=document.createElement("button");b.textContent=l;if(i===1)b.classList.add("on");b.onclick=()=>{[...reg.children].forEach(x=>x.classList.remove("on"));b.classList.add("on");document.getElementById("muR").value=Math.round(mu*100);document.getElementById("sgR").value=Math.round(sg*100);document.getElementById("muV").textContent=(mu>=0?"+":"")+Math.round(mu*100)+"%";document.getElementById("sgV").textContent=Math.round(sg*100)+"%";if(game.px)game.px.set(mu,sg);};reg.appendChild(b);});
+  const pauseBtn=document.getElementById("pauseBtn");pauseBtn.onclick=()=>{game.paused=!game.paused;game.autopaused=false;pauseBtn.textContent=game.paused?"\u25B6":"\u23F8";pauseBtn.classList.toggle("on",game.paused);};
+  const mv=document.getElementById("muV"),sv=document.getElementById("sgV");
+  document.getElementById("muR").oninput=e=>{const v=+e.target.value;mv.textContent=(v>=0?"+":"")+v+"%";if(game.px)game.px.set(v/100,game.px.sig);};
+  document.getElementById("sgR").oninput=e=>{const v=+e.target.value;sv.textContent=v+"%";if(game.px)game.px.set(game.px.mu,v/100);};
+  document.getElementById("reseed").onclick=newVoyage;
+  document.getElementById("muteBtn").onclick=e=>{game.snd.on=!game.snd.on;e.target.textContent=game.snd.on?"\u{1F50A}":"\u{1F507}";};
+  document.getElementById("setSail").onclick=()=>{try{game.snd.init();Render.init();newVoyage();document.getElementById("startVeil").classList.add("hidden");game.start();}catch(err){showFatal("setSail: "+(err.stack||err));}};
+  document.getElementById("again").onclick=newVoyage;
+  // hotkeys
+  window.addEventListener("keydown",e=>{if(!game.running||Modal.isOpen())return;if(e.target.tagName==="INPUT")return;
+    const v=game.selId?game.W.vaults.get(game.selId):null;const k=e.key.toLowerCase();
+    if(e.code==="Space"){e.preventDefault();pauseBtn.click();}
+    else if(k==="m"){e.preventDefault();UI.openMint();}
+    else if(k==="b"){e.preventDefault();UI.openBazaar();}
+    else if(k==="v"){e.preventDefault();UI.openDeeps();}
+    else if(k==="d"){e.preventDefault();if(game.you.vaults.filter(x=>game.W.canWithdraw(x)).length>1)game.actDrawAll();else if(v&&game.W.canWithdraw(v))game.actWithdraw(v);}
+    else if(k==="s"&&v&&v.collateral>1e-12&&game.W.vested(v))game.actStrip(v);
+    else if(k==="r"&&v&&game.W.vested(v)){if(v.reserve>1e-12)return;game.actRedeem(v);}
+    else if(k==="a"&&v&&!game.W.vested(v)){/* abandon via confirm */ const forf=v.collateral;document.querySelectorAll(".act.warn").forEach(b=>b.click());}
+    else if(k==="["){game.speed=Math.max(3,game.speed/2|0||3);}
+    else if(k==="]"){game.speed=Math.min(70,game.speed*2);}
+    else if(k>="1"&&k<="5"){const b=game.bots[+k-1];if(b){const rv=b.vaults.find(x=>game.W.dormant(x)||game.W.canClaim(x));if(rv){game.selId=null;UI.syncEvery();}}}
+  });
+  // click a vault buoy in the world to select it (diegetic selection)
+  const fxc=document.getElementById("fx");
+  fxc.addEventListener("pointerdown",e=>{if(!game.running)return;const r=fxc.getBoundingClientRect();const id=Render.hitVault(e.clientX-r.left,e.clientY-r.top);if(id!=null){game.selId=id;game.snd.blip(600,0.08,"triangle",0.1);UI.syncEvery();}});
+  // No canvas/WebGL/rAF at load \u2014 the title veil covers the stage. All rendering starts at Set Sail.
+  game.setup("satoshi",0.55,0.75);for(let i=0;i<60;i++)game.px.step();
+  UI.syncEvery();UI.renderLog();
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
+</script>

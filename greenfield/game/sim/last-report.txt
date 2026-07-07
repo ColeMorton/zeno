@@ -1,0 +1,52 @@
+════════════════════════════════════════════════════════════
+  ZENO · OBSERVE HARNESS — product report   (6 AI-only voyages)
+════════════════════════════════════════════════════════════
+
+FEATURE ADOPTION  (avg uses/voyage · % of voyages any agent used it)
+  mint            23.0    100%
+  withdraw       137.0    100%
+  earlyRedeem      7.8    100%
+  strip           11.7    100%
+  recombine        9.0    100%
+  redeem           0.0      0%  ✗ unreached
+  claimDormant     0.0      0%  ✗ unreached
+  buyVbtc         11.7    100%
+  sellVbtc         6.8    100%
+  stakeYv         10.8    100%
+  betVol           5.8    100%
+  expedition     109.2    100%
+  TOTAL          332.8
+
+BALANCE  (mean finish rank of 6 · win-rate · mean net-worth ₿)
+  whale       rank 1.17   win  83%   nw  16.54
+  farmer      rank 2.17   win  17%   nw  15.73
+  explorer    rank 2.67   win   0%   nw  14.79
+  diamond     rank 4.17   win   0%   nw  13.76
+  momentum    rank 4.83   win   0%   nw   9.03
+  panic       rank 6.00   win   0%   nw   2.40
+
+FLYWHEEL (match pool)
+  agents ever rewarded .......  100%  (share of keepers who got match rain)
+  forfeit recirculation ...... 28.3%  (forfeited ₿ vs active collateral)
+  final match index .......... 0.43
+
+vBTC ECONOMY (the Deeps)
+  market price range ......... 0.85–1.65 ₿/vBTC
+  deeps interactions/voyage .. 35.2  (market+yield+storm)
+  final vBTC supply .......... 31.46  at par (backed 1:1 by immunized reserve)
+
+ENGAGEMENT & PACING
+  decision density ........... 17.9 actions / agent / voyage-year
+  actions by voyage phase ....
+    Q1 (0–282d)    █████ 43.5
+    Q2 (282–564)   ████ 32.2
+    Q3 (564–846)   ███ 25.8
+    Q4 (846–1129)  ███ 27.0
+    post-vest      ████████████████████████ 204.3
+  explorer mean finish ....... 2.67 of 6  (full-feature agent vs heuristic bots)
+  collection prestige (you) .. 133.00  · 5.83/8 deeds
+
+── PRODUCT SIGNALS ──────────────────────────────────────────
+  1. ✗ "claimDormant" stayed at zero even with the full-feature explorer — its precondition never arises in normal play (e.g. dormancy needs an abandoned+inactive owner). Confirm the path is reachable, then decide: surface it in the UI, or accept it as a rare edge mechanic.
+  2. ⚠ "whale" dominates (mean rank 1.17, win 83%). Strategy space may be too solvable — patient/whale play likely trivially best. Consider a mechanic that punishes pure passivity.
+════════════════════════════════════════════════════════════
