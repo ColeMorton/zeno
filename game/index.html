@@ -1,0 +1,2373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZENO://THE GAME</title>
+<style>
+:root{
+  --bg:#04060c; --bg2:#070b14; --panel:#0a101d; --panel2:#0d1424; --line:#16233c; --line2:#1f3157;
+  --cyan:#00e5ff; --cyan-dim:#0a7f8f; --mag:#ff2d78; --gold:#ffc247; --grn:#3dff9c; --red:#ff4d5e;
+  --vio:#a06bff; --org:#ff8a3d; --ice:#cfeef5; --mute:#5c7590; --mute2:#3a4d66;
+  --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ice);font-family:var(--mono);overflow:hidden;font-size:13px;
+  -webkit-font-smoothing:antialiased}
+button{font-family:inherit;color:inherit;cursor:pointer;background:none;border:1px solid var(--line2);
+  border-radius:4px;padding:5px 10px;font-size:11px;letter-spacing:.06em;transition:all .12s}
+button:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 8px #00e5ff33}
+button:disabled{opacity:.3;cursor:default}
+button.primary{border-color:var(--cyan);color:var(--cyan)}
+button.danger{border-color:var(--red);color:var(--red)}
+button.danger:hover:not(:disabled){box-shadow:0 0 8px #ff4d5e44;border-color:var(--red);color:var(--red)}
+button.gold{border-color:var(--gold);color:var(--gold)}
+button.gold:hover:not(:disabled){box-shadow:0 0 8px #ffc24744;border-color:var(--gold);color:var(--gold)}
+input[type=range]{width:100%;accent-color:var(--cyan)}
+input[type=text]{background:var(--bg2);border:1px solid var(--line2);color:var(--ice);padding:5px 8px;
+  border-radius:4px;font-family:inherit;font-size:12px}
+.tnum{font-variant-numeric:tabular-nums}
+.up{color:var(--grn)} .down{color:var(--red)} .gold-t{color:var(--gold)} .cyan-t{color:var(--cyan)}
+.mag-t{color:var(--mag)} .mute-t{color:var(--mute)}
+
+/* scanlines + vignette overlay */
+#crt{position:fixed;inset:0;pointer-events:none;z-index:90;
+  background:repeating-linear-gradient(0deg,transparent 0 2px,#00000026 2px 4px)}
+#crt::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(ellipse at center,transparent 55%,#000000aa 100%)}
+#bgfx{position:fixed;inset:0;z-index:0;display:block}
+
+/* screens */
+.screen{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 30%,#0a1428 0%,var(--bg) 70%)}
+.hidden{display:none!important}
+
+/* boot */
+#boot{flex-direction:column;gap:26px}
+.boot-title{font-size:64px;letter-spacing:.18em;font-weight:700;color:var(--cyan);
+  text-shadow:0 0 18px #00e5ff88,0 0 60px #00e5ff33;position:relative}
+.boot-title .thin{color:var(--ice);opacity:.85;text-shadow:0 0 12px #ffffff44}
+.boot-sub{color:var(--mute);letter-spacing:.4em;font-size:12px;text-transform:uppercase}
+.boot-line{color:var(--mute2);font-size:11px;max-width:520px;text-align:center;line-height:1.7}
+#bootBtn{font-size:15px;padding:12px 44px;letter-spacing:.28em;border-width:1px;animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 6px #00e5ff33}50%{box-shadow:0 0 22px #00e5ff77}}
+.glitchy{animation:glitch .28s steps(2) infinite}
+@keyframes glitch{0%{text-shadow:2px 0 var(--mag),-2px 0 var(--cyan)}50%{text-shadow:-2px 1px var(--mag),2px -1px var(--cyan)}100%{text-shadow:1px -1px var(--mag),-1px 1px var(--cyan)}}
+
+/* config (the ritual) */
+#config{align-items:flex-start;overflow-y:auto;padding:34px 0}
+.cfg{width:min(940px,94vw);background:var(--panel);border:1px solid var(--line2);border-radius:10px;
+  padding:26px 30px;box-shadow:0 0 60px #00e5ff11, inset 0 0 80px #00102011}
+.cfg h1{font-size:20px;letter-spacing:.22em;color:var(--cyan);margin-bottom:2px}
+.cfg .sub{color:var(--mute);font-size:11px;letter-spacing:.14em;margin-bottom:20px}
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 26px}
+@media(max-width:800px){.cfg-grid{grid-template-columns:1fr}}
+.cfg-block{border:1px solid var(--line);border-radius:8px;padding:13px 15px;background:var(--bg2)}
+.cfg-block h3{font-size:10px;letter-spacing:.2em;color:var(--mute);text-transform:uppercase;margin-bottom:10px}
+.opt-row{display:flex;gap:7px;flex-wrap:wrap}
+.opt{border:1px solid var(--line2);border-radius:5px;padding:6px 11px;font-size:11px;cursor:pointer;
+  color:var(--mute);transition:all .12s;user-select:none}
+.opt:hover{border-color:var(--cyan-dim);color:var(--ice)}
+.opt.sel{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 8px #00e5ff2b;background:#00e5ff0d}
+.opt small{display:block;color:var(--mute2);font-size:9px;margin-top:2px}
+.cfg-foot{display:flex;justify-content:space-between;align-items:center;margin-top:22px;gap:14px}
+.cfg-foot .note{color:var(--mute2);font-size:10px;line-height:1.5;max-width:480px}
+#jackIn{font-size:14px;padding:12px 38px;letter-spacing:.3em}
+
+/* game layout */
+#game{position:fixed;inset:0;z-index:10;display:grid;grid-template-rows:52px minmax(0,1fr) 292px;
+  grid-template-columns:100%;min-height:0}
+header{display:flex;align-items:center;gap:18px;padding:0 16px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#0b1322ee,#080d18ee);position:relative;z-index:20}
+.logo{font-size:16px;letter-spacing:.2em;font-weight:700;color:var(--cyan);text-shadow:0 0 12px #00e5ff66}
+.logo span{color:var(--ice)}
+.hstat{display:flex;flex-direction:column;gap:1px;min-width:86px}
+.hstat .l{font-size:8.5px;color:var(--mute);letter-spacing:.18em;text-transform:uppercase}
+.hstat .v{font-size:14px;font-weight:600}
+.hsep{width:1px;height:26px;background:var(--line)}
+.spacer{flex:1}
+.speedctl{display:flex;gap:4px}
+.speedctl button{padding:4px 9px;font-size:10px}
+.speedctl button.on{border-color:var(--cyan);color:var(--cyan);background:#00e5ff12}
+#regimeTag{font-size:9px;padding:2px 7px;border:1px solid var(--cyan-dim);border-radius:3px;color:var(--cyan);
+  letter-spacing:.12em}
+#regimeTag.hot{border-color:var(--mag);color:var(--mag);animation:glitch .3s steps(2) infinite}
+#chainChip{font-size:9px;padding:2px 7px;border:1px solid var(--grn);border-radius:3px;color:var(--grn);
+  letter-spacing:.08em;white-space:nowrap}
+#chainChip.busy{border-color:var(--gold);color:var(--gold)}
+.chgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px}
+@media(max-width:800px){.chgrid{grid-template-columns:1fr}}
+.chgrid input{width:100%}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) 332px;min-height:0;position:relative;z-index:12}
+.chartcol{display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line);position:relative}
+.charttabs{display:flex;gap:2px;padding:8px 12px 0;align-items:center}
+.charttabs button{border:none;border-bottom:2px solid transparent;border-radius:0;padding:5px 12px;
+  color:var(--mute);letter-spacing:.14em;font-size:10px}
+.charttabs button.on{color:var(--cyan);border-bottom-color:var(--cyan)}
+.charttabs button:hover{box-shadow:none}
+.chartmeta{margin-left:auto;display:flex;gap:16px;font-size:11px;color:var(--mute)}
+.chartmeta b{color:var(--ice)}
+#chartWrap{flex:1;min-height:0;position:relative;margin:6px 12px 10px}
+#chart{position:absolute;inset:0;width:100%;height:100%}
+
+.rail{display:flex;flex-direction:column;min-height:0;overflow-y:auto;background:#080d17cc}
+.rail::-webkit-scrollbar{width:8px}.rail::-webkit-scrollbar-thumb{background:var(--line2);border-radius:6px}
+.card{border-bottom:1px solid var(--line);padding:12px 14px}
+.card h2{font-size:9.5px;letter-spacing:.22em;color:var(--mute);text-transform:uppercase;margin-bottom:9px;
+  display:flex;justify-content:space-between;align-items:baseline}
+.nw-big{font-size:26px;font-weight:700;letter-spacing:.02em;transition:color .3s,text-shadow .3s}
+.nw-big.win-near{color:var(--gold);text-shadow:0 0 16px #ffc24788;animation:pulse 1.2s infinite}
+.nw-up{color:var(--grn);text-shadow:0 0 14px #3dff9c55}
+.nw-dn{color:var(--red);text-shadow:0 0 14px #ff4d5e55}
+.nw-sub{display:flex;gap:12px;margin-top:5px;font-size:10.5px;color:var(--mute)}
+.nw-sub b{color:var(--ice)}
+.targetbar{height:5px;background:var(--bg2);border-radius:4px;margin-top:9px;overflow:hidden;border:1px solid var(--line)}
+.targetbar>i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan-dim),var(--cyan),var(--gold));
+  transition:width .4s}
+.tgt-l{display:flex;justify-content:space-between;font-size:9px;color:var(--mute2);margin-top:3px}
+
+.lb{display:flex;flex-direction:column;gap:6px}
+.lb-row{display:grid;grid-template-columns:16px 12px 1fr auto;gap:7px;align-items:center;font-size:11px;cursor:default}
+.lb-row .rank{color:var(--mute2);font-size:10px}
+.lb-row .dot{width:8px;height:8px;border-radius:50%;box-shadow:0 0 6px currentColor}
+.lb-row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.05em}
+.lb-row .nm.me{color:var(--cyan)}
+.lb-row .val{font-weight:600}
+.lb-bar{grid-column:2/5;height:3px;background:var(--bg2);border-radius:3px;overflow:hidden}
+.lb-bar>i{display:block;height:100%;transition:width .4s}
+.lb-row.leader .nm{text-shadow:0 0 8px currentColor}
+
+.riv{display:flex;gap:9px;padding:7px 0;border-top:1px solid #101a2e;align-items:flex-start}
+.riv:first-of-type{border-top:none}
+.riv .face{width:30px;height:30px;border-radius:5px;border:1px solid currentColor;flex:none;display:flex;
+  align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 8px #0006, inset 0 0 8px currentColor}
+.riv .info{flex:1;min-width:0}
+.riv .nm{font-size:11px;letter-spacing:.07em}
+.riv .arch{font-size:8.5px;color:var(--mute);letter-spacing:.1em;text-transform:uppercase}
+.riv .mood{font-size:9px;margin-top:2px;letter-spacing:.08em}
+.riv .hold{font-size:9px;color:var(--mute2);margin-top:1px}
+.mood-fear{color:var(--red)} .mood-greed{color:var(--grn)} .mood-steady{color:var(--mute)}
+.mood-dark{color:var(--vio)} .mood-hunt{color:var(--mag)} .mood-panic{color:var(--red);animation:glitch .4s steps(2) infinite}
+#hiveBtn.on{border-color:var(--vio);color:var(--vio);box-shadow:0 0 8px #a06bff44}
+.riv .sent{font-size:9px;margin-top:2px;letter-spacing:.06em}
+.tbars{display:flex;gap:3px;margin-top:3px}
+.tbars span{width:16px;height:3px;background:var(--bg);border:1px solid var(--line);border-radius:2px;overflow:hidden;display:block}
+.tbars span i{display:block;height:100%;background:currentColor}
+.riv .llmdot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-left:5px;box-shadow:0 0 5px currentColor;vertical-align:middle}
+
+/* achievements */
+.achips{display:flex;gap:5px;margin-top:8px;align-items:center;flex-wrap:wrap}
+.achip{font-size:12px;color:var(--gold);text-shadow:0 0 8px #ffc24766;border:1px solid var(--line2);
+  border-radius:4px;padding:1px 6px;cursor:default}
+.achpts{color:var(--mute2);font-size:9px;letter-spacing:.12em}
+
+/* bot roster slots */
+.slot{display:grid;grid-template-columns:22px minmax(90px,1.1fr) minmax(100px,1fr) 100px minmax(130px,1.3fr) 22px;
+  gap:6px;align-items:center;margin-bottom:6px}
+@media(max-width:800px){.slot{grid-template-columns:22px 1fr 1fr;grid-auto-rows:auto}}
+.slot.soff{opacity:.4}
+.slot select,.slot input[type=text]{background:var(--bg2);border:1px solid var(--line2);color:var(--ice);
+  padding:4px 6px;border-radius:4px;font-family:inherit;font-size:10.5px;min-width:0;width:100%}
+.slot input[type=checkbox]{accent-color:var(--cyan)}
+
+.bottom{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,.9fr);min-height:0;
+  border-top:1px solid var(--line);position:relative;z-index:12;background:#070c15dd}
+.bpanel{display:flex;flex-direction:column;min-width:0;min-height:0;border-right:1px solid var(--line)}
+.bpanel:last-child{border-right:none}
+.bhead{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.bhead h2{font-size:9.5px;letter-spacing:.22em;color:var(--mute);text-transform:uppercase;flex:1}
+.bbody{flex:1;overflow-y:auto;padding:9px 12px;min-height:0}
+.bbody::-webkit-scrollbar{width:8px}.bbody::-webkit-scrollbar-thumb{background:var(--line2);border-radius:6px}
+
+/* vaults */
+.vault{border:1px solid var(--line2);border-radius:7px;padding:9px 11px;margin-bottom:8px;background:var(--panel2);
+  transition:border-color .15s}
+.vault:hover{border-color:var(--cyan-dim)}
+.vault.poked{border-color:var(--mag);box-shadow:0 0 12px #ff2d7833;animation:pulse 1s infinite}
+.v-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.v-name{font-size:11.5px;letter-spacing:.04em}
+.v-amt{font-size:12px;color:var(--gold);font-weight:600}
+.v-tags{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap}
+.tag{font-size:8px;letter-spacing:.1em;text-transform:uppercase;padding:1.5px 6px;border-radius:8px;
+  border:1px solid currentColor}
+.tag.vest{color:var(--cyan)} .tag.ripe{color:var(--grn)} .tag.sep{color:var(--gold)}
+.tag.dorm{color:var(--mag)} .tag.claimed{color:var(--mute2)} .tag.deleg{color:var(--vio)}
+.zbar{height:4px;background:var(--bg);border-radius:4px;margin-top:7px;overflow:hidden;border:1px solid var(--line)}
+.zbar>i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan-dim),var(--cyan))}
+.zbar.ripe>i{background:linear-gradient(90deg,var(--grn),var(--gold))}
+.v-sub{font-size:9px;color:var(--mute);margin-top:4px;display:flex;justify-content:space-between}
+.v-acts{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
+.v-acts button{padding:3.5px 8px;font-size:9px}
+.emptymsg{color:var(--mute2);font-size:11px;font-style:italic;padding:10px 4px;line-height:1.6}
+
+/* ops tabs */
+.opstabs{display:flex;gap:2px}
+.opstabs button{border:none;border-radius:0;padding:4px 10px;color:var(--mute);font-size:9.5px;
+  letter-spacing:.14em;border-bottom:2px solid transparent}
+.opstabs button.on{color:var(--cyan);border-bottom-color:var(--cyan)}
+.opstabs button:hover{box-shadow:none}
+.trade-box{display:flex;flex-direction:column;gap:9px}
+.tb-row{display:flex;gap:8px;align-items:center}
+.tb-row .lab{font-size:10px;color:var(--mute);width:70px;flex:none}
+.ratio-strip{height:26px;position:relative;background:var(--bg2);border:1px solid var(--line);border-radius:5px;
+  margin:2px 0 4px}
+.ratio-strip .band{position:absolute;top:0;bottom:0;background:#00e5ff10;border-left:1px dashed var(--mute2);
+  border-right:1px dashed var(--mute2)}
+.ratio-strip .mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--gold);
+  box-shadow:0 0 8px var(--gold);transition:left .4s}
+.ratio-lbls{display:flex;justify-content:space-between;font-size:8.5px;color:var(--mute2)}
+.preview{font-size:10.5px;color:var(--mute);border:1px dashed var(--line2);border-radius:5px;padding:7px 9px;
+  line-height:1.6}
+.preview b{color:var(--ice)}
+.hunt-row,.desk-row{border:1px solid var(--line2);border-radius:6px;padding:8px 10px;margin-bottom:7px;font-size:10.5px}
+.hunt-row .t,.desk-row .t{display:flex;justify-content:space-between;margin-bottom:3px}
+.hunt-row small,.desk-row small{color:var(--mute);font-size:9.5px;line-height:1.5;display:block}
+.hunt-row .acts,.desk-row .acts{margin-top:6px;display:flex;gap:6px}
+.hunt-row .acts button,.desk-row .acts button{padding:3px 9px;font-size:9px}
+
+/* feed */
+.feed{font-size:10px;line-height:1.7}
+.feed .fl{display:flex;gap:7px;padding:1.5px 0;border-bottom:1px solid #0c1524}
+.feed .fw{color:var(--mute2);flex:none;width:38px}
+.feed .fm{flex:1;color:var(--mute)}
+.feed .fm b{font-weight:600}
+.feed .fl.hot .fm{color:var(--ice)}
+.feed .fl.alert .fm{color:var(--mag)}
+
+/* modal */
+#modalBack{position:fixed;inset:0;z-index:60;background:#02040aa8;display:flex;align-items:center;
+  justify-content:center;backdrop-filter:blur(2px)}
+.modal{width:min(430px,92vw);background:var(--panel);border:1px solid var(--line2);border-radius:9px;
+  padding:20px 22px;box-shadow:0 0 40px #00e5ff18}
+.modal h2{font-size:13px;letter-spacing:.18em;color:var(--cyan);margin-bottom:13px}
+.modal .m-body{display:flex;flex-direction:column;gap:11px;font-size:11.5px;color:var(--mute);line-height:1.6}
+.modal .m-body b{color:var(--ice)}
+.modal .m-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:17px}
+.bigval{font-size:19px;color:var(--gold);font-weight:700}
+
+/* end screen */
+#end{flex-direction:column;gap:18px;z-index:70;text-align:center}
+#endTitle{font-size:52px;letter-spacing:.2em;font-weight:700}
+#endTitle.won{color:var(--gold);text-shadow:0 0 30px #ffc24788}
+#endTitle.lost{color:var(--red);text-shadow:0 0 30px #ff4d5e66}
+#endSub{color:var(--mute);font-size:13px;letter-spacing:.1em;max-width:560px;line-height:1.8}
+#endBoard{display:flex;flex-direction:column;gap:6px;min-width:380px;border:1px solid var(--line2);
+  border-radius:8px;padding:16px 20px;background:var(--panel)}
+.eb-row{display:grid;grid-template-columns:26px 12px 1fr auto auto auto;gap:10px;align-items:center;font-size:13px}
+.eb-row .apts{font-size:11px;color:var(--gold);width:58px;text-align:right}
+#endAch{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:560px}
+.eb-row .dot{width:9px;height:9px;border-radius:50%;box-shadow:0 0 7px currentColor}
+.eb-row .pct{font-size:11px;width:64px;text-align:right}
+
+/* toast */
+#toasts{position:fixed;top:62px;right:346px;z-index:80;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.toast{background:var(--panel);border:1px solid var(--cyan);border-radius:6px;padding:9px 14px;font-size:11px;
+  color:var(--ice);box-shadow:0 0 18px #00e5ff33;animation:toastin .25s ease-out;max-width:340px;line-height:1.5}
+.toast.warn{border-color:var(--mag);box-shadow:0 0 18px #ff2d7833}
+.toast.gold{border-color:var(--gold);box-shadow:0 0 18px #ffc24733}
+@keyframes toastin{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+.shake{animation:shake .35s}
+@keyframes shake{0%,100%{transform:none}20%{transform:translate(-4px,2px)}40%{transform:translate(4px,-2px)}
+  60%{transform:translate(-3px,-1px)}80%{transform:translate(2px,2px)}}
+</style>
+</head>
+<body>
+<canvas id="bgfx"></canvas>
+<div id="crt"></div>
+
+<!-- BOOT -->
+<div class="screen" id="boot">
+  <div class="boot-title">ZENO<span class="thin">://</span><span style="color:var(--mag);text-shadow:0 0 18px #ff2d7888">THE&nbsp;GAME</span></div>
+  <div class="boot-sub">perpetual withdrawal protocol &mdash; sandbox arena</div>
+  <div class="boot-line" id="bootLog">loading protocol constants…</div>
+  <div style="display:flex;gap:14px">
+    <button id="bootBtn" class="primary hidden">INITIALIZE</button>
+    <button id="tutBtn" class="gold hidden" style="font-size:15px;padding:12px 30px;letter-spacing:.2em">TRAINING PROTOCOL</button>
+  </div>
+</div>
+
+<!-- CONFIG RITUAL -->
+<div class="screen hidden" id="config">
+  <div class="cfg">
+    <h1>SESSION PARAMETERS</h1>
+    <div class="sub">shape the machine before it wakes</div>
+    <div class="cfg-grid">
+      <div class="cfg-block"><h3>Starting capital</h3><div class="opt-row" id="cfgCapital"></div></div>
+      <div class="cfg-block"><h3>Victory target</h3><div class="opt-row" id="cfgTarget"></div></div>
+      <div class="cfg-block"><h3>Market temperament</h3><div class="opt-row" id="cfgMarket"></div></div>
+      <div class="cfg-block"><h3>Time flow</h3><div class="opt-row" id="cfgSpeed"></div></div>
+      <div class="cfg-block" style="grid-column:1/-1"><h3>Session horizon &mdash; the clock always wins</h3>
+        <div class="opt-row" id="cfgHorizon"></div></div>
+      <div class="cfg-block" style="grid-column:1/-1"><h3>The table &mdash; 8 bot slots · name / mind / brain / ⛓</h3>
+        <div id="cfgSlots"></div>
+        <div style="color:var(--mute2);font-size:9.5px;margin-top:6px">brains: <b style="color:var(--ice)">scripted</b> = pure archetype ·
+          <b style="color:var(--vio)">hive</b> = learns within the session (traits + sentiment + imitation) ·
+          <b style="color:var(--cyan)">llm</b> = OpenRouter model playing the persona ·
+          <b style="color:var(--mag)">self-learn</b> = OpenRouter model told nothing but the action API</div></div>
+      <div class="cfg-block" style="grid-column:1/-1"><h3>OpenRouter &mdash; for llm / self-learn slots</h3>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="text" id="cfgOrKey" placeholder="sk-or-…" style="flex:1;min-width:220px;max-width:360px">
+          <span style="color:var(--mute2);font-size:10px">stored in this browser only · one call per bot per game-week · without a key those slots fall back to their scripted archetype</span>
+        </div></div>
+      <datalist id="orModels">
+        <option value="anthropic/claude-haiku-4.5"></option>
+        <option value="google/gemini-2.5-flash"></option>
+        <option value="deepseek/deepseek-chat"></option>
+        <option value="openai/gpt-4.1-mini"></option>
+        <option value="openrouter/auto"></option>
+      </datalist>
+      <div class="cfg-block" style="grid-column:1/-1"><h3>⛓ Chain link — LOCAL ANVIL DEV CHAIN ONLY (chainId 31337)</h3>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;gap:6px;align-items:center;font-size:11px;cursor:pointer">
+            <input type="checkbox" id="chOn" style="accent-color:var(--grn)"> CHAIN MODE</label>
+          <input type="text" id="chRpc" style="width:200px" placeholder="http://127.0.0.1:8545">
+          <button id="chProbe">PROBE</button>
+          <button id="chFund" class="gold">FUND</button>
+        </div>
+        <div class="chgrid">
+          <input type="text" id="chVault" placeholder="VaultNFT address (cli/.env VAULT_WBTC)">
+          <input type="text" id="chWbtc" placeholder="MockWBTC address (WBTC)">
+          <input type="text" id="chTreasure" placeholder="MockTreasure address (TREASURE)">
+          <input type="text" id="chBtcToken" placeholder="BtcToken vWBTC address (BTC_TOKEN_WBTC)">
+        </div>
+        <div id="chStatus" style="color:var(--mute2);font-size:10px;margin-top:7px;line-height:1.6">
+          Optional: play against the real BTCNFT contracts on a local Anvil chain (<b style="color:var(--ice)">cli/btcnft setup</b>, addresses in cli/.env).
+          Player signs via injected wallet, else Anvil dev key #0; bots marked ⛓ get dev keys 1–8. Uses the well-known Anvil dev accounts — <b style="color:var(--mag)">local dev chain only, never real funds</b>.
+        </div></div>
+      <div class="cfg-block" style="grid-column:1/-1"><h3>Session seed</h3>
+        <div style="display:flex;gap:10px;align-items:center">
+          <input type="text" id="cfgSeed" style="width:140px" value="">
+          <button id="cfgReseed">SCRAMBLE</button>
+          <span style="color:var(--mute2);font-size:10px">same seed, same market, same minds</span>
+        </div></div>
+    </div>
+    <div class="cfg-foot">
+      <div class="note">Protocol truth: vaults vest over <b style="color:var(--cyan)">1129 days</b>. Withdrawals: 1% of remaining <b>active</b> collateral / 30 days &mdash; a share forever, never the whole. Once vested, strip any slice into vBTC; the reserve backing it is immunized &mdash; the lock itself has no back door. Early exit returns time-served pro-rata; the forfeit accrues to everyone who stayed.</div>
+      <button id="jackIn" class="primary">JACK&nbsp;IN</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME -->
+<div id="game" class="hidden">
+  <header>
+    <div class="logo">ZENO<span>://</span></div>
+    <div class="hsep"></div>
+    <div class="hstat"><div class="l">Day</div><div class="v tnum" id="hDay">0</div></div>
+    <div class="hstat"><div class="l">Week</div><div class="v tnum" id="hWeek">0</div></div>
+    <div class="hstat"><div class="l">Horizon</div><div class="v tnum" id="hLeft">–</div></div>
+    <div class="hsep"></div>
+    <div class="hstat" style="min-width:120px"><div class="l">BTC / USD</div><div class="v tnum" id="hPrice">–</div></div>
+    <div class="hstat"><div class="l">Δ week</div><div class="v tnum" id="hDelta">–</div></div>
+    <div id="regimeTag">CALM</div>
+    <div class="hsep"></div>
+    <div class="hstat" style="min-width:100px"><div class="l">vBTC / BTC</div><div class="v tnum gold-t" id="hRatio">–</div></div>
+    <div class="hstat"><div class="l">Match fed</div><div class="v tnum mag-t" id="hPool">0</div></div>
+    <div id="chainChip" class="hidden" title="CHAIN MODE — real txs on a local Anvil dev chain"></div>
+    <div class="spacer"></div>
+    <div class="speedctl" id="speedCtl"></div>
+    <button id="hiveBtn" title="HIVE MEMORY — rivals learn, imitate, evolve within the session">HIVE</button>
+    <button id="muteBtn" title="sound">♪</button>
+    <button id="jackOut" class="danger">JACK OUT</button>
+  </header>
+
+  <div class="main">
+    <div class="chartcol">
+      <div class="charttabs">
+        <button data-tab="market" class="on">MARKET</button>
+        <button data-tab="race">THE RACE</button>
+        <button data-tab="ratio">vBTC</button>
+        <div class="chartmeta" id="chartMeta"></div>
+      </div>
+      <div id="chartWrap"><canvas id="chart"></canvas></div>
+    </div>
+    <div class="rail">
+      <div class="card">
+        <h2>Net worth <span id="nwRank" style="color:var(--cyan)"></span></h2>
+        <div class="nw-big tnum" id="nwBig">–</div>
+        <div class="nw-sub">
+          <span>liquid <b id="nwBtc">–</b></span>
+          <span>vaults <b id="nwVault">–</b></span>
+          <span>vBTC <b id="nwVbtc">–</b></span>
+          <span>pool <b id="nwPool">–</b></span>
+        </div>
+        <div class="targetbar"><i id="tgtBar"></i></div>
+        <div class="tgt-l"><span id="tgtFrom">start</span><span id="tgtTo">target</span></div>
+        <div class="achips" id="achChips"></div>
+      </div>
+      <div class="card"><h2>Leaderboard</h2><div class="lb" id="lb"></div></div>
+      <div class="card"><h2>The table</h2><div id="rivals"></div></div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="bpanel">
+      <div class="bhead"><h2>Your vaults</h2>
+        <span id="vaultCount" style="font-size:9px;color:var(--mute2)"></span>
+        <button id="mintBtn" class="gold">+ MINT VAULT</button></div>
+      <div class="bbody" id="vaultList"></div>
+    </div>
+    <div class="bpanel">
+      <div class="bhead"><div class="opstabs" id="opsTabs">
+        <button data-ops="trade" class="on">EXCHANGE</button>
+        <button data-ops="hunt">HUNT</button>
+        <button data-ops="desk">DESK</button>
+        <button data-ops="vol">VOL&nbsp;PIT</button>
+      </div></div>
+      <div class="bbody" id="opsBody"></div>
+    </div>
+    <div class="bpanel">
+      <div class="bhead"><h2>Wire</h2></div>
+      <div class="bbody feed" id="feed"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modalBack" class="hidden"><div class="modal" id="modal"></div></div>
+<div id="toasts"></div>
+
+<!-- END -->
+<div class="screen hidden" id="end">
+  <div id="endTitle"></div>
+  <div id="endSub"></div>
+  <div id="endAch"></div>
+  <div id="endBoard"></div>
+  <button id="againBtn" class="primary" style="font-size:13px;padding:11px 34px;letter-spacing:.24em">RUN IT BACK</button>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   ZENO: THE GAME — a competitive session on top of the real
+   BTCNFT/Zeno protocol mechanics. All protocol constants match
+   contracts/protocol (VaultMath.sol) and contracts/simulation.
+   ============================================================ */
+
+/* ---------- protocol constants (source: VaultNFT.sol / ZenoVault.sol) ---------- */
+const P = {
+  VEST_DAYS: 1129,        // vesting period
+  WITHDRAW_PCT: 0.01,     // 1% of remaining ACTIVE collateral
+  PERIOD_DAYS: 30,        // withdrawal cooldown
+  DORMANCY_DAYS: 1129,    // inactivity threshold
+  GRACE_DAYS: 30,         // poke → claimable
+  PAR: 1.0,               // vBTC/BTC par — the on-chain NAV floor (reserve == supply)
+  AMM_FEE: 0.003,         // 0.3% swap fee
+  TICK_DAYS: 7,           // one tick = one week
+};
+/* GBM regime params (source: generate_price_series.py) */
+const MARKETS = {
+  bull:     {mu: 0.01310, label:'BULL RUN',  desc:'≈56% CAGR drift'},
+  moderate: {mu: 0.00385, label:'MODERATE',  desc:'≈22% CAGR drift'},
+  stagnant: {mu: 0.00096, label:'STAGNANT',  desc:'≈5% CAGR drift'},
+  bear:     {mu:-0.00192, label:'BEAR',      desc:'≈-10% CAGR drift'},
+  chaos:    {mu: null,    label:'CHAOS',     desc:'drift mutates every ~year'},
+};
+const SIG_LOW=0.0735, SIG_HIGH=0.1126, P_LH=0.11, P_HL=0.0864;
+
+/* ---------- session horizons (days) — mandatory, exactly one active.
+   The session ALWAYS ends here with a final scoring screen. ---------- */
+const HORIZONS=[
+  {v:1129, l:'1129 DAYS', s:'vesting-only sprint'},
+  {v:2500, l:'2500 DAYS', s:'standard'},
+  {v:5000, l:'5000 DAYS', s:'the long game'},
+];
+
+/* ---------- achievements (source: AchievementTypes.sol / AchievementMinter.sol)
+   Point values feed the final score: score = net worth ₿ × 100 + achievement pts
+   (so 1 pt ≈ 0.01 ₿ — medals matter, patience with capital matters more). */
+const ACH={
+  MINTER:        {pts:5,  glyph:'⛏', label:'MINTER'},                 // first vault
+  FIRST_MONTH:   {pts:5,  glyph:'☽', label:'FIRST MONTH',   days:30},
+  QUARTER_STACK: {pts:10, glyph:'◔', label:'QUARTER STACK', days:91},
+  HALF_YEAR:     {pts:15, glyph:'◑', label:'HALF YEAR',     days:182},
+  ANNUAL:        {pts:25, glyph:'◉', label:'ANNUAL',        days:365},
+  DIAMOND_HANDS: {pts:40, glyph:'◈', label:'DIAMOND HANDS', days:730},
+  MATURED:       {pts:50, glyph:'✓', label:'MATURED'},                // a vault vests
+  HODLER_SUPREME:{pts:75, glyph:'♛', label:'HODLER SUPREME'},         // MINTER + MATURED
+};
+const DUR_ACH=['FIRST_MONTH','QUARTER_STACK','HALF_YEAR','ANNUAL','DIAMOND_HANDS'];
+
+/* ---------- treasure tiers (source: TreasureNFT.sol computeTier) ---------- */
+const TIERS=[
+  {k:'BRONZE',  c:'#b07a45'},
+  {k:'SILVER',  c:'#b8c4cf'},
+  {k:'GOLD',    c:'#ffc247'},
+  {k:'PLATINUM',c:'#e0e6ff'},
+  {k:'DIAMOND', c:'#7df3ff'},
+];
+const clamp01=x=>x<0?0:x>1?1:x;
+
+/* ---------- rng ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let rng = mulberry32(1);
+const R=()=>rng(), RR=(a,b)=>a+R()*(b-a), RI=(a,b)=>Math.floor(RR(a,b+1));
+function gauss(){let u=0,v=0;while(u===0)u=R();while(v===0)v=R();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+
+/* ---------- archetypes (source: AgentLib.sol / SwarmOrchestrator.sol) ---------- */
+const ARCH = {
+  diamond:   {name:'PATIENCE.EXE', face:'◈', color:'#00e5ff', label:'Diamond Hands',
+    desc:'Holds to vesting, claims the match pool, never blinks. Panic point ≈ −40%.',
+    panic:[-.50,-.30], vaultShare:[.8,.9], vaults:[1,2], freq:[4,7], trade:0, sep:0, hunt:false, dark:0},
+  farmer:    {name:'HARVESTER-9', face:'⌘', color:'#3dff9c', label:'Yield Farmer',
+    desc:'Strips collateral into vBTC for liquidity, milks streams, buys delegation rights.',
+    panic:[-.25,-.12], vaultShare:[.6,.75], vaults:[2,3], freq:[2,4], trade:.35, sep:.9, hunt:false, dark:0},
+  momentum:  {name:'RAZORWAVE', face:'⟁', color:'#ff8a3d', label:'Momentum Trader',
+    desc:'Chases trend in the vBTC market. Buys strength, dumps weakness, always moving.',
+    panic:[-.30,-.15], vaultShare:[.35,.5], vaults:[1,2], freq:[1,2], trade:.9, sep:.7, hunt:false, dark:0},
+  volplayer: {name:'STATIC_JOY', face:'≋', color:'#a06bff', label:'Volatility Player',
+    desc:'Feeds on storms. Fades spikes and buys terror when the regime turns violent.',
+    panic:[-.25,-.12], vaultShare:[.4,.55], vaults:[1,2], freq:[1,2], trade:.8, sep:.5, hunt:false, dark:0},
+  arb:       {name:'DELTA_GHOST', face:'∆', color:'#cfeef5', label:'Arbitrageur',
+    desc:'Works the float. Buys deep discounts, sells near par — buyback discipline, no peg.',
+    panic:[-.35,-.20], vaultShare:[.5,.65], vaults:[1,2], freq:[1,3], trade:.85, sep:.6, hunt:true, dark:0},
+  panic:     {name:'JITTERS', face:'⚡', color:'#ff4d5e', label:'Panic Seller',
+    desc:'Hair-trigger. Early-redeems on drawdowns and feeds the pool. Panic point ≈ −8%.',
+    panic:[-.15,-.03], vaultShare:[.55,.7], vaults:[2,3], freq:[1,2], trade:.5, sep:.8, hunt:false, dark:.06},
+  predator:  {name:'CARRION', face:'☠', color:'#ff2d78', label:'Dormancy Predator',
+    desc:'Circles neglected vaults. Pokes the sleeping, waits out the grace, burns paper for reserve.',
+    panic:[-.40,-.25], vaultShare:[.3,.45], vaults:[1,1], freq:[1,2], trade:.4, sep:.2, hunt:true, dark:0},
+  spec:      {name:'GLITCHBET', face:'✦', color:'#ffc247', label:'Speculator',
+    desc:'Never mints. Pure vBTC market gambler riding noise and vibes.',
+    panic:[-.25,-.10], vaultShare:[0,0], vaults:[0,0], freq:[1,1], trade:1, sep:0, hunt:false, dark:.03},
+};
+
+/* ---------- treasure name gen ---------- */
+const TADJ=['CHROME','NEON','GHOST','STATIC','VOID','RUST','JADE','PHANTOM','SIGNAL','OBSIDIAN','PLASMA','FERAL'];
+const TNOUN=['SKULL','ORCHID','DYNASTY','CIRCUIT','SERPENT','RELIC','HALO','ENGINE','ORACLE','KATANA','MONOLITH','CRANE'];
+const TGLYPHS=['◆','♠','☗','✪','♜','⚚','☍','✵','♞','⚙','❖','☾'];
+let treasureSerial=1;
+const treasureName=()=>`${TADJ[RI(0,TADJ.length-1)]} ${TNOUN[RI(0,TNOUN.length-1)]} #${String(treasureSerial++).padStart(3,'0')}`;
+
+/* ---------- game state ---------- */
+let S=null;          // session state
+let ui={tab:'market', ops:'trade', speed:1, paused:false, muted:false, tradeMode:'buy', tradeAmt:25};
+let loopTimer=null, vaultSerial=1;
+
+/* ---------- staggered bot entry (Bass diffusion) ----------
+   Adoption-curve entry: p=0.03 (innovation) and q=0.38 (imitation) — the
+   canonical Bass-model estimates for durable-goods adoption. Entry week is an
+   inverse-CDF sample  t(u)=ln((1+(q/p)u)/(1-u))/(p+q), u∈[0,0.98],  scaled so
+   the whole adoption wave lands inside the first 35% of the session: a couple
+   of innovators early, the imitation hump in the middle, laggards trailing.
+   Slot 0 is clamped to weeks 0-6 so the market is always seeded.
+   Deterministic under the session seed (pure R() draws in slot order). */
+function sampleEntryWeek(win,i){
+  const p=0.03,q=0.38,u=R()*0.98;
+  const t=Math.log((1+(q/p)*u)/(1-u))/(p+q);
+  const tMax=Math.log((1+(q/p)*0.98)/0.02)/(p+q);
+  const w=Math.round(t/tMax*win);
+  return i===0? Math.min(w,RI(0,6)) : w;
+}
+
+function newSession(cfg){
+  rng = mulberry32(cfg.seed);
+  treasureSerial=1; vaultSerial=1;
+  cfg.horizon=cfg.horizon||2500;     // mandatory victory horizon (days)
+  const s = {
+    cfg, day:0, week:0, over:false,
+    horizonWeeks:Math.ceil(cfg.horizon/P.TICK_DAYS),
+    hiveOn:true,                     // HIVE MEMORY: learning enabled for hive-brain bots
+    tierTh:null,                     // live treasure-tier percentile thresholds
+    price:60000, price0:60000, regime:0, priceHist:[60000], regimeHist:[0],
+    drift: cfg.market==='chaos' ? MARKETS.moderate.mu : MARKETS[cfg.market].mu,
+    pool:{btc:6, vbtc:8},            // ambient AMM liquidity, ratio 0.75 — the street's paper is off-screen strippers' reserve
+    ratioHist:[0.75],
+    matchPool:0,                     // cumulative forfeits routed through the accumulator (display)
+    matchIndex:0,                    // forfeited-per-unit-of-active-collateral accumulator (ZenoVault.matchIndex)
+    totalActive:0,
+    vaults:[], actors:[], offers:[], feed:[],
+    winner:null,
+  };
+  // player
+  s.actors.push(mkActor({id:'you',name:'YOU',color:'#00e5ff',face:'◉',arch:null},cfg.capital));
+  // rivals — strings (tutorial/legacy: archetype keys) or slot objects (arena roster)
+  const win=Math.max(8,Math.floor(s.horizonWeeks*0.35));
+  cfg.rivals.forEach((r,i)=>{
+    const slot=typeof r==='string' ? {id:r,arch:r,brain:'scripted'} : {id:'b'+i,...r};
+    const d=ARCH[slot.arch];
+    const a=mkActor({id:slot.id,name:slot.name||d.name,color:d.color,face:d.face,
+      arch:slot.arch,brain:slot.brain||'scripted',model:slot.model||''},cfg.capital);
+    a.entryWeek=(cfg.stagger===false)?0:sampleEntryWeek(win,i);
+    s.actors.push(a);
+  });
+  s.actors.forEach(a=>{a.nw=cfg.capital; a.peak=cfg.capital; a.prev=cfg.capital; a.nwHist=[cfg.capital];});
+  return s;
+}
+function mkActor(meta,capital){
+  const a={brain:'scripted',model:'',...meta,btc:capital,vbtc:0,nw:capital,peak:capital,prev:capital,
+    nwHist:[],mood:'STEADY',dark:false,deals:[],ach:{},entryWeek:0,everMinted:false,windfall:0};
+  if(a.arch){
+    const d=ARCH[a.arch];
+    a.panic=RR(d.panic[0],d.panic[1]);
+    a.panic0=a.panic;
+    a.freq=RI(d.freq[0],d.freq[1]);
+    a.nextAct=RI(0,a.freq);
+    a.vaultTarget=RI(d.vaults[0],d.vaults[1]);
+    a.vaultShare=RR(d.vaultShare[0],d.vaultShare[1]);
+    /* hive trait vector, seeded from archetype params + noise — used by every
+       bot for entry sizing; hive brains mutate it via reinforcement */
+    a.traits={
+      risk:    clamp01((d.vaultShare[0]+d.vaultShare[1])/2+RR(-.1,.1)),
+      patience:clamp01(d.freq[1]/7+RR(-.1,.1)),
+      strip:   clamp01(d.sep+RR(-.1,.1)),
+      aggr:    clamp01(Math.max(d.trade,d.hunt?0.8:0.15)+RR(-.1,.1)),
+    };
+    a.sent=0; a.pend=[];               // sentiment EMA + unresolved action outcomes
+    if(a.brain==='llm'||a.brain==='selflearn')
+      a.llm={status:'wait',pending:false,reqWeek:-1,hist:[],why:'',stats:{ok:0,err:0,fallback:0}};
+  }
+  return a;
+}
+
+/* ---------- protocol ops (mirror ZenoVault.sol / VaultNFT.sol semantics) ---------- */
+function mintVault(actor, amount){
+  if(amount<=0 || actor.btc<amount) return null;
+  actor.btc-=amount; actor.everMinted=true;
+  const v={id:vaultSerial++, owner:actor.id, treasure:treasureName(), glyph:TGLYPHS[RI(0,TGLYPHS.length-1)],
+    collateral:amount, initial:amount,
+    reserve:0, matchSnap:S.matchIndex,
+    mintDay:S.day, lastWithdraw:S.day,
+    lastActivity:S.day, pokeDay:null, burned:false, delegations:[],
+    chain:null, chainPend:0};                 // CHAIN MODE: on-chain tokenId + cached pendingMatch
+  S.vaults.push(v); S.totalActive+=amount;
+  chainOp('mint',actor,v,amount);
+  return v;
+}
+const vested=v=>S.day - v.mintDay >= P.VEST_DAYS;
+const withdrawReady=v=>vested(v)&&!v.burned&&(S.day-v.lastWithdraw>=P.PERIOD_DAYS);
+/* match pool accumulator — shares auto-settle into active collateral on any interaction.
+   ponytail: chain-mirrored vaults live in the ON-CHAIN match economy (cached view),
+   not the local accumulator — the two economies stay separate by design. */
+const pendingMatch=v=>v.burned?0
+  : (CHAIN.on&&v.chain!=null)? (v.chainPend||0)
+  : v.collateral*(S.matchIndex-v.matchSnap);
+function settleMatch(v,mirror){
+  let accrued;
+  if(CHAIN.on&&v.chain!=null){ accrued=v.chainPend||0; v.chainPend=0; }
+  else accrued=v.collateral*(S.matchIndex-v.matchSnap);
+  v.matchSnap=S.matchIndex;
+  if(accrued>0){ v.collateral+=accrued; S.totalActive+=accrued;
+    if(mirror) chainOp('claimMatch',byId(v.owner),v); }
+  return accrued;
+}
+function doWithdraw(v){
+  const owner=byId(v.owner);
+  settleMatch(v);
+  const amt=v.collateral*P.WITHDRAW_PCT;    // 1% of remaining ACTIVE collateral — reserve is immunized
+  v.collateral-=amt; S.totalActive-=amt;
+  v.lastWithdraw=S.day; v.lastActivity=S.day; v.pokeDay=null; v.draws=(v.draws||0)+1;
+  // delegation shares
+  let kept=amt;
+  v.delegations=v.delegations.filter(d=>S.day<d.until);
+  for(const d of v.delegations){const share=amt*d.pct; byId(d.to).btc+=share; kept-=share;}
+  owner.btc+=kept;
+  chainOp('withdraw',owner,v);
+  return amt;
+}
+function doEarlyRedeem(v){
+  if(v.reserve>0) return null;               // recombination before redemption
+  const owner=byId(v.owner);
+  settleMatch(v);
+  const collateral=v.collateral;
+  S.totalActive-=collateral;
+  const frac=Math.min((S.day-v.mintDay)/P.VEST_DAYS,1);
+  let ret=collateral*frac, forfeit=collateral-ret;
+  if(forfeit>0 && S.totalActive>1e-9) S.matchIndex+=forfeit/S.totalActive;
+  else { ret=collateral; forfeit=0; }        // last holder exits whole
+  owner.btc+=ret; S.matchPool+=forfeit;
+  v.burned=true; v.collateral=0;
+  chainOp('earlyRedeem',owner,v);
+  return {ret,forfeit};
+}
+function doRedeem(v){                        // full post-vest exit — requires zero outstanding reserve
+  if(!vested(v)||v.reserve>0) return false;
+  const owner=byId(v.owner);
+  settleMatch(v);
+  owner.btc+=v.collateral; S.totalActive-=v.collateral;
+  v.burned=true; v.collateral=0;
+  chainOp('redeem',owner,v);
+  return true;
+}
+/* strip: VESTED VAULTS ONLY (VaultNFT.strip reverts StillVesting) — vesting is
+   the protocol's time lock and stripping must not provide early liquidity
+   against it. Once vested: fractional, repeatable.
+   Moves active collateral → immunized reserve, mints vBTC 1:1.
+   You cannot sell the principal and keep collecting its coupon. */
+function doStrip(v, amount){
+  if(!vested(v)) return 0;                   // StillVesting — the lock has no back door
+  settleMatch(v);
+  amount=Math.min(amount, v.collateral);
+  if(amount<=1e-9) return 0;
+  const owner=byId(v.owner);
+  v.collateral-=amount; S.totalActive-=amount;
+  v.reserve+=amount;
+  owner.vbtc+=amount; v.lastActivity=S.day; v.pokeDay=null;
+  chainOp('strip',owner,v,amount);
+  return amount;
+}
+function doRecombine(v, amount){             // burn vBTC 1:1 to reactivate reserve — fractional
+  const owner=byId(v.owner);
+  amount=Math.min(amount??owner.vbtc, v.reserve, owner.vbtc);
+  if(amount<=1e-9) return 0;
+  settleMatch(v);
+  owner.vbtc-=amount;
+  v.reserve-=amount;
+  v.collateral+=amount; S.totalActive+=amount;
+  v.lastActivity=S.day; v.pokeDay=null;
+  chainOp('recombine',owner,v,amount);
+  return amount;
+}
+function dormancyEligible(v){
+  if(v.burned||v.reserve<=1e-9) return false;
+  const owner=byId(v.owner);
+  return owner.vbtc < v.reserve && (S.day - v.lastActivity) >= P.DORMANCY_DAYS;
+}
+const claimable=v=>!v.burned && v.reserve>1e-9 && v.pokeDay!==null && (S.day-v.pokeDay)>=P.GRACE_DAYS;
+function doPoke(v,actor){ v.pokeDay=S.day; if(actor) chainOp('poke',actor,v); }
+function doProveActivity(v){ v.lastActivity=S.day; v.pokeDay=null; chainOp('prove',byId(v.owner),v); }
+/* dormancy claim: burn any amount of vBTC for reserve 1:1 — fractional, repeatable.
+   The vault, its treasure, and its active collateral STAY with the owner. */
+function doClaimDormant(v, claimer, amount){
+  amount=Math.min(amount??claimer.vbtc, claimer.vbtc, v.reserve);
+  if(!claimable(v)||amount<=1e-9) return 0;
+  claimer.vbtc-=amount;                       // burn
+  claimer.btc+=amount;                        // reserve collateral 1:1
+  v.reserve-=amount;
+  if(v.reserve<=1e-9){ v.reserve=0; v.pokeDay=null; v._claimedBy=claimer.id; } // reserve at zero ends dormancy
+  chainOp('claimDormant',claimer,v,amount);
+  return amount;
+}
+
+/* ---------- AMM (constant product; vBTC floats — no peg, no floor) ----------
+   Par (1.00) caps the upside: reserve == supply, so above par any stripper
+   mints fresh vBTC 1:1 and sells into the bid. Below par the discount just
+   prices recombination timing — owner buyback is the only discipline. */
+const ratio=()=>S.pool.btc/S.pool.vbtc;
+function swapPreview(mode, amt){ // mode 'buy': spend BTC get vBTC; 'sell': spend vBTC get BTC
+  const {btc,vbtc}=S.pool, k=btc*vbtc;
+  if(mode==='buy'){ const inn=amt*(1-P.AMM_FEE); const out=vbtc - k/(btc+inn);
+    return {out, newRatio:(btc+amt)/(vbtc-out)}; }
+  const inn=amt*(1-P.AMM_FEE); const out=btc - k/(vbtc+inn);
+  return {out, newRatio:(btc-out)/(vbtc+amt)};
+}
+function maxSwap(mode, want){ // buys are capped at par by strip arbitrage; sells are never capped
+  if(mode==='sell') return want;
+  let lo=0, hi=want;
+  for(let i=0;i<28;i++){const m=(lo+hi)/2, p=swapPreview('buy',m);
+    if(p.newRatio<=P.PAR) lo=m; else hi=m;}
+  return lo;
+}
+function doSwap(actor, mode, amt){
+  if(amt<=1e-9) return 0;
+  if(mode==='buy'){
+    amt=Math.min(amt,actor.btc); amt=maxSwap('buy',amt); if(amt<=1e-9)return 0;
+    const {out}=swapPreview('buy',amt);
+    actor.btc-=amt; actor.vbtc+=out; S.pool.btc+=amt; S.pool.vbtc-=out; return out;
+  }
+  amt=Math.min(amt,actor.vbtc); amt=maxSwap('sell',amt); if(amt<=1e-9)return 0;
+  const {out}=swapPreview('sell',amt);
+  actor.vbtc-=amt; actor.btc+=out; S.pool.vbtc+=amt; S.pool.btc-=out; return out;
+}
+
+/* ---------- net worth ----------
+   active collateral + unsettled match accrual + paper at market.
+   The stripped reserve is NOT the owner's — it backs outstanding vBTC 1:1,
+   so its value lives in whoever holds the paper. No double counting. */
+function netWorth(a){
+  let vaultsC=0, poolEst=0;
+  for(const v of S.vaults){ if(v.owner!==a.id||v.burned) continue;
+    vaultsC+=v.collateral;
+    poolEst+=pendingMatch(v);
+  }
+  return {total:a.btc + vaultsC + a.vbtc*ratio() + poolEst, btc:a.btc, vaults:vaultsC,
+    vbtc:a.vbtc*ratio(), pool:poolEst};
+}
+const byId=id=>S.actors.find(a=>a.id===id);
+const actorVaults=a=>S.vaults.filter(v=>v.owner===a.id&&!v.burned);
+
+/* ---------- price model (GBM + markov regimes) ---------- */
+function stepPrice(){
+  if(S.cfg.market==='chaos' && S.week%52===0 && S.week>0){
+    const keys=['bull','moderate','stagnant','bear']; S.drift=MARKETS[keys[RI(0,3)]].mu;
+    feed(`market drift mutates — the city changes its mind`, 'alert');
+  }
+  if(R() < (S.regime===0?P_LH:P_HL)){ S.regime=1-S.regime;
+    feed(S.regime?'volatility regime: <b style="color:var(--mag)">STORM</b> — panic moves faster than calm':'volatility regime: <b style="color:var(--cyan)">CALM</b> returns', 'hot');
+    if(S.regime) sfx('storm'); }
+  const sig=S.regime? SIG_HIGH:SIG_LOW;
+  S.price*=Math.exp(S.drift + sig*gauss());
+  S.priceHist.push(S.price); S.regimeHist.push(S.regime);
+}
+
+/* ---------- rival AI (priority ladder mirrors AgentLib.decide) ---------- */
+/* psychology runs on USD terms — a crash feels like a crash even when BTC-terms worth is flat */
+function drawdown(a){ return a.usdPeak>0 ? (a.nw*S.price-a.usdPeak)/a.usdPeak : 0; }
+function ret7(){ const h=S.priceHist,n=h.length; return n>7? h[n-1]/h[n-8]-1 : 0; }
+
+function rivalTick(a){
+  const d=ARCH[a.arch];
+  if(a.dark) return;                       // gone dark — no actions, no activity proofs
+  if(S.week < a.entryWeek) return;         // hasn't adopted yet (Bass entry curve)
+  if(S.week < a.nextAct) return;
+  const hive=a.brain==='hive';
+  /* hive cadence: patience trait stretches/compresses the archetype frequency,
+     sentiment (EMA of recent PnL) speeds up winners and slows down losers */
+  a.nextAct = S.week + (hive
+    ? Math.max(1,Math.round(a.freq*(1.4-0.8*a.traits.patience)*(1-0.3*a.sent)))
+    : a.freq);
+  const dd=drawdown(a), r=ratio(), vs=actorVaults(a);
+  const sizeMul=hive? (0.6+0.8*a.traits.risk)*(1+0.3*a.sent) : 1;   // hive sizing modulation
+  const panicAt=hive? a.panic*(0.7+0.6*a.traits.risk) : a.panic;    // risk-tolerant = deeper pain point
+
+  // 1. entry mint: 30–60% of bankroll by risk trait — never full principal, keep dry powder.
+  //    follow-on top-ups: deep vBTC discount (value entry), match windfall re-lock, or FOMO
+  //    when ≥60% of entered rivals hold vaults and we're under target.
+  if(a.vaultTarget>0 && a.btc>0.05){
+    if(!a.everMinted){
+      const amt=a.btc*(0.30+0.30*a.traits.risk);
+      const v=mintVault(a,amt);
+      if(v){ feed(`<b style="color:${a.color}">${a.name}</b> enters the protocol — locks ${fmt(amt)} ₿ behind ${v.glyph} ${v.treasure}`);
+        if(hive) hiveAct(a,'risk');
+        return; }
+    } else if(vs.length<a.vaultTarget){
+      const entered=S.actors.filter(x=>x.arch&&S.week>=x.entryWeek);
+      const fomo=entered.filter(x=>x.everMinted).length>=entered.length*0.6;
+      const value=r<0.68, windfall=a.windfall>S.cfg.capital*0.02;
+      if(value||windfall||fomo){
+        const amt=Math.min(a.btc*(0.25+0.25*a.traits.risk)*sizeMul, a.btc*0.9);
+        if(amt>0.02){ const v=mintVault(a,amt); a.windfall=0;
+          feed(`<b style="color:${a.color}">${a.name}</b> tops up — ${value?'the discount is a door':windfall?'windfall re-locked':'the whole table is in'} · ${fmt(amt)} ₿ → ${v.treasure}`);
+          if(hive) hiveAct(a,'risk');
+          return; } }
+    }
+  }
+  // 2. panic: abandoning a vault takes true capitulation (2× threshold); dumping vBTC only 1×
+  if(dd < panicAt*2){
+    const uv=vs.find(v=>!vested(v)&&v.reserve<=1e-9);   // recombination before redemption
+    if(uv){ const {ret,forfeit}=doEarlyRedeem(uv);
+      feed(`<b style="color:${a.color}">${a.name}</b> PANICS — early-redeems, burns ${uv.treasure}, forfeits <b style="color:var(--mag)">${fmt(forfeit)} ₿</b> to the pool`, 'alert');
+      sfx('forfeit'); a.mood='PANICKED';
+      if(ARCH[a.arch].dark && R()<0.5){ a.dark=true;
+        feed(`<b style="color:${a.color}">${a.name}</b> goes dark. Terminal unattended.`, 'alert'); }
+      return; }
+  }
+  if(dd < panicAt){
+    if(a.vbtc>0.01){ const got=doSwap(a,'sell',a.vbtc);
+      if(got>0){ feed(`<b style="color:${a.color}">${a.name}</b> dumps vBTC into the pit — ratio bleeds`, 'hot');
+        if(ARCH[a.arch].dark && R()<0.3){ a.dark=true;
+          feed(`<b style="color:${a.color}">${a.name}</b> goes dark. Terminal unattended — vaults left breathing alone.`, 'alert'); }
+        return; } }
+  }
+  // 3. withdraw ready vaults
+  const wv=vs.find(withdrawReady);
+  if(wv){ const amt=doWithdraw(wv);
+    if(R()<0.25) feed(`<b style="color:${a.color}">${a.name}</b> draws 1% — ${fmt(amt)} ₿ from ${wv.treasure}`);
+    return; }
+  // 4. settle a fat unclaimed match accrual (public function — folds into collateral)
+  const mv=vs.find(v=>pendingMatch(v)>0.05);
+  if(mv){ const got=settleMatch(mv,true);
+    a.windfall+=got;                      // windfalls can trigger a follow-on mint
+    if(hive) hiveAct(a,'patience');
+    feed(`<b style="color:${a.color}">${a.name}</b> settles match accrual: <b style="color:var(--gold)">+${fmt(got)} ₿</b> folds into ${mv.treasure}`);
+    return; }
+  // 5. strip for liquidity — vested vaults only (the lock has no back door)
+  const sv=vs.find(v=>vested(v)&&v.reserve<=1e-9&&v.collateral>0.05);
+  if(sv && R()<(hive?a.traits.strip:d.sep)){ const m=doStrip(sv, sv.collateral*RR(0.4,0.8));
+    if(hive) hiveAct(a,'strip');
+    feed(`<b style="color:${a.color}">${a.name}</b> strips ${sv.treasure} → ${fmt(m)} vBTC hits the street (reserve immunized)`);
+    // farmers/momentum sell a slice immediately
+    if(d.trade>0.3 && R()<0.7){ doSwap(a,'sell',m*RR(0.2,0.5)); }
+    return; }
+  // 6. hunt dormant vaults — burn vBTC 1:1 for reserve, fractionally
+  if(d.hunt){
+    const tgt=S.vaults.find(v=>!v.burned && v.owner!==a.id && (dormancyEligible(v)||claimable(v)));
+    if(tgt){
+      if(tgt.pokeDay===null){ doPoke(tgt,a);
+        const on=byId(tgt.owner);
+        feed(`<b style="color:${a.color}">${a.name}</b> pokes a dormant vault — <b>${tgt.treasure}</b> (${on.name}). 30-day grace begins.`, 'alert');
+        sfx('poke');
+        if(tgt.owner==='you'){ toast(`⚠ ${a.name} is circling ${tgt.treasure}. Prove activity or its reserve is forfeit.`, 'warn'); shake(); }
+        return; }
+      if(claimable(tgt)){
+        if(a.vbtc<tgt.reserve){ const need=tgt.reserve-a.vbtc;
+          const cost=need*r*1.02; if(a.btc>cost) doSwap(a,'buy',cost); }
+        const got=doClaimDormant(tgt,a);
+        if(got>0){
+          feed(`<b style="color:${a.color}">${a.name}</b> FEEDS on dormant ${tgt.treasure} — burns ${fmt(got)} vBTC for ${fmt(got)} ₿ of reserve. ${byId(tgt.owner).name} keeps the husk.`, 'alert');
+          sfx('devour'); return; }
+      }
+    }
+  }
+  // 7. trade vBTC on style — hive: aggression trait scales probability, risk scales size
+  if(d.trade>0 && R()<d.trade*(hive?(0.6+0.8*a.traits.aggr):1)){
+    const t=ret7(), size=a.btc*RR(0.05,0.18)*sizeMul;
+    let did=false;
+    if(a.arch==='momentum'){ if(t>0.05&&a.btc>0.05) did=doSwap(a,'buy',size)>0;
+      else if(t<-0.05&&a.vbtc>0.02) did=doSwap(a,'sell',a.vbtc*RR(0.3,0.6))>0; }
+    else if(a.arch==='volplayer'){ if(S.regime===1){ if(t<0&&a.btc>0.05)did=doSwap(a,'buy',size)>0;
+      else if(a.vbtc>0.02)did=doSwap(a,'sell',a.vbtc*RR(0.2,0.5))>0; } }
+    else if(a.arch==='arb'){ if(r<0.65&&a.btc>0.05) did=doSwap(a,'buy',size*1.6)>0;
+      else if(r>0.92&&a.vbtc>0.02) did=doSwap(a,'sell',a.vbtc*RR(0.4,0.8))>0; }
+    else if(a.arch==='spec'){ did=(R()<0.5&&a.btc>0.05)? doSwap(a,'buy',size)>0
+      : (a.vbtc>0.02 ? doSwap(a,'sell',a.vbtc*RR(0.2,0.6))>0 : false); }
+    else if(a.arch==='farmer'&&a.vbtc>0.05){ did=doSwap(a,'sell',a.vbtc*0.15)>0; }
+    if(did){ if(hive) hiveAct(a,'aggr');
+      if(R()<0.35) feed(`<b style="color:${a.color}">${a.name}</b> works the vBTC book · ratio ${ratio().toFixed(3)}`); }
+  }
+  // 8. periodic proof of activity on vaults with outstanding reserve
+  for(const v of vs) if(v.reserve>1e-9 && S.day-v.lastActivity > P.DORMANCY_DAYS*0.7 && R()<0.8){
+    doProveActivity(v); }
+}
+
+function mutatePsych(a){ // losers grow fearful, winners careless (AgentLib.mutate)
+  if(!a.arch) return;
+  a.panic *= (a.nw < a.prev) ? 0.99 : 1.01;          // toward 0 = jumpier, away = complacent
+  a.panic = Math.min(Math.max(a.panic, a.panic0*2), a.panic0*0.5);
+}
+function moodOf(a){
+  if(a.dark) return ['GONE DARK','mood-dark'];
+  const dd=drawdown(a);
+  if(dd<a.panic*0.8) return ['PANICKING','mood-panic'];
+  if(dd<a.panic*0.4) return ['FEARFUL','mood-fear'];
+  if(a.arch==='predator'&&S.vaults.some(v=>!v.burned&&dormancyEligible(v))) return ['STALKING','mood-hunt'];
+  if(a.nw>a.peak*0.98&&a.nw>S.cfg.capital*1.1) return ['GREEDY','mood-greed'];
+  return ['STEADY','mood-steady'];
+}
+
+/* ---------- HIVE MEMORY ----------
+   Per-bot trait vector {risk, patience, strip, aggr} ∈ [0,1], seeded by archetype.
+   Sentiment: EMA (α=0.15) of weekly PnL, clipped to [-1,1] — modulates cadence/sizing.
+   Reinforcement: each notable action logs {trait, nw0}; resolved 4 weeks later,
+   the trait is nudged by lr × sign(outcome) × salience, lr=0.06,
+   salience=min(1, |Δnw%|×8), clamped to [0,1].
+   Imitation: every 12 weeks the bottom hive performer copies ONE trait of the
+   top performer with N(0,0.06) mutation noise.
+   The HIVE button freezes/unfreezes all of the above (traits keep steering). */
+function hiveAct(a,trait){ if(S.hiveOn) a.pend.push({trait,week:S.week,nw0:a.nw}); }
+function hiveLearn(){
+  if(!S.hiveOn) return;
+  const hb=S.actors.filter(a=>a.brain==='hive');
+  if(!hb.length) return;
+  for(const a of hb){
+    const pnl=a.prev>0?(a.nw-a.prev)/a.prev:0;
+    a.sent=Math.max(-1,Math.min(1, 0.85*a.sent+0.15*Math.max(-1,Math.min(1,pnl*12))));
+    a.pend=a.pend.filter(o=>{
+      if(S.week-o.week<4) return true;                    // outcome not resolved yet
+      const out=o.nw0>0?(a.nw-o.nw0)/o.nw0:0;
+      const sal=Math.min(1,Math.abs(out)*8);
+      a.traits[o.trait]=clamp01(a.traits[o.trait]+0.06*Math.sign(out)*sal);
+      if(Math.abs(out)>0.06)
+        feed(`<b style="color:${a.color}">${a.name}</b> hive: ${out>0?'reinforces':'regrets'} <b>${o.trait}</b> (${(out*100).toFixed(1)}% outcome)`);
+      return false;
+    });
+  }
+  if(S.week%12===0 && hb.length>=2){
+    const sorted=[...hb].sort((x,y)=>y.nw-x.nw), top=sorted[0], bot=sorted[sorted.length-1];
+    if(top!==bot){
+      const ks=Object.keys(bot.traits), k=ks[RI(0,ks.length-1)];
+      bot.traits[k]=clamp01(top.traits[k]+gauss()*0.06);
+      feed(`<b style="color:${bot.color}">${bot.name}</b> hive-imitates <b style="color:${top.color}">${top.name}</b>'s ${k} — mutated copy`,'hot');
+    }
+  }
+}
+
+/* ---------- treasure tiers ----------
+   Live percentiles across ALL unburned vaults, on collateral+reserve — mirrors
+   TreasureNFT.computeTier: silver=50th, gold=75th, platinum=90th, diamond=99th. */
+function updateTiers(){
+  const live=S.vaults.filter(v=>!v.burned);
+  if(!live.length){ S.tierTh=null; return; }
+  const cs=live.map(v=>v.collateral+v.reserve).sort((a,b)=>a-b);
+  const pct=p=>cs[Math.min(cs.length-1,Math.floor(p*cs.length))];
+  const th=S.tierTh={silver:pct(.5),gold:pct(.75),platinum:pct(.9),diamond:pct(.99)};
+  for(const v of live){
+    const c=v.collateral+v.reserve;
+    const t=c>=th.diamond?4:c>=th.platinum?3:c>=th.gold?2:c>=th.silver?1:0;
+    const old=v.tier??t;
+    v.tier=t;
+    if(t!==old){
+      const up=t>old, o=byId(v.owner);
+      if(o.id==='you'||t>=3||old>=3)
+        feed(`${v.glyph} <b>${v.treasure}</b> (${o.name}) ${up?'ascends to':'slips to'} <b style="color:${TIERS[t].c}">${TIERS[t].k}</b>`, up?'hot':'');
+      if(o.id==='you') toast(`${v.glyph} ${v.treasure} ${up?'promoted':'demoted'}: ${TIERS[t].k}`, up?'gold':'warn');
+    }
+  }
+}
+
+/* ---------- achievements (AchievementMinter semantics, in game form) ---------- */
+function checkAch(a){
+  const give=k=>{ if(a.ach[k]) return; a.ach[k]=S.week;
+    const A=ACH[k];
+    feed(`${A.glyph} <b style="color:${a.color}">${a.name}</b> earns <b class="gold-t">${A.label}</b> (+${A.pts} pts)`,'hot');
+    if(a.id==='you'){ toast(`${A.glyph} ACHIEVEMENT — ${A.label} (+${A.pts} pts)`,'gold'); sfx('coin'); } };
+  if(a.everMinted) give('MINTER');
+  for(const v of actorVaults(a)){
+    const age=S.day-v.mintDay;
+    for(const k of DUR_ACH) if(age>=ACH[k].days) give(k);
+    if(age>=P.VEST_DAYS) give('MATURED');
+  }
+  if(a.ach.MINTER&&a.ach.MATURED) give('HODLER_SUPREME');
+}
+const achPts=a=>Object.keys(a.ach).reduce((s,k)=>s+ACH[k].pts,0);
+const scoreOf=a=>a.nw*100+achPts(a);        // final score: ₿×100 + medal points
+const scoreLeader=()=>[...S.actors].sort((x,y)=>scoreOf(y)-scoreOf(x))[0];
+
+/* ============================================================
+   LLM BRAINS (OpenRouter) — llm: persona + full rules;
+   self-learn: action API only, plus own action→outcome history.
+   Throttle: one call per bot per game-week. The loop never blocks:
+   a decision lands async and is applied on the NEXT tick; until then
+   (or on error / missing key) the bot's scripted archetype covers it.
+   ============================================================ */
+const LLM={
+  URL:'https://openrouter.ai/api/v1/chat/completions',
+  DEFAULT_MODEL:'anthropic/claude-haiku-4.5',
+  fetchFn:null,                      // test seam — ?test=llm injects a mock here
+  key:()=>{ try{return localStorage.getItem('zeno_or_key')||''}catch(e){return ''} },
+};
+const ACTION_SCHEMA='[{"action":"mint","amount":N},{"action":"withdraw","vaultId":N},{"action":"strip","vaultId":N,"amount":N},{"action":"recombine","vaultId":N,"amount":N},{"action":"earlyRedeem","vaultId":N},{"action":"buyVBTC","amount":N},{"action":"sellVBTC","amount":N},{"action":"poke","vaultId":N},{"action":"claimDormant","vaultId":N,"amount":N},{"action":"pass"}]';
+
+function llmSystem(a){
+  if(a.brain==='selflearn')
+    return `Agent id: ${a.name}. You act in an unknown environment. Each turn you receive one observation as JSON and must reply with exactly ONE action as a single JSON object — no prose, no markdown. Action forms: ${ACTION_SCHEMA}. Only actions listed under "legal" in the observation will succeed; anything else becomes {"action":"pass"}. Numbers are amounts in the environment's base unit. The observation includes "history": your own past actions with netWorth before/after each — learn from it. Objective: maximize you.netWorth. Include a short "reason" field.`;
+  const d=ARCH[a.arch];
+  return `You are ${a.name}, a rival at the table in ZENO, a game built on the real BTCNFT protocol. Persona: ${d.label} — ${d.desc}
+GAME RULES:
+- mint locks BTC in a vault for 1129 days (vesting). While vesting: no withdrawals, no stripping.
+- earlyRedeem before vesting returns collateral × elapsed/1129; the forfeit is credited to every remaining active vault pro-rata (the match pool). Requires zero stripped reserve.
+- Once vested: withdraw takes exactly 1% of the vault's ACTIVE collateral, once per 30 days, forever.
+- strip (vested only) moves active collateral into an immunized reserve and mints tradeable vBTC 1:1. recombine burns vBTC 1:1 to reactivate reserve. Reserve always equals vBTC supply, so 1.00 (par) is the NAV floor; the AMM ratio floats below it.
+- buyVBTC / sellVBTC trade a constant-product AMM (0.3% fee). Buying below par and recombining into your own reserve is guaranteed profit at par.
+- A vault with outstanding reserve, whose owner holds less vBTC than that reserve, untouched for 1129 days, may be poked; after a 30-day grace anyone may claimDormant: burn vBTC 1:1 for its reserve.
+- You act once per game-week. First to the net-worth target — or highest score at the session horizon — wins.
+Reply with exactly ONE JSON object, no prose: one of ${ACTION_SCHEMA} plus an optional short "reason". Only actions listed under "legal" in the observation are valid; anything else becomes pass.`;
+}
+function legalActions(a){
+  const out=['{"action":"pass"}'];
+  if(a.btc>0.02) out.push(`{"action":"mint","amount":<=${fmt(a.btc)}}`,`{"action":"buyVBTC","amount":<=${fmt(a.btc)}}`);
+  if(a.vbtc>1e-3) out.push(`{"action":"sellVBTC","amount":<=${fmt(a.vbtc)}}`);
+  for(const v of actorVaults(a)){
+    if(withdrawReady(v)) out.push(`{"action":"withdraw","vaultId":${v.id}}`);
+    if(vested(v)&&v.collateral>1e-3) out.push(`{"action":"strip","vaultId":${v.id},"amount":<=${fmt(v.collateral)}}`);
+    if(v.reserve>1e-3&&a.vbtc>1e-3) out.push(`{"action":"recombine","vaultId":${v.id},"amount":<=${fmt(Math.min(a.vbtc,v.reserve))}}`);
+    if(!vested(v)&&v.reserve<=1e-9) out.push(`{"action":"earlyRedeem","vaultId":${v.id}}`);
+  }
+  for(const v of S.vaults){ if(v.burned||v.owner===a.id) continue;
+    if(v.pokeDay===null&&dormancyEligible(v)) out.push(`{"action":"poke","vaultId":${v.id}}`);
+    if(claimable(v)&&a.vbtc>1e-3) out.push(`{"action":"claimDormant","vaultId":${v.id},"amount":<=${fmt(Math.min(a.vbtc,v.reserve))}}`);
+  }
+  return out;
+}
+function llmObservation(a){
+  const o={week:S.week, daysLeft:S.cfg.horizon-S.day, btcUsd:Math.round(S.price),
+    regime:S.regime?'storm':'calm',
+    ratio:+ratio().toFixed(3), ratioTail:S.ratioHist.slice(-8).map(x=>+x.toFixed(3)),
+    matchPoolFed:+S.matchPool.toFixed(3),
+    you:{btc:+a.btc.toFixed(4), vbtc:+a.vbtc.toFixed(4), netWorth:+a.nw.toFixed(4),
+      vaults:actorVaults(a).map(v=>({id:v.id, active:+v.collateral.toFixed(4), reserve:+v.reserve.toFixed(4),
+        daysToVest:Math.max(0,P.VEST_DAYS-(S.day-v.mintDay)),
+        drawReadyInDays:vested(v)?Math.max(0,P.PERIOD_DAYS-(S.day-v.lastWithdraw)):null,
+        pendingMatch:+pendingMatch(v).toFixed(4), poked:v.pokeDay!==null}))},
+    rivals:S.actors.filter(x=>x!==a).map(x=>({name:x.name, netWorth:+x.nw.toFixed(3), vaults:actorVaults(x).length})),
+    legal:legalActions(a)};
+  if(a.brain==='selflearn') o.history=a.llm.hist.slice(-16);
+  return o;
+}
+function parseDecision(txt){
+  try{ const m=/\{[\s\S]*\}/.exec(String(txt)); return m?JSON.parse(m[0]):null; }   // defensive: strip prose/fences
+  catch(e){ return null; }
+}
+/* strict validation — anything illegal collapses to pass */
+function validateDecision(a,d){
+  const pass={action:'pass'};
+  if(!d||typeof d!=='object'||typeof d.action!=='string') return pass;
+  const v=actorVaults(a).find(x=>x.id===+d.vaultId), amt=+d.amount;
+  const anyV=S.vaults.find(x=>x.id===+d.vaultId&&!x.burned);
+  const keep=x=>{ if(typeof d.reason==='string') x.reason=d.reason.slice(0,160); return x; };
+  switch(d.action){
+    case 'mint':        return amt>0.01&&amt<=a.btc? keep({action:'mint',amount:amt}) : pass;
+    case 'withdraw':    return v&&withdrawReady(v)? keep({action:'withdraw',vaultId:v.id}) : pass;
+    case 'strip':       return v&&vested(v)&&amt>1e-3&&amt<=v.collateral? keep({action:'strip',vaultId:v.id,amount:amt}) : pass;
+    case 'recombine':   return v&&v.reserve>1e-9&&amt>1e-3&&amt<=Math.min(a.vbtc,v.reserve)? keep({action:'recombine',vaultId:v.id,amount:amt}) : pass;
+    case 'earlyRedeem': return v&&!vested(v)&&v.reserve<=1e-9? keep({action:'earlyRedeem',vaultId:v.id}) : pass;
+    case 'buyVBTC':     return amt>1e-3&&amt<=a.btc? keep({action:'buyVBTC',amount:amt}) : pass;
+    case 'sellVBTC':    return amt>1e-3&&amt<=a.vbtc? keep({action:'sellVBTC',amount:amt}) : pass;
+    case 'poke':        return anyV&&anyV.owner!==a.id&&anyV.pokeDay===null&&dormancyEligible(anyV)? keep({action:'poke',vaultId:anyV.id}) : pass;
+    case 'claimDormant':return anyV&&claimable(anyV)&&amt>1e-3&&amt<=Math.min(a.vbtc,anyV.reserve)? keep({action:'claimDormant',vaultId:anyV.id,amount:amt}) : pass;
+    default:            return pass;
+  }
+}
+function applyAction(a,d){
+  const vv=id=>S.vaults.find(x=>x.id===id);
+  switch(d.action){
+    case 'mint':{ const v=mintVault(a,d.amount); return v?`mints ${fmt(d.amount)} ₿ behind ${v.treasure}`:null; }
+    case 'withdraw':{ const amt=doWithdraw(vv(d.vaultId)); return `draws 1% — ${fmt(amt)} ₿`; }
+    case 'strip':{ const m=doStrip(vv(d.vaultId),d.amount); return m>0?`strips ${fmt(m)} → vBTC`:null; }
+    case 'recombine':{ const m=doRecombine(vv(d.vaultId),d.amount); return m>0?`recombines ${fmt(m)}`:null; }
+    case 'earlyRedeem':{ const r=doEarlyRedeem(vv(d.vaultId)); return r?`early-redeems — forfeits ${fmt(r.forfeit)} ₿`:null; }
+    case 'buyVBTC':{ const g=doSwap(a,'buy',d.amount); return g>0?`buys ${fmt(g)} vBTC`:null; }
+    case 'sellVBTC':{ const g=doSwap(a,'sell',d.amount); return g>0?`sells vBTC for ${fmt(g)} ₿`:null; }
+    case 'poke':{ doPoke(vv(d.vaultId),a); return 'pokes a dormant vault'; }
+    case 'claimDormant':{ const g=doClaimDormant(vv(d.vaultId),a,d.amount); return g>0?`claims ${fmt(g)} ₿ dormant reserve`:null; }
+    default: return null;
+  }
+}
+function llmTick(a){
+  const L=a.llm;
+  if(L.decision!==undefined){
+    const d=L.decision; L.decision=undefined; L.status='ok'; L.stats.ok++;
+    L.why=d.reason||'';
+    const done=applyAction(a,d);
+    if(a.brain==='selflearn'){ const h=L.hist;
+      if(h.length) h[h.length-1].netWorthAfter=+a.nw.toFixed(4);
+      h.push({week:S.week,action:d.action,netWorthBefore:+a.nw.toFixed(4)});
+      if(h.length>24) h.shift(); }
+    if(done) feed(`<b style="color:${a.color}">${a.name}</b> [${a.brain==='llm'?'LLM':'SELF'}] ${done}${L.why?` — <i style="color:var(--mute2)">${L.why}</i>`:''}`);
+  } else {
+    L.stats.fallback++;
+    rivalTick(a);                    // scripted archetype covers the tick
+  }
+  if(!L.pending && L.reqWeek!==S.week) llmRequest(a);   // throttle: 1 call / bot / week
+}
+function llmRequest(a){
+  const L=a.llm, f=LLM.fetchFn||((u,o)=>fetch(u,o));
+  if(!LLM.fetchFn && !LLM.key()){ L.status='err'; L.why='no OpenRouter key'; return; }
+  L.pending=true; L.reqWeek=S.week; L.status='wait';
+  const body={model:a.model||LLM.DEFAULT_MODEL,
+    response_format:{type:'json_object'},
+    messages:[{role:'system',content:llmSystem(a)},
+              {role:'user',content:JSON.stringify(llmObservation(a))}]};
+  const ctl=typeof AbortController!=='undefined'? new AbortController():null;
+  const to=ctl&&setTimeout(()=>ctl.abort(),20000);
+  f(LLM.URL,{method:'POST',signal:ctl?ctl.signal:undefined,
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+LLM.key()},
+    body:JSON.stringify(body)})
+  .then(r=>{ if(!r.ok) throw new Error('http '+r.status); return r.json(); })
+  .then(j=>{ const txt=j&&j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content;
+    const d=parseDecision(txt);
+    if(!d) throw new Error('unparseable response');
+    L.decision=validateDecision(a,d); })
+  .catch(e=>{ L.status='err'; L.stats.err++; L.why=String(e&&e.message||e).slice(0,80); })
+  .finally(()=>{ L.pending=false; if(to)clearTimeout(to); });
+}
+
+/* ============================================================
+   CHAIN MODE — optional bridge to the real BTCNFT protocol
+   contracts on a LOCAL ANVIL DEV CHAIN (chainId 31337) ONLY.
+   Off-chain sandbox stays the default; nothing here touches the
+   network unless the player opts in from the config screen.
+   viem is imported lazily from a CDN only on activation, so the
+   game (and every selftest) works fully offline.
+   Local sim math == VaultMath.sol, so the mirror stays coherent;
+   chain truth is pulled back via views after each tx + weekly.
+   ============================================================ */
+const SAT=1e8;                                     // WBTC & vBTC are 8-decimals
+const toSat=x=>BigInt(Math.round(x*SAT));
+const fromSat=w=>Number(w)/SAT;
+/* Anvil's standard dev-mnemonic accounts — publicly known keys.
+   LOCAL DEV CHAIN ONLY: never holds real funds by construction. */
+const ANVIL=['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266','0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+  '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC','0x90F79bf6EB2c4f870365E785982E1f101E93b906',
+  '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65','0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc',
+  '0x976EA74026E726554dB657fA54763abd0C3a0aa9','0x14dC79964da2C08b23698B3D3cc7Ca32193d9955',
+  '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f'];
+const MAXU='0x'+'f'.repeat(64);
+/* minimal hand-embedded ABI — 4-byte selectors precomputed with `cast sig` */
+const FN={
+  mint4:'0x3c173a4f',       // mint(address,uint256,address,uint256)   VaultNFT
+  withdraw:'0x2e1a7d4d',    // withdraw(uint256)
+  strip:'0x84361801',       // strip(uint256,uint256)
+  recombine:'0x0e1d6b66',   // recombine(uint256,uint256)
+  earlyRedeem:'0x5bf4066f', // earlyRedeem(uint256) — post-vest it returns full collateral
+  claimMatch:'0xdcabf2b0',  // claimMatch(uint256)
+  poke:'0x4290a59d',        // pokeDormant(uint256)
+  prove:'0xec792767',       // proveActivity(uint256)
+  claimDorm:'0xc452454d',   // claimDormantCollateral(uint256,uint256)
+  vaultInfo:'0xb1ba9620',   // getVaultInfo(uint256)
+  pendMatch:'0x8f273348',   // pendingMatch(uint256)
+  collToken:'0xb2016bd4',   // collateralToken()
+  mint2:'0x40c10f19',       // mint(address,uint256)                    MockWBTC
+  mintBatch:'0x248b71fc',   // mintBatch(address,uint256)               MockTreasure
+  approve:'0x095ea7b3',     // approve(address,uint256)
+  setApprAll:'0xa22cb465',  // setApprovalForAll(address,bool)
+  balanceOf:'0x70a08231',   // balanceOf(address)
+  decimals:'0x313ce567',    // decimals()
+  tokenOfOwner:'0x2f745c59',// tokenOfOwnerByIndex(address,uint256)
+};
+const ERRS={
+  '0xa4395c9e':'StillVesting','0x7b335f8b':'StripOutstanding','0x76d7c646':'InsufficientBtcToken',
+  '0x4118819e':'WithdrawalTooSoon','0x1c6ba68a':'NotTokenOwner','0x1f2a2005':'ZeroAmount',
+  '0xebb1e0ba':'ZeroCollateral','0x7b73cfae':'InsufficientCollateral','0xa360c31a':'InsufficientReserve',
+  '0xc47118b1':'InvalidCollateralToken','0xc927e5bf':'TokenDoesNotExist','0xd65ea134':'NotDormantEligible',
+  '0x28630f73':'AlreadyPoked','0xe24ac1bb':'NotClaimable','0x177e802f':'ERC721InsufficientApproval',
+  '0xe450d38c':'ERC20InsufficientBalance','0xfb8f41b2':'ERC20InsufficientAllowance','0x7e273289':'ERC721NonexistentToken',
+};
+const EV_VAULT_MINTED='0x93072cc3aa252f3685a6431a06c977e61c8db9a466338202e36ba1c3cb9d8abb'; // VaultMinted(uint256,address,address,uint256,uint256)
+
+/* tiny ABI word codec — every param here is address / uint256 / bool */
+const word=x=>{
+  if(typeof x==='boolean') x=x?1n:0n;
+  if(typeof x==='string'&&x.startsWith('0x')) return x.slice(2).toLowerCase().padStart(64,'0');
+  return BigInt(x).toString(16).padStart(64,'0');
+};
+const enc=(sel,...args)=>sel+args.map(word).join('');
+const decWords=hex=>{const h=String(hex||'').replace(/^0x/,''),out=[];
+  for(let i=0;i<h.length;i+=64) out.push(BigInt('0x'+h.slice(i,i+64))); return out;};
+const wAddr=w=>'0x'+w.toString(16).padStart(40,'0');
+function decodeErr(data){
+  if(!data||data.length<10) return 'reverted';
+  const name=ERRS[data.slice(0,10)];
+  if(!name) return 'reverted ('+data.slice(0,10)+')';
+  const a=decWords('0x'+data.slice(10));
+  return name+'('+a.map(String).join(',')+')';
+}
+function revertData(e){ // walk viem/provider error chains for the custom-error hex
+  for(let x=e;x;x=x.cause){
+    if(typeof x.data==='string'&&x.data.startsWith('0x')) return x.data;
+    if(x.data&&typeof x.data.data==='string') return x.data.data;
+  }
+  const m=/0x[0-9a-fA-F]{8,}/.exec(String((e&&e.message)||e)); return m?m[0]:null;
+}
+
+const CHAIN={
+  on:false, chainId:null, block:0, t0:0, qlen:0,
+  cfg:{enabled:false, rpc:'http://127.0.0.1:8545', vault:'', wbtc:'', treasure:'', btcToken:''},
+  pub:null, injected:null, player:null,
+  acct:{},                       // actorId -> {addr}
+  q:Promise.resolve(),           // serial tx queue — one nonce stream, ordered mirrors
+  _importViem:null,              // test seam (?test=chain injects a fake viem module)
+  save(){ try{localStorage.setItem('zeno_chain',JSON.stringify(this.cfg))}catch(e){} },
+  load(){ try{Object.assign(this.cfg,JSON.parse(localStorage.getItem('zeno_chain')||'{}'))}catch(e){} },
+};
+async function loadViem(){
+  try{ return await (CHAIN._importViem||(()=>import('https://esm.sh/viem')))(); }
+  catch(e){ throw new Error('viem CDN unreachable — CHAIN MODE needs network to load its client library once. '+String(e&&e.message||e)); }
+}
+const rpc=(method,params=[])=>CHAIN.pub.request({method,params});
+const ethCall=(to,data)=>rpc('eth_call',[{to,data},'latest']);
+
+async function chainConnect(){
+  const viem=await loadViem();
+  CHAIN.pub=viem.createPublicClient({transport:viem.http(CHAIN.cfg.rpc)});
+  const cid=parseInt(await rpc('eth_chainId'),16);
+  if(cid!==31337) throw new Error(`chainId ${cid} refused — CHAIN MODE only runs on a local Anvil dev chain (31337). This guard protects real funds.`);
+  CHAIN.chainId=cid;
+  CHAIN.injected=null; CHAIN.player=null;
+  if(window.ethereum){
+    try{
+      const wcid=parseInt(await window.ethereum.request({method:'eth_chainId'}),16);
+      if(wcid===31337){
+        const as=await window.ethereum.request({method:'eth_requestAccounts'});
+        if(as&&as[0]){ CHAIN.player=as[0]; CHAIN.injected=window.ethereum; }
+      }
+    }catch(e){} // injected wallet declined/wrong chain — fall through to dev key
+  }
+  if(!CHAIN.player) CHAIN.player=ANVIL[0];   // anvil dev signer #0 — LOCAL DEV ONLY
+  const blk=await rpc('eth_getBlockByNumber',['latest',false]);
+  CHAIN.t0=parseInt(blk.timestamp,16); CHAIN.block=parseInt(blk.number,16);
+  return CHAIN;
+}
+async function chainProbe(){ // validate each pasted address answers its expected view
+  const c=CHAIN.cfg, tc=async(to,data)=>{try{return await ethCall(to,data)}catch(e){return null}};
+  const ct=await tc(c.vault,FN.collToken);
+  const d1=await tc(c.wbtc,FN.decimals), d2=await tc(c.btcToken,FN.decimals);
+  const tb=await tc(c.treasure,enc(FN.balanceOf,c.vault));
+  return {
+    vault:!!ct&&ct.length>=66,
+    wbtcMatchesVault:!!ct&&!!c.wbtc&&wAddr(decWords(ct)[0])===c.wbtc.toLowerCase(),
+    wbtc:!!d1&&Number(decWords(d1)[0])===8,
+    btcToken:!!d2&&Number(decWords(d2)[0])===8,
+    treasure:!!tb,
+  };
+}
+/* player + ⛓-marked enabled slots, in table order → Anvil dev accounts 1..8 */
+function chainAccounts(){
+  const list=[{id:'you',addr:CHAIN.player}];
+  let k=1;
+  for(const s of CFG.slots){ if(!s.on) continue;
+    if(s.chain&&k<ANVIL.length) list.push({id:'b'+(k-1),addr:ANVIL[k]});
+    k++;
+  }
+  return list;
+}
+/* funding plan — pure, testable: what FUND executes, in order */
+function fundingPlan(accounts){
+  const c=CHAIN.cfg, steps=[];
+  for(const a of accounts){
+    steps.push({from:ANVIL[0],to:c.wbtc,    data:enc(FN.mint2,a.addr,100n*BigInt(SAT)),desc:`mint 100 WBTC → ${a.id}`});
+    steps.push({from:ANVIL[0],to:c.treasure,data:enc(FN.mintBatch,a.addr,10n),         desc:`mint 10 treasures → ${a.id}`});
+    steps.push({from:ANVIL[0],to:a.addr,    value:'0xde0b6b3a7640000',                 desc:`1 ETH gas → ${a.id}`});
+    steps.push({from:a.addr,  to:c.wbtc,    data:enc(FN.approve,c.vault,MAXU),         desc:`${a.id} approves WBTC`});
+    steps.push({from:a.addr,  to:c.treasure,data:enc(FN.setApprAll,c.vault,true),      desc:`${a.id} approves treasures`});
+  }
+  return steps;
+}
+async function waitReceipt(h){
+  for(let i=0;i<120;i++){
+    const r=await rpc('eth_getTransactionReceipt',[h]);
+    if(r){ if(r.status!=='0x1') throw new Error('tx reverted');
+      CHAIN.block=parseInt(r.blockNumber,16); return r; }
+    await new Promise(res=>setTimeout(res,250));
+  }
+  throw new Error('tx receipt timeout');
+}
+async function sendTxRaw(from,to,data,value){
+  const tx={from,to}; if(data)tx.data=data; if(value)tx.value=value;
+  const h=(CHAIN.injected&&from===CHAIN.player)
+    ? await CHAIN.injected.request({method:'eth_sendTransaction',params:[tx]})
+    : await rpc('eth_sendTransaction',[tx]);  // anvil dev accounts are node-unlocked
+  return waitReceipt(h);
+}
+async function callThenSend(from,to,data){ // preflight eth_call → decoded custom error on revert
+  try{ await rpc('eth_call',[{from,to,data},'latest']); }
+  catch(e){ throw new Error(decodeErr(revertData(e))); }
+  return sendTxRaw(from,to,data);
+}
+function chainChip(){
+  const el=document.getElementById('chainChip'); if(!el) return;
+  el.classList.toggle('hidden',!CHAIN.on);
+  el.classList.toggle('busy',CHAIN.qlen>0);
+  if(CHAIN.on) el.textContent=`⛓ ${CHAIN.chainId} · #${CHAIN.block}${CHAIN.qlen?` · ${CHAIN.qlen} tx⏳`:''}`;
+}
+function chainQ(desc,job){
+  CHAIN.qlen++; chainChip();
+  CHAIN.q=CHAIN.q
+    .then(job)
+    .catch(e=>{ const m=String(e&&e.message||e);
+      toast(`⛓ ${desc}: ${m}`,'warn');
+      feed(`⛓ <b>${desc}</b> reverted on-chain — ${m}`,'alert'); })
+    .finally(()=>{ CHAIN.qlen--; chainChip(); });
+  return CHAIN.q;
+}
+async function syncVault(v){ // chain truth → local mirror (collateral/reserve/clocks/match)
+  if(v.chain==null||v.burned) return;
+  const c=CHAIN.cfg;
+  const w=decWords(await ethCall(c.vault,enc(FN.vaultInfo,BigInt(v.chain))));
+  // words: treasureContract, treasureId, collToken, collateral, reserve, mintTs, lastWithdrawal, lastActivity
+  const nc=fromSat(w[3]);
+  S.totalActive+=nc-v.collateral; v.collateral=nc;
+  v.reserve=fromSat(w[4]);
+  const day=ts=>Math.round((Number(ts)-CHAIN.t0)/86400);
+  v.mintDay=day(w[5]); v.lastWithdraw=day(w[6]); v.lastActivity=day(w[7]);
+  v.chainPend=fromSat(decWords(await ethCall(c.vault,enc(FN.pendMatch,BigInt(v.chain))))[0]);
+}
+/* mirror a local protocol op onto the chain — fire-and-forget through the
+   serial queue. On revert: toast with the decoded error; the weekly sync
+   pulls the vault back to chain truth. */
+function chainOp(op,actor,v,amt){
+  if(!CHAIN.on||!actor) return;
+  const acc=CHAIN.acct[actor.id]; if(!acc) return;          // actor not chain-mapped
+  if(op!=='mint'&&(!v||v.chain==null)) return;              // vault never made it on-chain
+  const c=CHAIN.cfg;
+  chainQ(op,async()=>{
+    if(op==='mint'){
+      // MockTreasure is enumerable — spend the account's first treasure
+      const t=decWords(await ethCall(c.treasure,enc(FN.tokenOfOwner,acc.addr,0n)))[0];
+      const rec=await callThenSend(acc.addr,c.vault,enc(FN.mint4,c.treasure,t,c.wbtc,toSat(amt)));
+      const log=(rec.logs||[]).find(l=>l.topics&&l.topics[0]===EV_VAULT_MINTED
+        &&l.address.toLowerCase()===c.vault.toLowerCase());
+      if(log) v.chain=Number(BigInt(log.topics[1]));
+    }else{
+      const id=BigInt(v.chain);
+      const data={withdraw:()=>enc(FN.withdraw,id), strip:()=>enc(FN.strip,id,toSat(amt)),
+        recombine:()=>enc(FN.recombine,id,toSat(amt)), earlyRedeem:()=>enc(FN.earlyRedeem,id),
+        redeem:()=>enc(FN.earlyRedeem,id),             // vested earlyRedeem == full redemption
+        claimMatch:()=>enc(FN.claimMatch,id), poke:()=>enc(FN.poke,id), prove:()=>enc(FN.prove,id),
+        claimDormant:()=>enc(FN.claimDorm,id,toSat(amt))}[op];
+      if(!data) return;
+      await callThenSend(acc.addr,c.vault,data());
+    }
+    if(op==='earlyRedeem'||op==='redeem'){ v.chain=null; }
+    else if(v.chain!=null) await syncVault(v);
+    if(actor.id==='you') toast(`⛓ ${op} confirmed on-chain${v&&v.chain!=null?` · vault #${v.chain}`:''}`);
+  });
+}
+/* per game-week: advance chain time in lockstep, resync mirrored vaults periodically */
+function chainTick(){
+  if(!CHAIN.on) return;
+  chainQ('time',async()=>{
+    await rpc('evm_increaseTime',[P.TICK_DAYS*86400]);
+    await rpc('evm_mine',[]);
+    CHAIN.block++;
+  });
+  if(S.week%4===0) chainQ('sync',async()=>{
+    for(const v of S.vaults) if(v.chain!=null&&!v.burned) await syncVault(v);
+    CHAIN.block=parseInt(await rpc('eth_blockNumber',[]),16);
+  });
+}
+
+/* ---------- tick ---------- */
+function tick(){
+  if(S.over) return;
+  S.day+=P.TICK_DAYS; S.week++;
+  chainTick();                       // CHAIN MODE: chain time advances in lockstep (no-op when off)
+  if(S.script) for(const ev of S.script) if(!ev.done && S.week>=ev.week){ev.done=true; try{ev.fn()}catch(e){}}
+  stepPrice();
+  // rivals act in shuffled order — brain routing: llm/self-learn get async decisions
+  const rivals=S.actors.filter(a=>a.arch);
+  for(let i=rivals.length-1;i>0;i--){const j=RI(0,i);[rivals[i],rivals[j]]=[rivals[j],rivals[i]];}
+  rivals.forEach(a=>{
+    if(S.week<a.entryWeek) return;         // Bass entry: not at the table yet
+    if(a.llm) llmTick(a); else rivalTick(a);
+  });
+  // delegation desk is a marketplace post, not a protocol action — runs beside the ladder
+  for(const a of rivals){
+    if(a.dark || (a.arch!=='farmer'&&a.arch!=='diamond') || R()>0.06) continue;
+    const lv=actorVaults(a).find(v=>vested(v)&&v.delegations.length===0&&!S.offers.find(o=>o.vaultId===v.id));
+    if(lv){
+      const pct=RR(0.25,0.5), durDays=RI(6,14)*P.PERIOD_DAYS, periods=durDays/P.PERIOD_DAYS;
+      let npv=0,c=lv.collateral; for(let i=0;i<periods;i++){npv+=c*P.WITHDRAW_PCT*pct/Math.pow(1.02,i+1);c*=0.99;}
+      S.offers.push({vaultId:lv.id, seller:a.id, pct, durDays, price:npv*RR(0.85,1.1)});
+      feed(`<b style="color:${a.color}">${a.name}</b> lists delegation rights on ${lv.treasure} at the DESK`);
+    }
+  }
+  S.ratioHist.push(ratio());   // vBTC floats: discount prices recombination timing, par caps the top
+  // net worth + psychology
+  for(const a of S.actors){ const nw=netWorth(a);
+    a.prev=a.nw; a.nw=nw.total; a.peak=Math.max(a.peak,a.nw); a.nwHist.push(a.nw);
+    a.usdPeak=Math.max(a.usdPeak||0, a.nw*S.price);
+    mutatePsych(a); const [m,c]=a.arch?moodOf(a):['',''] ; a.mood=m; a.moodC=c; }
+  hiveLearn();
+  updateTiers();
+  if(!(window.TUT&&TUT.active)) S.actors.forEach(checkAch);   // constructs don't hand out medals
+  // player vest notifications
+  for(const v of actorVaults(byId('you'))){
+    if(v.autoDraw && withdrawReady(v)){ const amt=doWithdraw(v);
+      feed(`<b class="cyan-t">YOU</b> auto-draw — ${fmt(amt)} ₿ from ${v.treasure}`); }
+    if(S.day-v.mintDay===P.VEST_DAYS || (S.day-v.mintDay>P.VEST_DAYS && S.day-v.mintDay<P.VEST_DAYS+P.TICK_DAYS)){
+      if(!v._vestTold){ v._vestTold=true; toast(`◈ ${v.treasure} has VESTED. The 1%/30d stream is open — forever.`, 'gold'); sfx('vest'); }
+    }
+    if(v.pokeDay!==null && v.owner==='you' && (S.day-v.pokeDay)>=P.GRACE_DAYS-P.TICK_DAYS && !claimableWarned(v))
+      toast(`⚠ GRACE EXPIRING on ${v.treasure} — prove activity NOW`, 'warn');
+  }
+  // win check — target first, then the mandatory horizon (final scoring)
+  const tgt=S.cfg.capital*S.cfg.target;
+  const w=S.actors.find(a=>a.nw>=tgt);
+  if(w){ endGame(w,'target'); return; }
+  if(S.day>=S.cfg.horizon){ endGame(scoreLeader(),'horizon'); return; }
+  render();
+  if(S.week%4===0) sfx('tick');
+  if(window.TUT && TUT.active) TUT.check();
+}
+const claimableWarned=v=>{ if(v._gw) return true; v._gw=true; return false; };
+const leader=()=>[...S.actors].sort((x,y)=>y.nw-x.nw)[0];
+
+/* ---------- game loop ---------- */
+function setSpeed(x){ ui.speed=x; ui.paused=(x===0); restartLoop(); renderSpeed(); }
+function restartLoop(){ clearInterval(loopTimer);
+  if(!ui.paused && S && !S.over) loopTimer=setInterval(tick, 1000/ui.speed); }
+
+/* ---------- formatting ---------- */
+const fmt=(x,d=3)=>x>=100?x.toFixed(1):x>=10?x.toFixed(2):x.toFixed(d);
+const fmtUsd=x=>'$'+Math.round(x).toLocaleString('en-US');
+const fmtBtc=x=>fmt(x)+' ₿';
+
+/* ---------- feed / toasts / sfx ---------- */
+function feed(msg,cls=''){ S.feed.unshift({w:S.week,msg,cls}); if(S.feed.length>90)S.feed.pop();
+  const el=document.getElementById('feed');
+  el.innerHTML=S.feed.map(f=>`<div class="fl ${f.cls}"><span class="fw">w${f.w}</span><span class="fm">${f.msg}</span></div>`).join('');
+}
+function toast(msg,cls=''){ const t=document.createElement('div'); t.className='toast '+cls; t.innerHTML=msg;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .4s';setTimeout(()=>t.remove(),400)},4200); }
+function shake(){ const g=document.getElementById('game'); g.classList.remove('shake');
+  void g.offsetWidth; g.classList.add('shake'); }
+
+let AC=null;
+function sfx(kind){
+  if(ui.muted) return;
+  try{
+    AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    const t=AC.currentTime, g=AC.createGain(); g.connect(AC.destination);
+    const tone=(f,st,dur,type='square',vol=.04)=>{const o=AC.createOscillator();o.type=type;
+      o.frequency.setValueAtTime(f,t+st);o.connect(g);
+      g.gain.setValueAtTime(vol,t+st);g.gain.exponentialRampToValueAtTime(.0001,t+st+dur);
+      o.start(t+st);o.stop(t+st+dur);};
+    if(kind==='tick') tone(220,0,.04,'sine',.015);
+    else if(kind==='trade') tone(520,0,.07,'square',.03);
+    else if(kind==='mint'){tone(330,0,.09);tone(495,.08,.12);}
+    else if(kind==='vest'){tone(392,0,.1);tone(523,.09,.1);tone(659,.18,.2,'square',.05);}
+    else if(kind==='coin'){tone(988,0,.06);tone(1319,.06,.16);}
+    else if(kind==='forfeit'){tone(196,0,.18,'sawtooth',.05);tone(147,.14,.25,'sawtooth',.05);}
+    else if(kind==='poke'){tone(880,0,.08,'sawtooth',.05);tone(880,.14,.08,'sawtooth',.05);tone(880,.28,.14,'sawtooth',.06);}
+    else if(kind==='devour'){tone(110,0,.4,'sawtooth',.07);tone(82,.2,.5,'sawtooth',.07);}
+    else if(kind==='storm'){tone(65,0,.6,'sawtooth',.05);tone(98,.1,.5,'sawtooth',.04);}
+    else if(kind==='win'){[523,659,784,1047,1319].forEach((f,i)=>tone(f,i*.12,.3,'square',.05));}
+    else if(kind==='lose'){[392,330,262,196].forEach((f,i)=>tone(f,i*.16,.3,'sawtooth',.05));}
+  }catch(e){}
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  renderHeader(); renderNW(); renderLB(); renderRivals(); renderVaults(); renderOps(); drawChart();
+}
+function renderHeader(){
+  document.getElementById('hDay').textContent=S.day;
+  document.getElementById('hWeek').textContent=S.week;
+  document.getElementById('hLeft').textContent=Math.max(0,S.cfg.horizon-S.day)+'d';
+  document.getElementById('hiveBtn').classList.toggle('on',!!S.hiveOn);
+  document.getElementById('hPrice').textContent=fmtUsd(S.price);
+  const n=S.priceHist.length, d=n>1? S.priceHist[n-1]/S.priceHist[n-2]-1:0;
+  const de=document.getElementById('hDelta');
+  de.textContent=(d>=0?'+':'')+(d*100).toFixed(1)+'%'; de.className='v tnum '+(d>=0?'up':'down');
+  const rt=document.getElementById('regimeTag');
+  rt.textContent=S.regime?'STORM':'CALM'; rt.className=S.regime?'hot':'';
+  document.getElementById('hRatio').textContent=ratio().toFixed(3);
+  document.getElementById('hPool').textContent=fmt(S.matchPool)+' ₿';
+  chainChip();
+}
+function renderNW(){
+  const me=byId('you'), nw=netWorth(me);
+  const el=document.getElementById('nwBig');
+  el.textContent=fmtBtc(nw.total);
+  const tgt=S.cfg.capital*S.cfg.target;
+  el.className='nw-big tnum '+(nw.total>=tgt*0.92?'win-near': me.nw>=me.prev?'nw-up':'nw-dn');
+  document.getElementById('nwBtc').textContent=fmt(nw.btc);
+  document.getElementById('nwVault').textContent=fmt(nw.vaults);
+  document.getElementById('nwVbtc').textContent=fmt(nw.vbtc);
+  document.getElementById('nwPool').textContent=fmt(nw.pool);
+  const rank=[...S.actors].sort((a,b)=>b.nw-a.nw).findIndex(a=>a.id==='you')+1;
+  document.getElementById('nwRank').textContent=`#${rank}/${S.actors.length}`;
+  const p=Math.max(0,Math.min(1,(nw.total-0)/(tgt)));
+  document.getElementById('tgtBar').style.width=(p*100).toFixed(1)+'%';
+  document.getElementById('tgtFrom').textContent='0 ₿';
+  document.getElementById('tgtTo').textContent=`target ${fmt(tgt)} ₿`;
+  const ks=Object.keys(me.ach);
+  document.getElementById('achChips').innerHTML= ks.length
+    ? ks.map(k=>`<span class="achip" title="${ACH[k].label} · +${ACH[k].pts} pts · week ${me.ach[k]}">${ACH[k].glyph}</span>`).join('')
+      +`<span class="achpts">${achPts(me)} PTS</span>`
+    : `<span class="achpts">NO MEDALS YET — MINT SOMETHING</span>`;
+}
+function renderLB(){
+  const sorted=[...S.actors].sort((a,b)=>b.nw-a.nw);
+  const max=sorted[0].nw||1;
+  document.getElementById('lb').innerHTML=sorted.map((a,i)=>`
+    <div class="lb-row ${i===0?'leader':''}">
+      <span class="rank">${i+1}</span>
+      <span class="dot" style="color:${a.color};background:${a.color}"></span>
+      <span class="nm ${a.id==='you'?'me':''}" style="color:${a.id==='you'?'':a.color}">${a.name}</span>
+      <span class="val tnum" style="color:${a.nw>=a.prev?'var(--grn)':'var(--red)'}">${fmt(a.nw)}</span>
+      <div class="lb-bar"><i style="width:${(a.nw/max*100).toFixed(1)}%;background:${a.color}"></i></div>
+    </div>`).join('');
+}
+function renderRivals(){
+  document.getElementById('rivals').innerHTML=S.actors.filter(a=>a.arch).map(a=>{
+    const vs=actorVaults(a), inGame=S.week>=a.entryWeek;
+    const brainTag=a.brain!=='scripted'?` · ${a.brain==='selflearn'?'SELF-LEARN':a.brain.toUpperCase()}`:'';
+    const dot=a.llm?`<span class="llmdot" title="LLM link: ${a.llm.status}${a.llm.why?' — '+a.llm.why:''}" style="color:${
+      a.llm.status==='ok'?'var(--grn)':a.llm.status==='err'?'var(--red)':'var(--gold)'};background:currentColor"></span>`:'';
+    const sC=a.sent>0.15?'var(--grn)':a.sent<-0.15?'var(--red)':'var(--mute)';
+    const hive=a.brain==='hive'?`
+        <div class="sent" style="color:${sC}">SENT ${(a.sent>=0?'+':'')+a.sent.toFixed(2)}${S.hiveOn?'':' · FROZEN'}</div>
+        <div class="tbars" title="risk ${a.traits.risk.toFixed(2)} · patience ${a.traits.patience.toFixed(2)} · strip ${a.traits.strip.toFixed(2)} · aggression ${a.traits.aggr.toFixed(2)}">${
+          ['risk','patience','strip','aggr'].map(k=>`<span><i style="width:${(a.traits[k]*100).toFixed(0)}%"></i></span>`).join('')}</div>`:'';
+    return `<div class="riv" style="color:${a.color}" ${a.llm&&a.llm.why?`title="${a.llm.why.replace(/"/g,'&quot;')}"`:''}>
+      <div class="face">${a.face}</div>
+      <div class="info">
+        <div class="nm" style="color:${a.color}">${a.name}${dot}</div>
+        <div class="arch">${ARCH[a.arch].label}${brainTag}</div>
+        <div class="mood ${inGame?(a.moodC||'mood-steady'):'mood-dark'}">${inGame?(a.mood||'STEADY'):`OFF-GRID · arrives w${a.entryWeek}`}</div>${hive}
+        <div class="hold">₿ ${fmt(a.btc)} · v ${fmt(a.vbtc)} · vaults ${vs.length} · ☆${achPts(a)}</div>
+      </div></div>`;}).join('');
+}
+function renderVaults(){
+  const me=byId('you'), vs=actorVaults(me);
+  document.getElementById('vaultCount').textContent=`${vs.length} active · liquid ${fmt(me.btc)} ₿`;
+  const el=document.getElementById('vaultList');
+  if(!vs.length){ el.innerHTML=`<div class="emptymsg">No vaults. Mint one — lock BTC behind a treasure and start the 1129-day clock. Time is the antagonist; make it your weapon.</div>`; return; }
+  el.innerHTML=vs.map(v=>{
+    const pr=Math.min((S.day-v.mintDay)/P.VEST_DAYS,1), isV=vested(v);
+    const cd=Math.max(0,P.PERIOD_DAYS-(S.day-v.lastWithdraw));
+    const pend=pendingMatch(v);
+    const tier=TIERS[v.tier??0];
+    const tags=[
+      `<span class="tag" style="color:${tier.c}">${tier.k}</span>`,
+      isV?`<span class="tag ripe">VESTED</span>`:`<span class="tag vest">VESTING ${(pr*100).toFixed(0)}%</span>`,
+      v.reserve>1e-9?`<span class="tag sep">RESERVE ${fmt(v.reserve)}</span>`:'',
+      v.delegations.length?`<span class="tag deleg">DELEGATED</span>`:'',
+      v.pokeDay!==null?`<span class="tag dorm">⚠ POKED — grace ${Math.max(0,P.GRACE_DAYS-(S.day-v.pokeDay))}d</span>`:'',
+    ].join('');
+    const acts=[];
+    if(isV) acts.push(`<button class="${v.autoDraw?'primary':''}" onclick="uiAutoDraw(${v.id})" title="toggle auto-draw: draws 1% the instant each 30d cooldown clears">${v.autoDraw?(cd>0?`◉ AUTO · ${cd}d`:'◉ AUTO · ready'):'○ AUTO-DRAW'}</button>`);
+    else acts.push(`<button class="danger" onclick="uiEarlyRedeem(${v.id})" ${v.reserve>1e-9?'disabled title="recombine first — zero reserve required"':''}>EARLY EXIT</button>`);
+    if(v.collateral>1e-9) acts.push(isV
+      ? `<button class="gold" onclick="uiStrip(${v.id})">STRIP</button>`
+      : `<button class="gold" disabled title="strip unlocks at vesting — day ${v.mintDay+P.VEST_DAYS}">STRIP ⌛</button>`);
+    if(v.reserve>1e-9) acts.push(`<button onclick="uiRecombine(${v.id})" ${me.vbtc<=1e-9?'disabled':''}>RECOMBINE (${fmt(Math.min(me.vbtc,v.reserve))}v)</button>`);
+    if(pend>0.001) acts.push(`<button class="gold" onclick="uiSettle(${v.id})">SETTLE +${fmt(pend)}</button>`);
+    if(isV&&v.reserve<=1e-9) acts.push(`<button onclick="uiRedeem(${v.id})">REDEEM</button>`);
+    if(isV&&!v.delegations.length) acts.push(`<button onclick="uiSellDeleg(${v.id})">SELL DELEGATION</button>`);
+    if(v.pokeDay!==null) acts.push(`<button class="danger" onclick="uiProve(${v.id})">PROVE ACTIVITY</button>`);
+    return `<div class="vault ${v.pokeDay!==null?'poked':''}">
+      <div class="v-top"><span class="v-name"><span style="color:${tier.c}">${v.glyph}</span> ${v.treasure}</span><span class="v-amt tnum">${fmt(v.collateral)} ₿${v.reserve>1e-9?` <span style="color:var(--mute)">+${fmt(v.reserve)}⛨</span>`:''}</span></div>
+      <div class="v-tags">${tags}</div>
+      <div class="zbar ${isV?'ripe':''}"><i style="width:${(pr*100).toFixed(1)}%"></i></div>
+      <div class="v-sub"><span>day ${S.day-v.mintDay} / ${P.VEST_DAYS}</span><span>${isV?(cd>0?`next draw ${cd}d`:'draw ready'):`vests day ${v.mintDay+P.VEST_DAYS}`}</span></div>
+      <div class="v-acts">${acts.join('')}</div>
+    </div>`;}).join('');
+}
+
+/* ---------- ops panel ---------- */
+function renderOps(){
+  const el=document.getElementById('opsBody'), me=byId('you');
+  if(ui.ops==='trade'){
+    const r=ratio();
+    const amtB=ui.tradeMode==='buy'? me.btc*ui.tradeAmt/100 : me.vbtc*ui.tradeAmt/100;
+    const pv=amtB>1e-9? swapPreview(ui.tradeMode, amtB):{out:0,newRatio:r};
+    const okAmt=maxSwap(ui.tradeMode, amtB), clamped=okAmt<amtB*0.995;
+    el.innerHTML=`<div class="trade-box">
+      <div class="ratio-strip">
+        <div class="band" style="left:${(0.70-0.45)/0.6*100}%;width:${(0.95-0.70)/0.6*100}%"></div>
+        <div class="mark" style="left:${Math.min(98,Math.max(1,(r-0.45)/0.6*100))}%"></div>
+      </div>
+      <div class="ratio-lbls"><span>deep discount</span><span>the float</span><span>1.00 par = NAV floor</span></div>
+      <div class="tb-row">
+        <button class="${ui.tradeMode==='buy'?'primary':''}" onclick="ui.tradeMode='buy';renderOps()">BUY vBTC</button>
+        <button class="${ui.tradeMode==='sell'?'primary':''}" onclick="ui.tradeMode='sell';renderOps()">SELL vBTC</button>
+        <span style="color:var(--mute2);font-size:9.5px">fee 0.3% · no peg — discount prices recombination</span>
+      </div>
+      <div class="tb-row"><span class="lab">size ${ui.tradeAmt}%</span>
+        <input type="range" min="5" max="100" step="5" value="${ui.tradeAmt}"
+          oninput="ui.tradeAmt=+this.value;renderOps()"></div>
+      <div class="preview">
+        ${ui.tradeMode==='buy'
+          ? `spend <b>${fmt(amtB)} ₿</b> → receive <b>${fmt(pv.out)} vBTC</b>`
+          : `sell <b>${fmt(amtB)} vBTC</b> → receive <b>${fmt(pv.out)} ₿</b>`}
+        · ratio → <b>${pv.newRatio?pv.newRatio.toFixed(3):'–'}</b>
+        ${clamped?`<br><span style="color:var(--org)">above par, strippers mint into your bid — fill capped at ${fmt(okAmt)}</span>`:''}
+      </div>
+      <div class="tb-row"><button class="primary" onclick="uiTrade()" ${amtB<=1e-9?'disabled':''}>EXECUTE</button>
+        <span style="color:var(--mute2);font-size:10px">you hold ${fmt(me.btc)} ₿ · ${fmt(me.vbtc)} vBTC</span></div>
+    </div>`;
+  } else if(ui.ops==='hunt'){
+    const cands=S.vaults.filter(v=>!v.burned&&v.owner!=='you'&&v.reserve>1e-9&&byId(v.owner).vbtc<v.reserve);
+    if(!cands.length){ el.innerHTML=`<div class="emptymsg">No exposed vaults yet. A vault becomes prey when it carries a stripped reserve, its owner no longer holds the paper, and 1129 days pass untouched. Watch JITTERS.</div>`; return; }
+    el.innerHTML=cands.map(v=>{
+      const on=byId(v.owner), idle=S.day-v.lastActivity, elig=dormancyEligible(v);
+      const st= v.pokeDay!==null ? (claimable(v)?'CLAIMABLE':'GRACE '+Math.max(0,P.GRACE_DAYS-(S.day-v.pokeDay))+'d')
+        : elig?'DORMANT':'idle '+idle+'d / '+P.DORMANCY_DAYS;
+      const take=Math.min(byId('you').vbtc,v.reserve);
+      return `<div class="hunt-row">
+        <div class="t"><b style="color:${on.color}">${on.name}</b> · ${v.treasure}
+          <span style="color:${elig?'var(--mag)':'var(--mute2)'}">${st}</span></div>
+        <small>reserve ${fmt(v.reserve)} ₿ · burn vBTC 1:1, any amount (you hold ${fmt(byId('you').vbtc)}) · owner keeps vault, treasure &amp; active collateral</small>
+        <div class="acts">
+          ${v.pokeDay===null?`<button ${elig?'':'disabled'} onclick="uiPoke(${v.id})">POKE</button>`:''}
+          ${v.pokeDay!==null?`<button class="danger" ${claimable(v)&&take>1e-9?'':'disabled'} onclick="uiClaimDormant(${v.id})">CLAIM ${fmt(take)}</button>`:''}
+        </div></div>`;}).join('');
+  } else { // desk
+    const offers=S.offers.filter(o=>{const v=S.vaults.find(x=>x.id===o.vaultId);return v&&!v.burned&&!v.delegations.length;});
+    let html=offers.map((o,i)=>{
+      const v=S.vaults.find(x=>x.id===o.vaultId), sl=byId(o.seller);
+      return `<div class="desk-row">
+        <div class="t"><b style="color:${sl.color}">${sl.name}</b> · ${v.treasure}
+          <b style="color:var(--gold)">${fmt(o.price)} ₿</b></div>
+        <small>${(o.pct*100).toFixed(0)}% of every withdrawal for ${o.durDays} days · vault ${fmt(v.collateral)} ₿</small>
+        <div class="acts"><button class="gold" ${byId('you').btc>=o.price?'':'disabled'} onclick="uiBuyDeleg(${i})">BUY STREAM</button></div>
+      </div>`;}).join('');
+    if(!html) html=`<div class="emptymsg">The desk is empty. Rivals list delegation rights on vested vaults here — a slice of someone else's withdrawal stream, bought upfront. Sell your own from a vault card.</div>`;
+    el.innerHTML=html;
+  }
+}
+
+/* ---------- player action handlers ---------- */
+window.uiWithdraw=id=>{const v=S.vaults.find(x=>x.id===id); if(!withdrawReady(v))return;
+  const amt=doWithdraw(v); toast(`+${fmt(amt)} ₿ drawn from ${v.treasure}`); sfx('coin');
+  feed(`<b class="cyan-t">YOU</b> draw 1% — ${fmt(amt)} ₿ from ${v.treasure}`); render();};
+window.uiAutoDraw=id=>{const v=S.vaults.find(x=>x.id===id); if(!vested(v))return;
+  v.autoDraw=!v.autoDraw;
+  if(v.autoDraw){
+    toast(`◉ Auto-draw ON — ${v.treasure} draws 1% every 30 days`);
+    if(withdrawReady(v)){ const amt=doWithdraw(v); sfx('coin');
+      feed(`<b class="cyan-t">YOU</b> auto-draw — ${fmt(amt)} ₿ from ${v.treasure}`); }
+  } else toast(`○ Auto-draw OFF — ${v.treasure}`);
+  render();};
+window.uiEarlyRedeem=id=>{const v=S.vaults.find(x=>x.id===id);
+  if(v.reserve>1e-9){ toast('Outstanding reserve — recombine before redemption','warn'); return; }
+  const frac=Math.min((S.day-v.mintDay)/P.VEST_DAYS,1);
+  modal(`ABANDON ${v.treasure}?`,`
+    <div>Time served: <b>${(frac*100).toFixed(1)}%</b> of 1129 days.</div>
+    <div>Returned to you: <b class="bigval">${fmt(v.collateral*frac)} ₿</b></div>
+    <div>Forfeited to every active vault, pro-rata: <b style="color:var(--mag)">${fmt(v.collateral*(1-frac))} ₿</b></div>
+    <div>The treasure burns. Your rivals feast on what you leave behind.</div>`,
+    [['WALK AWAY','danger',()=>{const {ret,forfeit}=doEarlyRedeem(v);
+      toast(`Early exit: +${fmt(ret)} ₿ back, ${fmt(forfeit)} ₿ forfeited`,'warn'); sfx('forfeit');
+      feed(`<b class="cyan-t">YOU</b> early-redeem ${v.treasure} — forfeit <b style="color:var(--mag)">${fmt(forfeit)} ₿</b> feeds the holders`,'hot');
+      closeModal(); render();}],['HOLD','',closeModal]]);};
+window.uiStrip=id=>{const v=S.vaults.find(x=>x.id===id);
+  if(!vested(v)){ toast('Still vesting — strip unlocks at day '+(v.mintDay+P.VEST_DAYS),'warn'); return; }
+  let pct=50;
+  const line=()=>`strip <b>${fmt(v.collateral*pct/100)} ₿</b> → mint <b>${fmt(v.collateral*pct/100)} vBTC</b> · active left ${fmt(v.collateral*(1-pct/100))} ₿`;
+  modal(`STRIP ${v.treasure}?`,`
+    <div>Move active collateral into the <b>immunized reserve</b>, minting vBTC <b>1:1</b>. Fractional and repeatable — but <b>vested vaults only</b>: vesting is the time lock, and the lock has no back door.</div>
+    <div>The reserve is untouchable by withdrawals: your 1% draws on the <b>active remainder only</b>. You can't sell the principal and keep collecting its coupon.</div>
+    <div>Reserve always equals vBTC supply — <b>par is the NAV floor</b>. Buy paper back at a discount and recombine 1:1 whenever it's cheap.</div>
+    <div class="tb-row"><span class="lab">amount ${pct}%</span>
+      <input type="range" min="5" max="100" step="5" value="${pct}" id="stripSlider"></div>
+    <div id="stripPreview" class="preview">${line()}</div>
+    <div style="color:var(--mag)">Warning: a reserve you no longer hold paper for, left silent 1129 days, becomes prey.</div>`,
+    [['STRIP','gold',()=>{const m=doStrip(v, v.collateral*pct/100);
+      toast(`+${fmt(m)} vBTC minted — ${fmt(m)} ₿ immunized in reserve`,'gold'); sfx('mint');
+      feed(`<b class="cyan-t">YOU</b> strip ${v.treasure} → ${fmt(m)} vBTC on the street`,'hot');
+      closeModal(); render();}],['CANCEL','',closeModal]]);
+  const sl=document.getElementById('stripSlider');
+  sl.oninput=()=>{pct=+sl.value; document.getElementById('stripSlider').previousElementSibling.textContent=`amount ${pct}%`;
+    document.getElementById('stripPreview').innerHTML=line();};};
+window.uiRecombine=id=>{const v=S.vaults.find(x=>x.id===id);
+  const m=doRecombine(v);
+  if(m>0){ toast(`Recombined ${fmt(m)} — burned ${fmt(m)} vBTC, reserve reactivated`); sfx('mint');
+    feed(`<b class="cyan-t">YOU</b> recombine ${fmt(m)} into ${v.treasure}${v.reserve>1e-9?` · ${fmt(v.reserve)} reserve still out`:' — whole again'}`); render(); }};
+window.uiSettle=id=>{const v=S.vaults.find(x=>x.id===id);
+  const got=settleMatch(v,true); if(got<=0) return;
+  toast(`Match share settled: +${fmt(got)} ₿ folded into ${v.treasure}`,'gold'); sfx('coin');
+  feed(`<b class="cyan-t">YOU</b> settle match accrual: <b style="color:var(--gold)">+${fmt(got)} ₿</b> into ${v.treasure}`,'hot'); render();};
+window.uiRedeem=id=>{const v=S.vaults.find(x=>x.id===id);
+  modal(`REDEEM ${v.treasure}?`,`
+    <div>Full exit: <b class="bigval">${fmt(v.collateral+pendingMatch(v))} ₿</b> and the treasure come home. The stream dies with it.</div>
+    <div>Requires zero outstanding reserve — yours is clear.</div>`,
+    [['REDEEM','gold',()=>{const c=v.collateral+pendingMatch(v);
+      if(doRedeem(v)){ toast(`${v.treasure} redeemed — +${fmt(c)} ₿`,'gold'); sfx('coin');
+        feed(`<b class="cyan-t">YOU</b> redeem ${v.treasure} in full — ${fmt(c)} ₿ and the treasure come home`,'hot'); }
+      closeModal(); render();}],['CANCEL','',closeModal]]);};
+window.uiProve=id=>{const v=S.vaults.find(x=>x.id===id); doProveActivity(v);
+  toast(`Activity proven. The predator slinks back into the dark.`); sfx('trade');
+  feed(`<b class="cyan-t">YOU</b> prove activity on ${v.treasure} — poke cancelled`,'hot'); render();};
+window.uiPoke=id=>{const v=S.vaults.find(x=>x.id===id); if(!dormancyEligible(v))return;
+  doPoke(v,byId('you')); sfx('poke');
+  feed(`<b class="cyan-t">YOU</b> poke dormant vault ${v.treasure} (${byId(v.owner).name}) — 30-day grace starts`,'alert');
+  render();};
+window.uiClaimDormant=id=>{const v=S.vaults.find(x=>x.id===id); const me=byId('you');
+  const got=doClaimDormant(v,me);
+  if(got>0){ toast(`YOU feed on ${v.treasure}: burned ${fmt(got)} vBTC → +${fmt(got)} ₿ reserve`,'gold');
+    sfx('devour'); feed(`<b class="cyan-t">YOU</b> claim ${fmt(got)} ₿ of dormant reserve from ${v.treasure}. ${byId(v.owner).name} keeps the vault${v.reserve>1e-9?` · ${fmt(v.reserve)} reserve remains`:''}.`,'alert');
+    render(); }};
+window.uiTrade=()=>{const me=byId('you');
+  const amt=ui.tradeMode==='buy'? me.btc*ui.tradeAmt/100 : me.vbtc*ui.tradeAmt/100;
+  const got=doSwap(me,ui.tradeMode,amt); if(got<=0)return;
+  sfx('trade');
+  toast(ui.tradeMode==='buy'? `Bought ${fmt(got)} vBTC` : `Sold — received ${fmt(got)} ₿`);
+  feed(`<b class="cyan-t">YOU</b> ${ui.tradeMode==='buy'?'buy':'sell'} vBTC · ratio ${ratio().toFixed(3)}`);
+  render();};
+window.uiBuyDeleg=idx=>{const offers=S.offers.filter(o=>{const v=S.vaults.find(x=>x.id===o.vaultId);return v&&!v.burned&&!v.delegations.length;});
+  const o=offers[idx]; if(!o)return; const me=byId('you'); if(me.btc<o.price)return;
+  const v=S.vaults.find(x=>x.id===o.vaultId);
+  me.btc-=o.price; byId(o.seller).btc+=o.price;
+  v.delegations.push({to:'you',pct:o.pct,until:S.day+o.durDays});
+  S.offers=S.offers.filter(x=>x!==o);
+  toast(`Delegation bought: ${(o.pct*100).toFixed(0)}% of ${v.treasure} draws for ${o.durDays}d`,'gold'); sfx('coin');
+  feed(`<b class="cyan-t">YOU</b> buy delegation on ${v.treasure} from ${byId(o.seller).name} for ${fmt(o.price)} ₿`,'hot');
+  render();};
+window.uiSellDeleg=id=>{const v=S.vaults.find(x=>x.id===id); const me=byId('you');
+  const pct=0.4, durDays=10*P.PERIOD_DAYS, periods=durDays/P.PERIOD_DAYS;
+  let npv=0,c=v.collateral; for(let i=0;i<periods;i++){npv+=c*P.WITHDRAW_PCT*pct/Math.pow(1.02,i+1);c*=0.99;}
+  const price=npv*0.9;
+  const buyer=S.actors.find(a=>a.arch==='farmer'&&a.btc>price)||S.actors.find(a=>a.arch&&a.btc>price);
+  if(!buyer){ toast('No rival has the liquidity to buy your stream right now','warn'); return; }
+  modal(`SELL DELEGATION — ${v.treasure}`,`
+    <div><b style="color:${buyer.color}">${buyer.name}</b> bids <b class="bigval">${fmt(price)} ₿</b> upfront.</div>
+    <div>They take <b>${(pct*100).toFixed(0)}%</b> of every 1% draw for <b>${durDays} days</b>. You keep the vault.</div>`,
+    [['SELL','gold',()=>{me.btc+=price; buyer.btc-=price;
+      v.delegations.push({to:buyer.id,pct,until:S.day+durDays});
+      toast(`+${fmt(price)} ₿ — stream sold to ${buyer.name}`,'gold'); sfx('coin');
+      feed(`<b class="cyan-t">YOU</b> sell delegation on ${v.treasure} to ${buyer.name} for ${fmt(price)} ₿`,'hot');
+      closeModal(); render();}],['CANCEL','',closeModal]]);};
+
+window.uiMint=()=>{const me=byId('you');
+  if(me.btc<0.02){ toast('Not enough liquid BTC','warn'); return; }
+  let pct=50;
+  const body=()=>`
+    <div>Lock BTC behind a fresh treasure. The 1129-day clock starts now — day ${S.day}.</div>
+    <div class="tb-row"><span class="lab">amount</span>
+      <input type="range" min="5" max="100" step="5" value="${pct}" id="mintSlider"></div>
+    <div id="mintPreview" class="preview">lock <b>${fmt(me.btc*pct/100)} ₿</b> · vests day ${S.day+P.VEST_DAYS} (week ${Math.ceil((S.day+P.VEST_DAYS)/7)})</div>`;
+  modal('MINT VAULT', body(),
+    [['MINT','gold',()=>{const amt=me.btc*pct/100; const v=mintVault(me,amt);
+      if(v){ toast(`${v.treasure} minted — ${fmt(amt)} ₿ locked`,'gold'); sfx('mint');
+        feed(`<b class="cyan-t">YOU</b> mint vault — lock ${fmt(amt)} ₿ behind ${v.treasure}`,'hot'); }
+      closeModal(); render();}],['CANCEL','',closeModal]]);
+  const sl=document.getElementById('mintSlider');
+  sl.oninput=()=>{pct=+sl.value;
+    document.getElementById('mintPreview').innerHTML=`lock <b>${fmt(me.btc*pct/100)} ₿</b> · vests day ${S.day+P.VEST_DAYS} (week ${Math.ceil((S.day+P.VEST_DAYS)/7)})`;};
+};
+
+/* ---------- modal ---------- */
+function modal(title,bodyHtml,btns){
+  const m=document.getElementById('modal');
+  m.innerHTML=`<h2>${title}</h2><div class="m-body">${bodyHtml}</div>
+    <div class="m-acts">${btns.map((b,i)=>`<button class="${b[1]}" data-mi="${i}">${b[0]}</button>`).join('')}</div>`;
+  m.querySelectorAll('[data-mi]').forEach(el=>el.onclick=btns[+el.dataset.mi][2]);
+  document.getElementById('modalBack').classList.remove('hidden');
+}
+function closeModal(){ document.getElementById('modalBack').classList.add('hidden'); }
+document.getElementById('modalBack').addEventListener('click',e=>{if(e.target.id==='modalBack')closeModal();});
+
+/* ---------- chart ---------- */
+function drawChart(){
+  const cv=document.getElementById('chart'), wrap=document.getElementById('chartWrap');
+  const W=wrap.clientWidth, H=wrap.clientHeight, dpr=window.devicePixelRatio||1;
+  if(!W||!H) return;
+  cv.width=W*dpr; cv.height=H*dpr;
+  const c=cv.getContext('2d'); c.scale(dpr,dpr); c.clearRect(0,0,W,H);
+  const meta=document.getElementById('chartMeta');
+  const grid=(min,max,fmtFn)=>{ c.strokeStyle='#101c31'; c.fillStyle='#3a4d66'; c.font='9px '+getComputedStyle(document.body).fontFamily;
+    for(let i=0;i<=4;i++){const y=H-8-(H-24)*i/4; c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke();
+      c.fillText(fmtFn(min+(max-min)*i/4), 4, y-3);} };
+  const line=(hist,min,max,color,glow=true)=>{
+    c.beginPath();
+    hist.forEach((v,i)=>{const x=i/(Math.max(hist.length-1,1))*W, y=H-8-(H-24)*((v-min)/((max-min)||1));
+      i?c.lineTo(x,y):c.moveTo(x,y);});
+    c.strokeStyle=color; c.lineWidth=1.6;
+    if(glow){c.shadowColor=color;c.shadowBlur=7;} c.stroke(); c.shadowBlur=0; };
+  if(ui.tab==='market'){
+    const h=S.priceHist, min=Math.min(...h)*0.97, max=Math.max(...h)*1.03;
+    // regime bands
+    for(let i=1;i<h.length;i++) if(S.regimeHist[i]){
+      c.fillStyle='#ff2d780d';
+      c.fillRect((i-1)/(h.length-1)*W,0,W/(h.length-1)+1,H); }
+    grid(min,max,x=>'$'+(x/1000).toFixed(0)+'k');
+    line(h,min,max,S.regime?'#ff2d78':'#00e5ff');
+    meta.innerHTML=`BTC <b>${fmtUsd(S.price)}</b> · drift <b>${(S.drift*52*100).toFixed(0)}%/yr</b> · σ <b>${((S.regime?SIG_HIGH:SIG_LOW)*100).toFixed(1)}%/wk</b>`;
+  } else if(ui.tab==='race'){
+    let min=Infinity,max=-Infinity;
+    S.actors.forEach(a=>a.nwHist.forEach(v=>{min=Math.min(min,v);max=Math.max(max,v);}));
+    const tgt=S.cfg.capital*S.cfg.target; max=Math.max(max,tgt)*1.03; min=Math.max(0,min*0.92);
+    grid(min,max,x=>fmt(x,1)+'₿');
+    // target line
+    const ty=H-8-(H-24)*((tgt-min)/(max-min));
+    c.setLineDash([4,4]); c.strokeStyle='#ffc247'; c.beginPath();c.moveTo(0,ty);c.lineTo(W,ty);c.stroke();
+    c.setLineDash([]); c.fillStyle='#ffc247'; c.fillText('TARGET '+fmt(tgt,1)+'₿', W-110, ty-4);
+    S.actors.forEach(a=>line(a.nwHist,min,max,a.color,a.id==='you'));
+    meta.innerHTML=`first to <b style="color:var(--gold)">${fmt(tgt,2)} ₿</b> takes it · week ${S.week}/${S.horizonWeeks}`;
+  } else {
+    const h=S.ratioHist, min=Math.min(0.45,...h)*0.97, max=1.05;
+    grid(min,max,x=>x.toFixed(2));
+    // par — the NAV floor. No peg below: the discount floats.
+    const py=H-8-(H-24)*((P.PAR-min)/(max-min));
+    c.setLineDash([3,5]);c.strokeStyle='#ffc247';c.beginPath();c.moveTo(0,py);c.lineTo(W,py);c.stroke();c.setLineDash([]);
+    c.fillStyle='#ffc247'; c.fillText('PAR 1.00 — NAV', W-90, py-4);
+    line(h,min,max,'#ffc247');
+    meta.innerHTML=`vBTC/BTC <b>${ratio().toFixed(3)}</b> · pool ${fmt(S.pool.btc)}₿ / ${fmt(S.pool.vbtc)}v · floats free, <b>par-capped</b>`;
+  }
+}
+
+/* ---------- background FX ---------- */
+const bg={t:0,parts:[]};
+function bgLoop(){
+  const cv=document.getElementById('bgfx'), dpr=window.devicePixelRatio||1;
+  const W=innerWidth,H=innerHeight;
+  if(cv.width!==W*dpr){cv.width=W*dpr;cv.height=H*dpr;}
+  const c=cv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0);
+  c.fillStyle='#04060c'; c.fillRect(0,0,W,H);
+  bg.t+=0.016;
+  const storm=S&&!S.over&&S.regime===1;
+  // perspective grid
+  const horizon=H*0.62, spd=(storm?60:22);
+  c.strokeStyle=storm?'#ff2d7815':'#00e5ff12'; c.lineWidth=1;
+  for(let i=0;i<14;i++){ const z=((bg.t*spd+i*60)%(H-horizon))/(H-horizon);
+    const y=horizon+(H-horizon)*z*z;
+    c.globalAlpha=z; c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke(); }
+  c.globalAlpha=1;
+  for(let i=-10;i<=10;i++){ c.beginPath();c.moveTo(W/2+i*30,horizon);c.lineTo(W/2+i*W/9,H);c.stroke(); }
+  // drifting particles
+  if(bg.parts.length<50) bg.parts.push({x:Math.random()*W,y:Math.random()*H,v:0.2+Math.random()*0.7,s:Math.random()*1.6+0.4});
+  c.fillStyle=storm?'#ff2d7833':'#00e5ff2e';
+  for(const p of bg.parts){ p.y-=p.v*(storm?2.4:1); if(p.y<0){p.y=H;p.x=Math.random()*W;}
+    c.fillRect(p.x,p.y,p.s,p.s); }
+  // storm glitch bars
+  if(storm && Math.random()<0.09){ c.fillStyle='#ff2d780a';
+    c.fillRect(0,Math.random()*H,W,Math.random()*24+4); }
+  requestAnimationFrame(bgLoop);
+}
+
+/* ---------- end game ---------- */
+function verdictOf(me,rank,n){
+  const grew=me.nw/S.cfg.capital-1, medals=Object.keys(me.ach).length;
+  if(rank===1) return `The horizon fell and found you on top — ${(grew*100).toFixed(0)}% up, ${medals} medal${medals===1?'':'s'} deep. The table will pretend this never happened.`;
+  if(grew>0.2) return `#${rank} of ${n}. You beat the protocol (+${(grew*100).toFixed(0)}%) but not the table — someone out-waited you.`;
+  if(grew>0)   return `#${rank} of ${n}. Green, barely. In Zeno, surviving the horizon is a kind of winning. A small kind.`;
+  return `#${rank} of ${n}, down ${(Math.abs(grew)*100).toFixed(0)}%. Time was the antagonist, and it won on points.`;
+}
+function endGame(winner,how){
+  S.over=true; S.winner=winner; clearInterval(loopTimer);
+  const won=winner.id==='you';
+  sfx(won?'win':'lose');
+  document.getElementById('game').classList.add('hidden');
+  const e=document.getElementById('end'); e.classList.remove('hidden');
+  const t=document.getElementById('endTitle');
+  t.textContent=won?'FLAWLESS EXIT':'LIQUIDITY GHOST';
+  t.className=won?'won glitchy':'lost';
+  const board=[...S.actors].sort((a,b)=>scoreOf(b)-scoreOf(a));
+  const me=byId('you'), myRank=board.findIndex(a=>a.id==='you')+1;
+  document.getElementById('endSub').innerHTML= how==='target'
+    ? (won?`You hit <b style="color:var(--gold)">${fmt(S.cfg.capital*S.cfg.target)} ₿</b> in week ${S.week}. The table goes quiet. Somewhere, JITTERS is still crying.`
+         :`<b style="color:${winner.color}">${winner.name}</b> hit the target in week ${S.week}. ${archTaunt(winner)}`)
+    : how==='horizon' ? `The <b>${S.cfg.horizon}-day horizon</b> fell at week ${S.week}. Final score = ₿ × 100 + medal points.<br>${verdictOf(me,myRank,board.length)}`
+    : `You jacked out at week ${S.week}. <b style="color:${winner.color}">${winner.name}</b> ${won?'— that\'s you. Clean getaway.':'was on top when the screen went dark.'}`;
+  const ks=Object.keys(me.ach);
+  document.getElementById('endAch').innerHTML= ks.length
+    ? ks.map(k=>`<span class="achip">${ACH[k].glyph} ${ACH[k].label} +${ACH[k].pts}</span>`).join('')
+    : `<span class="achpts">no medals earned — the protocol noticed</span>`;
+  document.getElementById('endBoard').innerHTML=board.map((a,i)=>`
+    <div class="eb-row">
+      <span style="color:var(--mute2)">${i+1}</span>
+      <span class="dot" style="color:${a.color};background:${a.color}"></span>
+      <span style="color:${a.id==='you'?'var(--cyan)':a.color};text-align:left">${a.name}</span>
+      <span class="tnum" style="font-weight:700">${fmt(a.nw)} ₿</span>
+      <span class="apts tnum">☆${achPts(a)}</span>
+      <span class="pct tnum ${a.nw>=S.cfg.capital?'up':'down'}">${scoreOf(a).toFixed(0)} pts</span>
+    </div>`).join('');
+}
+function archTaunt(a){
+  return {diamond:'Patience was the whole trick.',farmer:'Harvested you all, one stream at a time.',
+    momentum:'The trend was never your friend.',volplayer:'It fed on every storm you feared.',
+    arb:'It just picked up what you all dropped.',panic:'Even the coward cashed out better.',
+    predator:'It ate the sleeping. It always does.',spec:'Pure vibes. Zero vaults. Painful.'}[a.arch]||'';
+}
+
+/* ---------- config screen ---------- */
+const CFG={capital:2, target:1.5, market:'moderate', speed:1, horizon:2500, seed:0,
+  /* 8 bot slots — individually configurable: enabled, name, archetype, brain, model.
+     Default keeps the classic five-rival roster, scripted. */
+  slots:[
+    {on:true,  name:'', arch:'diamond',  brain:'scripted', model:''},
+    {on:true,  name:'', arch:'farmer',   brain:'scripted', model:''},
+    {on:true,  name:'', arch:'momentum', brain:'scripted', model:''},
+    {on:true,  name:'', arch:'panic',    brain:'scripted', model:''},
+    {on:true,  name:'', arch:'predator', brain:'scripted', model:''},
+    {on:false, name:'', arch:'arb',      brain:'hive',     model:''},
+    {on:false, name:'', arch:'volplayer',brain:'hive',     model:''},
+    {on:false, name:'', arch:'spec',     brain:'llm',      model:''},
+  ]};
+function optRow(elId, opts, key, fmtFn){
+  const el=document.getElementById(elId);
+  el.innerHTML=opts.map(o=>`<div class="opt ${CFG[key]===o.v?'sel':''}" data-v="${o.v}">${o.l}${o.s?`<small>${o.s}</small>`:''}</div>`).join('');
+  el.querySelectorAll('.opt').forEach(d=>d.onclick=()=>{CFG[key]= typeof opts[0].v==='number'? +d.dataset.v : d.dataset.v;
+    optRow(elId,opts,key,fmtFn);});
+}
+function renderSlots(){
+  const el=document.getElementById('cfgSlots');
+  const brainVal=b=>b==='selflearn'?'self-learn':b;
+  el.innerHTML=CFG.slots.map((s,i)=>{
+    const a=ARCH[s.arch], needsModel=s.brain==='llm'||s.brain==='selflearn';
+    return `<div class="slot ${s.on?'':'soff'}" style="color:${a.color}">
+      <input type="checkbox" data-i="${i}" data-f="on" ${s.on?'checked':''} title="slot ${i+1} enabled">
+      <input type="text" data-i="${i}" data-f="name" value="${s.name||a.name}" ${s.on?'':'disabled'} title="bot name">
+      <select data-i="${i}" data-f="arch" ${s.on?'':'disabled'} title="${a.desc}">${
+        Object.entries(ARCH).map(([k,x])=>`<option value="${k}" ${k===s.arch?'selected':''}>${x.label}</option>`).join('')}</select>
+      <select data-i="${i}" data-f="brain" ${s.on?'':'disabled'} title="brain mode">${
+        ['scripted','hive','llm','self-learn'].map(b=>`<option ${b===brainVal(s.brain)?'selected':''}>${b}</option>`).join('')}</select>
+      <input type="text" data-i="${i}" data-f="model" list="orModels" placeholder="${LLM.DEFAULT_MODEL}"
+        value="${s.model}" ${s.on&&needsModel?'':'disabled'} title="OpenRouter model">
+      <input type="checkbox" data-i="${i}" data-f="chain" ${s.chain?'checked':''} ${s.on?'':'disabled'}
+        style="accent-color:var(--grn)" title="⛓ on-chain bot — gets an Anvil dev account in CHAIN MODE">
+    </div>`;}).join('');
+  el.querySelectorAll('[data-f]').forEach(inp=>{
+    inp.onchange=()=>{ const s=CFG.slots[+inp.dataset.i], f=inp.dataset.f;
+      if(f==='on') s.on=inp.checked;
+      else if(f==='chain') s.chain=inp.checked;
+      else if(f==='brain') s.brain=inp.value==='self-learn'?'selflearn':inp.value;
+      else if(f==='arch'){ s.arch=inp.value; s.name=''; }   // new mind, default name
+      else s[f]=inp.value;
+      renderSlots(); };
+    if(inp.dataset.f==='name') inp.oninput=()=>{ CFG.slots[+inp.dataset.i].name=inp.value; };
+  });
+}
+function buildConfig(){
+  optRow('cfgCapital',[{v:1,l:'1 ₿',s:'lean'},{v:2,l:'2 ₿',s:'standard'},{v:5,l:'5 ₿',s:'whale'}],'capital');
+  optRow('cfgTarget',[{v:1.25,l:'+25%',s:'sprint'},{v:1.5,l:'+50%',s:'standard'},{v:2,l:'2×',s:'marathon'},{v:3,l:'3×',s:'legend'}],'target');
+  optRow('cfgMarket',Object.entries(MARKETS).map(([k,m])=>({v:k,l:m.label,s:m.desc})),'market');
+  optRow('cfgSpeed',[{v:0.5,l:'DRIFT',s:'2s / week'},{v:1,l:'FLOW',s:'1s / week'},{v:2,l:'RUSH',s:'0.5s / week'},{v:4,l:'BLUR',s:'0.25s / week'}],'speed');
+  optRow('cfgHorizon',HORIZONS.map(h=>({v:h.v,l:h.l,s:h.s})),'horizon');
+  renderSlots();
+  const k=document.getElementById('cfgOrKey');
+  k.value=LLM.key();
+  k.onchange=()=>{ try{localStorage.setItem('zeno_or_key',k.value.trim())}catch(e){} };
+  buildChainCfg();
+  if(!document.getElementById('cfgSeed').value)
+    document.getElementById('cfgSeed').value=String(Math.floor(Math.random()*99999));
+}
+/* ---------- CHAIN LINK config panel ---------- */
+function readChainCfg(){
+  const g=id=>document.getElementById(id).value.trim();
+  Object.assign(CHAIN.cfg,{enabled:document.getElementById('chOn').checked,
+    rpc:g('chRpc')||'http://127.0.0.1:8545',
+    vault:g('chVault'),wbtc:g('chWbtc'),treasure:g('chTreasure'),btcToken:g('chBtcToken')});
+  CHAIN.save();
+}
+function buildChainCfg(){
+  CHAIN.load();
+  const c=CHAIN.cfg, $=id=>document.getElementById(id);
+  $('chOn').checked=!!c.enabled; $('chRpc').value=c.rpc;
+  $('chVault').value=c.vault; $('chWbtc').value=c.wbtc;
+  $('chTreasure').value=c.treasure; $('chBtcToken').value=c.btcToken;
+  ['chOn','chRpc','chVault','chWbtc','chTreasure','chBtcToken'].forEach(id=>$(id).onchange=readChainCfg);
+  $('chProbe').onclick=async function(){
+    this.disabled=true; const st=$('chStatus');
+    try{
+      readChainCfg();
+      st.textContent='probing…';
+      await chainConnect();
+      const p=await chainProbe();
+      st.innerHTML=`chainId 31337 ✓ · block #${CHAIN.block} · player ${CHAIN.player.slice(0,10)}… (${CHAIN.injected?'injected wallet':'anvil dev key #0 — LOCAL DEV ONLY'})<br>`+
+        `VaultNFT ${p.vault?'✓':'✗'} · WBTC ${p.wbtc?'✓':'✗'}${p.vault&&!p.wbtcMatchesVault?' <b style="color:var(--red)">≠ vault.collateralToken()</b>':''} · Treasure ${p.treasure?'✓':'✗'} · BtcToken ${p.btcToken?'✓':'✗'}`;
+    }catch(e){ st.textContent='⛓ '+String(e&&e.message||e); }
+    this.disabled=false;
+  };
+  $('chFund').onclick=async function(){
+    this.disabled=true; const st=$('chStatus');
+    try{
+      readChainCfg();
+      if(!CHAIN.pub||!CHAIN.player) await chainConnect();
+      const accs=chainAccounts(), plan=fundingPlan(accs);
+      for(let i=0;i<plan.length;i++){ const p=plan[i];
+        st.textContent=`funding ${i+1}/${plan.length} — ${p.desc}`;
+        await sendTxRaw(p.from,p.to,p.data,p.value);
+      }
+      st.innerHTML=`funded ✓ ${accs.map(a=>`<b>${a.id}</b> ${a.addr.slice(0,8)}…`).join(' · ')} — 100 WBTC + 10 treasures + vault approvals each`;
+    }catch(e){ st.textContent='⛓ funding failed: '+String(e&&e.message||e); }
+    this.disabled=false;
+  };
+}
+document.getElementById('cfgReseed').onclick=()=>{document.getElementById('cfgSeed').value=String(Math.floor(Math.random()*99999));};
+
+/* ---------- wiring ---------- */
+function renderSpeed(){
+  document.getElementById('speedCtl').innerHTML=
+    [[0,'❚❚'],[0.5,'½×'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>
+      `<button class="${(ui.paused?0:ui.speed)===v?'on':''}" onclick="setSpeed(${v})">${l}</button>`).join('');
+}
+window.setSpeed=setSpeed;
+document.getElementById('bootBtn').onclick=()=>{
+  document.getElementById('boot').classList.add('hidden');
+  document.getElementById('config').classList.remove('hidden');
+  buildConfig();};
+document.getElementById('jackIn').onclick=async function(){
+  const slots=CFG.slots.filter(s=>s.on);
+  if(!slots.length){ alert('Enable at least one rival slot.'); return; }
+  CFG.seed=parseInt(document.getElementById('cfgSeed').value)||1;
+  const rivals=slots.map(s=>({arch:s.arch, name:s.name||undefined, brain:s.brain, model:s.model}));
+  CHAIN.on=false;
+  if(document.getElementById('chOn').checked){
+    this.disabled=true; readChainCfg();
+    try{ await chainConnect(); CHAIN.on=true;
+      CHAIN.acct={}; for(const a of chainAccounts()) CHAIN.acct[a.id]=a;
+    }catch(e){ toast('⛓ '+String(e&&e.message||e),'warn'); this.disabled=false; return; }
+    this.disabled=false;
+  }
+  S=newSession({...CFG, rivals});
+  if(CHAIN.on) feed(`⛓ CHAIN MODE — mirroring to VaultNFT ${CHAIN.cfg.vault.slice(0,10)}… on chainId ${CHAIN.chainId} (local dev chain) · player ${CHAIN.player.slice(0,10)}… · on-chain bots: ${Object.keys(CHAIN.acct).filter(k=>k!=='you').join(', ')||'none'}`,'hot');
+  document.getElementById('config').classList.add('hidden');
+  document.getElementById('game').classList.remove('hidden');
+  document.getElementById('feed').innerHTML='';
+  feed(`session live · seed ${CFG.seed} · ${MARKETS[CFG.market].label} · horizon <b>${CFG.horizon} days</b> · first to ${fmt(CFG.capital*CFG.target)} ₿ or highest score at the wall`,'hot');
+  feed(`the table: ${S.actors.filter(a=>a.arch).map(a=>`<b style="color:${a.color}">${a.name}</b>${a.brain!=='scripted'?` <span style="color:var(--mute2)">[${a.brain}]</span>`:''}`).join(' · ')}`);
+  sfx('vest');
+  setSpeed(CFG.speed); render();};
+document.getElementById('hiveBtn').onclick=function(){
+  if(!S||S.over) return;
+  S.hiveOn=!S.hiveOn;
+  this.classList.toggle('on',S.hiveOn);
+  feed(`HIVE MEMORY ${S.hiveOn?'<b style="color:var(--vio)">ONLINE</b> — hive minds learn, imitate, evolve':'OFFLINE — traits frozen mid-thought'}`,'hot');
+};
+document.getElementById('jackOut').onclick=()=>{
+  modal('JACK OUT?','<div>The race ends the instant you unplug. Whoever leads the board takes the session.</div>',
+    [['UNPLUG','danger',()=>{closeModal(); endGame(leader(),'quit');}],['STAY','',closeModal]]);};
+document.getElementById('againBtn').onclick=()=>{
+  document.getElementById('end').classList.add('hidden');
+  document.getElementById('config').classList.remove('hidden');
+  document.getElementById('cfgSeed').value=String(Math.floor(Math.random()*99999));
+  buildConfig();};
+document.getElementById('mintBtn').onclick=()=>window.uiMint();
+document.getElementById('muteBtn').onclick=function(){ui.muted=!ui.muted;this.style.opacity=ui.muted?0.35:1;};
+document.querySelectorAll('.charttabs [data-tab]').forEach(b=>b.onclick=()=>{
+  ui.tab=b.dataset.tab;
+  document.querySelectorAll('.charttabs [data-tab]').forEach(x=>x.classList.toggle('on',x===b));
+  drawChart();});
+document.getElementById('opsTabs').querySelectorAll('[data-ops]').forEach(b=>b.onclick=()=>{
+  ui.ops=b.dataset.ops;
+  document.querySelectorAll('#opsTabs [data-ops]').forEach(x=>x.classList.toggle('on',x===b));
+  renderOps();});
+window.addEventListener('resize',()=>{if(S&&!S.over)drawChart();});
+document.addEventListener('keydown',e=>{
+  if(!S||S.over) return;
+  if(e.key===' '){e.preventDefault(); setSpeed(ui.paused?1:0);}
+  if(e.key==='1')setSpeed(1); if(e.key==='2')setSpeed(2); if(e.key==='4')setSpeed(4);
+});
+
+/* boot sequence */
+const bootLines=['loading protocol constants… OK','vesting curve: 1129 days · withdrawal: 1% of active /30d… OK',
+  'strip engine armed · vested vaults only · reserve == vBTC supply · par = NAV floor… OK',
+  'treasure tiers · achievement minter · hive memory · LLM uplink… OK','waking the rivals…','they remember you.'];
+let bl=0;
+const bootIv=setInterval(()=>{
+  document.getElementById('bootLog').innerHTML=bootLines.slice(0,++bl).join('<br>');
+  if(bl>=bootLines.length){clearInterval(bootIv);
+    document.getElementById('bootBtn').classList.remove('hidden');
+    document.getElementById('tutBtn').classList.remove('hidden');}},420);
+bgLoop();
+
+/* ---------- test output helper ---------- */
+function testReport(tag,fails,passMsg){
+  document.title=fails.length?`${tag} FAIL ${fails.length}`:`${tag} PASS`;
+  document.body.insertAdjacentHTML('beforeend',
+    `<pre id="testout" style="position:fixed;inset:auto 0 0 0;z-index:99;background:#000;color:${fails.length?'#ff4d5e':'#3dff9c'};padding:10px;max-height:40vh;overflow:auto">`+
+    (fails.length? `${tag} FAIL\n`+fails.slice(0,30).join('\n') : passMsg)+'</pre>');
+}
+
+/* ---------- headless self-test (?test=1) — LLM disabled ---------- */
+if(location.search.includes('test=1')){
+  window.addEventListener('load',()=>{
+    const fails=[];
+    const ok=(cond,msg)=>{if(!cond)fails.push(msg);};
+
+    /* --- session horizons: each limit MUST terminate the session with a score --- */
+    for(const hz of [1129,2500,5000]){
+      S=newSession({capital:2,target:9999,market:'moderate',speed:1,horizon:hz,
+        rivals:['diamond','farmer','panic'],seed:9});
+      let g=0; while(!S.over && g++<hz/7+80) tick();
+      ok(S.over && S.day>=hz, `horizon ${hz}: session did not terminate (day ${S.day}, over ${S.over})`);
+      ok(!!S.winner, `horizon ${hz}: no final-scoring winner`);
+    }
+
+    /* --- main invariant run (staggered 8-bot table, default 2500d horizon) --- */
+    S=newSession({capital:2,target:99,market:'moderate',speed:1,rivals:Object.keys(ARCH),seed:42});
+    const me=byId('you');
+    const v0=mintVault(me,1.0);
+    /* strip is vesting-gated (VaultNFT.strip → StillVesting) */
+    ok(doStrip(v0,0.5)===0 && v0.reserve===0, 'pre-vesting strip was not rejected');
+    const AMBIENT_VBTC=S.pool.vbtc;    // street paper minted by off-screen strippers
+    let totalIn=S.actors.reduce((s,a)=>s+a.btc,0)+S.totalActive;
+    for(let w=0;w<480;w++){
+      tick();
+      if(w===2) ok(S.actors.some(a=>a.arch&&a.vaultTarget>0&&!a.everMinted),
+        'staggered entry broken — every bot had minted by week 2');
+      if(S.over)break;
+      const vs=actorVaults(me);
+      for(const v of vs){
+        if(withdrawReady(v)) doWithdraw(v);
+        if(pendingMatch(v)>0.01) settleMatch(v);
+        if(vested(v)&&v.reserve<=1e-9&&w%50===0&&w>0) doStrip(v, v.collateral*0.5);  // vested only
+        if(v.reserve>1e-9&&w%70===0&&me.vbtc>0) doRecombine(v);
+        if(v.pokeDay!==null) doProveActivity(v);
+      }
+      if(w%17===0&&me.btc>0.1) doSwap(me,'buy',0.05);
+      if(w%23===0&&me.vbtc>0.05) doSwap(me,'sell',0.05);
+      const r=ratio();
+      ok(r<=P.PAR+1e-6,`w${w}: ratio ${r} above par — NAV ceiling broken`);
+      ok(S.matchPool>=-1e-9,`w${w}: matchPool negative`);
+      ok(S.totalActive>=-1e-6,`w${w}: totalActive negative`);
+      for(const a of S.actors){ ok(isFinite(a.nw)&&a.nw>=-1e-6,`w${w}: ${a.name} nw bad ${a.nw}`);
+        ok(a.btc>=-1e-9,`w${w}: ${a.name} btc negative`); ok(a.vbtc>=-1e-9,`w${w}: ${a.name} vbtc negative`); }
+      // tier thresholds must be monotone (50th ≤ 75th ≤ 90th ≤ 99th percentile)
+      if(S.tierTh) ok(S.tierTh.silver<=S.tierTh.gold && S.tierTh.gold<=S.tierTh.platinum
+        && S.tierTh.platinum<=S.tierTh.diamond, `w${w}: tier thresholds not monotone`);
+      // invariant: total stripped reserve == in-game vBTC supply (par is the NAV floor)
+      const reserveSum=S.vaults.reduce((s,v)=>s+v.reserve,0);
+      const supply=S.actors.reduce((s,a)=>s+a.vbtc,0)+S.pool.vbtc-AMBIENT_VBTC;
+      ok(Math.abs(reserveSum-supply)<1e-6,`w${w}: reserve ${reserveSum} != vBTC supply ${supply}`);
+      // conservation: BTC only moves between actors, active collateral, reserves, unsettled match, AMM
+      const pendingSum=S.vaults.reduce((s,v)=>s+pendingMatch(v),0);
+      const nowTotal=S.actors.reduce((s,a)=>s+a.btc,0)+S.totalActive+reserveSum+pendingSum+(S.pool.btc-6);
+      ok(Math.abs(nowTotal-totalIn)<1e-6,`w${w}: BTC not conserved (${nowTotal} vs ${totalIn})`);
+    }
+    ok(S.week>100,'sim died early');
+    ok(S.over && S.day>=S.cfg.horizon, 'main run did not terminate at its horizon');
+    // achievements fire for the patient player (vault held the whole session)
+    ok(!!me.ach.MINTER,'MINTER achievement did not fire');
+    ok(!!me.ach.FIRST_MONTH&&!!me.ach.ANNUAL&&!!me.ach.DIAMOND_HANDS,'duration achievements did not fire');
+    ok(!!me.ach.MATURED,'MATURED did not fire despite a vested vault');
+    ok(!!me.ach.HODLER_SUPREME,'HODLER_SUPREME composite did not fire');
+    ok(achPts(me)>=ACH.MINTER.pts+ACH.MATURED.pts,'achievement points not accumulating');
+    testReport('SELFTEST',fails,
+      `SELFTEST PASS · ${S.week} weeks · ratio ${ratio().toFixed(3)} · matchPool ${S.matchPool.toFixed(4)} · leader ${leader().name} ${leader().nw.toFixed(3)}₿ · you ☆${achPts(me)}`);
+  });
+}
+
+/* ---------- LLM plumbing self-test (?test=llm) — NO network: mocked fetch ---------- */
+if(location.search.includes('test=llm')){
+  window.addEventListener('load',async()=>{
+    const fails=[];
+    const ok=(cond,msg)=>{if(!cond)fails.push(msg);};
+    const reqs=[];
+    // canned decision queues per bot: happy path, illegal action, garbage, http error, recovery
+    const q={
+      'LLM-1':[
+        {action:'mint',amount:0.5,reason:'seed a vault early'},
+        {action:'strip',vaultId:4242,amount:1,reason:'illegal — must collapse to pass'},
+        'this is not json at all {',
+        '__HTTP500__',
+        {action:'buyVBTC',amount:0.2,reason:'discount looks deep'},
+      ],
+      'SL-1':[ {action:'buyVBTC',amount:0.1,reason:'exploring'}, {action:'pass'} ],
+    };
+    LLM.fetchFn=(url,opts)=>{
+      const body=JSON.parse(opts.body); reqs.push(body);
+      const sys=body.messages[0].content;
+      const m=/You are ([A-Z0-9-]+)|Agent id: ([A-Z0-9-]+)/.exec(sys)||[];
+      const who=m[1]||m[2];
+      const next=(q[who]&&q[who].length)? q[who].shift() : {action:'pass'};
+      if(next==='__HTTP500__') return Promise.resolve({ok:false,status:500,json:()=>Promise.resolve({})});
+      const content=typeof next==='string'? next : JSON.stringify(next);
+      return Promise.resolve({ok:true,json:()=>Promise.resolve({choices:[{message:{content}}]})});
+    };
+    S=newSession({capital:2,target:9999,market:'moderate',speed:1,seed:5,stagger:false,horizon:2500,
+      rivals:[{arch:'momentum',name:'LLM-1',brain:'llm',model:'anthropic/claude-haiku-4.5'},
+              {arch:'spec',name:'SL-1',brain:'selflearn',model:'openrouter/auto'}]});
+    const bot=byId('b0'), sl=byId('b1');
+    const step=async()=>{ tick(); for(let i=0;i<6;i++) await Promise.resolve(); };
+
+    await step();   // w1: no decision yet → scripted fallback covered the tick, requests fired
+    ok(bot.llm.stats.fallback>=1,'scripted fallback did not cover the pre-decision tick');
+    ok(reqs.length>=2,'LLM requests not fired for both bots on week 1');
+    const r0=reqs.find(r=>/You are LLM-1/.test(r.messages[0].content));
+    ok(!!r0,'llm-mode system prompt missing persona header');
+    if(r0){
+      ok(/1129/.test(r0.messages[0].content)&&/Momentum/i.test(r0.messages[0].content),'llm system prompt missing rules or persona');
+      ok(r0.response_format&&r0.response_format.type==='json_object','response_format json_object not requested');
+      ok(r0.model==='anthropic/claude-haiku-4.5','per-bot model string not sent');
+      let u0=null; try{u0=JSON.parse(r0.messages[1].content)}catch(e){}
+      ok(u0&&u0.you&&typeof u0.you.btc==='number'&&Array.isArray(u0.legal),'observation JSON malformed or missing legal actions');
+    }
+    const rs=reqs.find(r=>/Agent id: SL-1/.test(r.messages[0].content));
+    ok(!!rs,'self-learn request missing');
+    if(rs){
+      ok(!/1129|withdraw takes|match pool|NAV floor/i.test(rs.messages[0].content),'self-learn system prompt leaks game rules/strategy');
+      ok(/"action"/.test(rs.messages[0].content),'self-learn system prompt missing the action API');
+      ok(/"history"/.test(rs.messages[1].content),'self-learn observation missing action→outcome history');
+    }
+    const vaultsBefore=actorVaults(bot).length;
+    await step();   // w2: canned mint decision applies
+    ok(actorVaults(bot).length===vaultsBefore+1,'LLM mint decision was not applied');
+    ok(bot.llm.stats.ok>=1,'decision apply did not register');
+    await step();   // w3: illegal strip (bogus vaultId) → validated down to pass, no throw
+    ok(actorVaults(bot).every(v=>v.reserve<=1e-9),'illegal strip executed instead of collapsing to pass');
+    await step();   // w4: unparseable response → error status, scripted fallback next tick
+    await step();   // w5: http 500 → error again
+    ok(bot.llm.stats.err>=2,'error paths (unparseable + http) did not both register');
+    await step();   // w6: recovery decision lands
+    await step();   // w7: recovery decision applies
+    ok(bot.llm.stats.ok>=2,'recovery after errors did not apply a later decision');
+    ok(sl.llm.hist.length>=1,'self-learn history not recording actions');
+    // throttle: at most one request per bot per game-week
+    const nA=reqs.filter(r=>/You are LLM-1/.test(r.messages[0].content)).length;
+    const nB=reqs.filter(r=>/Agent id: SL-1/.test(r.messages[0].content)).length;
+    ok(nA<=S.week&&nB<=S.week,`throttle violated (${nA}/${nB} reqs in ${S.week} weeks)`);
+    testReport('LLM SELFTEST',fails,
+      `LLM SELFTEST PASS · ${reqs.length} mocked calls · ok ${bot.llm.stats.ok} · err ${bot.llm.stats.err} · fallback ${bot.llm.stats.fallback} · zero network`);
+  });
+}
+
+/* ---------- CHAIN MODE self-test (?test=chain) — NO network: fake viem + mocked RPC ---------- */
+if(location.search.includes('test=chain')){
+  window.addEventListener('load',async()=>{
+    const fails=[];
+    const ok=(cond,msg)=>{if(!cond)fails.push(msg);};
+    // hard network guard — any real fetch is a failure
+    let fetches=0; const realFetch=window.fetch;
+    window.fetch=()=>{fetches++; return Promise.reject(new Error('network blocked in test'));};
+    const V='0x'+'aa'.repeat(20), W='0x'+'bb'.repeat(20), T='0x'+'cc'.repeat(20), B='0x'+'dd'.repeat(20);
+    const calls=[]; let mockChainId=1;
+    const st={coll:toSat(1.0),reserve:0n,ts:1700000000n};
+    const mockRpc=async(method,params)=>{
+      calls.push({method,params});
+      switch(method){
+        case 'eth_chainId': return '0x'+mockChainId.toString(16);
+        case 'eth_getBlockByNumber': return {timestamp:'0x'+Number(st.ts).toString(16),number:'0x10'};
+        case 'eth_call':{
+          const {to,data}=params[0], sel=data.slice(0,10);
+          if(sel===FN.collToken) return '0x'+word(W);
+          if(sel===FN.decimals) return '0x'+word(8n);
+          if(sel===FN.balanceOf) return '0x'+word(0n);
+          if(sel===FN.tokenOfOwner) return '0x'+word(7n);
+          if(sel===FN.vaultInfo) return '0x'+[T,5n,W,st.coll,st.reserve,st.ts,st.ts,st.ts].map(word).join('');
+          if(sel===FN.pendMatch) return '0x'+word(0n);
+          return '0x'+word(0n); }
+        case 'eth_sendTransaction': return '0x'+'12'.repeat(32);
+        case 'eth_getTransactionReceipt': return {status:'0x1',blockNumber:'0x11',
+          logs:[{address:V,topics:[EV_VAULT_MINTED,'0x'+word(3n),'0x'+word(ANVIL[0])]}]};
+        case 'evm_increaseTime': case 'evm_mine': return null;
+        case 'eth_blockNumber': return '0x12';
+      }
+      return null;
+    };
+    CHAIN._importViem=async()=>({http:u=>u,
+      createPublicClient:()=>({request:({method,params})=>mockRpc(method,params)})});
+    Object.assign(CHAIN.cfg,{enabled:true,rpc:'http://mock',vault:V,wbtc:W,treasure:T,btcToken:B});
+
+    // 1. chainId guard — a real chain (1) must be refused
+    let rejected=null;
+    try{ await chainConnect(); }catch(e){ rejected=String(e.message); }
+    ok(rejected&&/31337/.test(rejected),'chainId guard did not refuse chainId 1');
+    // 2. connection flow on 31337
+    mockChainId=31337;
+    await chainConnect();
+    ok(CHAIN.chainId===31337,'chainId not recorded');
+    ok(CHAIN.player===ANVIL[0],'player not assigned anvil dev account #0');
+    ok(CHAIN.t0===1700000000,'t0 not read from latest block');
+    // 3. probe validates every address by its expected view
+    const p=await chainProbe();
+    ok(p.vault&&p.wbtc&&p.btcToken&&p.treasure&&p.wbtcMatchesVault,'probe failed: '+JSON.stringify(p));
+    // 4. action→calldata encoding — expected vectors generated with `cast calldata`
+    ok(enc(FN.mint4,'0x1111111111111111111111111111111111111111',7n,
+           '0x2222222222222222222222222222222222222222',toSat(1.5))===
+      '0x3c173a4f0000000000000000000000001111111111111111111111111111111111111111000000000000000000000000000000000000000000000000000000000000000700000000000000000000000022222222222222222222222222222222222222220000000000000000000000000000000000000000000000000000000008f0d180',
+      'mint calldata mismatch vs cast vector');
+    ok(enc(FN.strip,1n,toSat(0.5))===
+      '0x8436180100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000002faf080',
+      'strip calldata mismatch vs cast vector');
+    ok(enc(FN.recombine,1n,toSat(0.25))===
+      '0x0e1d6b66000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000017d7840',
+      'recombine calldata mismatch vs cast vector');
+    // 5. funding plan — player + two ⛓ bots, 5 ordered steps each
+    CFG.slots.forEach(s=>{s.chain=false;});
+    CFG.slots[0].chain=true; CFG.slots[1].chain=true;   // both enabled by default
+    const accs=chainAccounts();
+    ok(accs.length===3&&accs[0].id==='you'&&accs[1].id==='b0'&&accs[1].addr===ANVIL[1]
+      &&accs[2].id==='b1'&&accs[2].addr===ANVIL[2],'chain accounts not player + anvil 1..2: '+JSON.stringify(accs));
+    const plan=fundingPlan(accs);
+    ok(plan.length===15,'funding plan not 3 accounts × 5 steps');
+    ok(plan[0].to===W&&plan[0].from===ANVIL[0]&&plan[0].data.startsWith(FN.mint2)
+      &&plan[0].data.includes((100n*BigInt(SAT)).toString(16)),'WBTC mint step wrong');
+    ok(plan[1].to===T&&plan[1].data.startsWith(FN.mintBatch)&&plan[1].data.endsWith(word(10n)),'treasure mintBatch step wrong');
+    ok(plan[2].to===accs[0].addr&&plan[2].value==='0xde0b6b3a7640000','1 ETH gas step wrong');
+    ok(plan[3].from===accs[0].addr&&plan[3].data===enc(FN.approve,V,MAXU),'WBTC approve step wrong');
+    ok(plan[4].from===accs[0].addr&&plan[4].data===enc(FN.setApprAll,V,true),'setApprovalForAll step wrong');
+    ok(plan[8].from===ANVIL[1]&&plan[8].data.startsWith(FN.approve),'bot approvals not signed by the bot account');
+    // 6. custom error decode mapping
+    ok(decodeErr('0xa4395c9e'+word(5n))==='StillVesting(5)','StillVesting decode');
+    ok(decodeErr('0x7b335f8b'+word(1n)+word(2n))==='StripOutstanding(1,2)','StripOutstanding decode');
+    ok(decodeErr('0x76d7c646'+word(3n)+word(0n))==='InsufficientBtcToken(3,0)','InsufficientBtcToken decode');
+    ok(decodeErr('0x4118819e'+word(1n)+word(9n))==='WithdrawalTooSoon(1,9)','WithdrawalTooSoon decode');
+    ok(decodeErr('0xdeadbeef'+word(0n)).startsWith('reverted'),'unknown selector not tolerated');
+    // 7. action bridge — local mint mirrors as a real tx, tokenId parsed, state synced
+    CHAIN.on=true; CHAIN.acct={you:{addr:CHAIN.player}};
+    S=newSession({capital:2,target:9999,market:'moderate',speed:1,horizon:2500,rivals:['diamond'],seed:3});
+    const me=byId('you'), v=mintVault(me,1.0);
+    await CHAIN.q;
+    ok(v.chain===3,'VaultMinted tokenId not parsed from receipt log (got '+v.chain+')');
+    const mtx=calls.find(c=>c.method==='eth_sendTransaction'&&c.params[0].data&&c.params[0].data.startsWith(FN.mint4));
+    ok(!!mtx,'mint tx never sent');
+    ok(mtx&&mtx.params[0].data.includes(word(toSat(1.0)))&&mtx.params[0].data.includes(word(7n)),
+      'mint calldata missing sat amount or probed treasure id');
+    ok(mtx&&mtx.params[0].from===ANVIL[0],'mint not sent from the player account');
+    ok(Math.abs(v.collateral-1.0)<1e-9&&v.mintDay===0,'syncVault did not mirror chain vault state');
+    // 8. weekly tick advances chain time
+    tick(); await CHAIN.q;
+    const it=calls.find(c=>c.method==='evm_increaseTime');
+    ok(!!it&&it.params[0]===P.TICK_DAYS*86400,'weekly evm_increaseTime(7d) not sent');
+    ok(calls.some(c=>c.method==='evm_mine'),'evm_mine not sent');
+    ok(fetches===0,'REAL NETWORK ATTEMPTED — test must be fully mocked');
+    window.fetch=realFetch; CHAIN.on=false;
+    testReport('CHAIN SELFTEST',fails,
+      `CHAIN SELFTEST PASS · ${calls.length} mocked rpc calls · guard ✓ probe ✓ plan ✓ calldata ✓ errors ✓ mirror ✓ · zero network`);
+  });
+}
+</script>
+<script src="tutorial.js"></script>
+</body>
+</html>
