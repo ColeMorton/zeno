@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "description": "BTCNFT Protocol Simulation Invariant Bounds",
+  "invariants": [
+    {
+      "id": "vbtc_ratio_bounds",
+      "label": "vBTC Ratio",
+      "type": "range",
+      "min": 0.0,
+      "max": 1.05,
+      "warn_min": 0.1,
+      "warn_max": 1.0,
+      "severity": "warning",
+      "unit": "ratio",
+      "column": "vbtcRatio",
+      "scale": 1e18,
+      "enabled": true
+    },
+    {
+      "id": "failure_rate_warning",
+      "label": "Action Failure Rate",
+      "type": "threshold_high",
+      "warn_threshold": 20,
+      "critical_threshold": 40,
+      "severity": "warning",
+      "unit": "percent",
+      "source": "actions",
+      "window_ticks": 10,
+      "enabled": true
+    },
+    {
+      "id": "failure_rate_critical",
+      "label": "Action Failure Rate (Critical)",
+      "type": "threshold_high",
+      "critical_threshold": 40,
+      "severity": "critical",
+      "unit": "percent",
+      "source": "actions",
+      "window_ticks": 10,
+      "enabled": true
+    },
+    {
+      "id": "perp_vault_solvent",
+      "label": "Perp Vault Solvency",
+      "type": "solvency",
+      "balance_column": "perpVaultBalance",
+      "liability_column": "perpTotalCollateral",
+      "multiplier": 2,
+      "severity": "critical",
+      "unit": "sats",
+      "enabled": true
+    },
+    {
+      "id": "match_pool_tvl",
+      "label": "Match Pool ≤ TVL",
+      "type": "max_ratio",
+      "numerator_column": "matchPool",
+      "denominator_column": "tvl",
+      "max_ratio": 1.0,
+      "severity": "critical",
+      "unit": "ratio",
+      "enabled": true
+    },
+    {
+      "id": "vol_pool_solvent",
+      "label": "Vol Pool Solvency",
+      "type": "solvency",
+      "balance_column": "volPoolBalance",
+      "liability_column": "volPoolAssets",
+      "multiplier": 1,
+      "severity": "critical",
+      "unit": "sats",
+      "enabled": true
+    }
+  ]
+}
