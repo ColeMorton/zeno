@@ -41,3 +41,13 @@ assets/diamond_hands_matrix
 
 # Solidity workspace (benchmarking/evaluation output)
 solidity-workspace/
+# TypeScript incremental build state
+*.tsbuildinfo
+
+# Simulation run outputs (generated per-seed reports and archives)
+contracts/simulation/reports_sim_*/
+contracts/simulation/sim_results/
+contracts/simulation/reports/
+
+# Graphify knowledge-graph output (generated)
+graphify-out/
