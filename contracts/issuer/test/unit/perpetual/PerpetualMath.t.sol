@@ -42,36 +42,38 @@ contract PerpetualMathTest is Test {
         int256 rate = PerpetualMath.calculateFundingRate(60e8, 40e8);
         // K × (60 - 40) / (60 + 40) = 5000 × 20 / 100 = 1000 BPS
         assertTrue(rate > 0);
-        // Expected: 5000 × 0.2 = 1000 BPS but capped at 100
-        assertEq(rate, 100); // Capped at MAX_FUNDING_RATE_BPS
+        // Expected: 5000 × 0.2 = 1000 BPS (unclamped formula)
+        assertEq(rate, 1000);
     }
 
     function test_FundingRate_MoreShorts_ReturnsNegative() public pure {
         // 40% longs, 60% shorts = negative funding (shorts pay longs)
         int256 rate = PerpetualMath.calculateFundingRate(40e8, 60e8);
         assertTrue(rate < 0);
-        assertEq(rate, -100); // Capped at -MAX_FUNDING_RATE_BPS
+        // K × (40 - 60) / (40 + 60) = 5000 × -20 / 100 = -1000 BPS
+        assertEq(rate, -1000);
     }
 
     function test_FundingRate_SmallImbalance() public pure {
         // 55% longs, 45% shorts
         int256 rate = PerpetualMath.calculateFundingRate(55e8, 45e8);
-        // K × (55 - 45) / (55 + 45) = 5000 × 10 / 100 = 500 BPS
-        // But capped at 100
+        // K × (55 - 45) / (55 + 45) = 5000 × 10 / 100 = 500 BPS (unclamped)
         assertTrue(rate > 0);
+        assertEq(rate, 500);
     }
 
     function test_FundingRate_OnlyLongs_MaxPositive() public pure {
         // 100% longs, 0% shorts
         int256 rate = PerpetualMath.calculateFundingRate(100e8, 0);
-        // K × (100 - 0) / (100 + 0) = 5000 BPS, capped at 100
-        assertEq(rate, 100);
+        // K × (100 - 0) / (100 + 0) = 5000 × 1 = 5000 BPS (fully one-sided, naturally bounded)
+        assertEq(rate, 5000);
     }
 
     function test_FundingRate_OnlyShorts_MaxNegative() public pure {
         // 0% longs, 100% shorts
         int256 rate = PerpetualMath.calculateFundingRate(0, 100e8);
-        assertEq(rate, -100);
+        // K × (0 - 100) / (0 + 100) = 5000 × -1 = -5000 BPS
+        assertEq(rate, -5000);
     }
 
     function test_FundingRate_ZeroOI_ReturnsZero() public pure {
@@ -325,7 +327,7 @@ contract PerpetualMathTest is Test {
         assertGe(payout, minPayout);
     }
 
-    function testFuzz_FundingRate_AlwaysCapped(
+    function testFuzz_FundingRate_NaturallyBounded(
         uint256 longOI,
         uint256 shortOI
     ) public pure {
@@ -334,9 +336,10 @@ contract PerpetualMathTest is Test {
 
         int256 rate = PerpetualMath.calculateFundingRate(longOI, shortOI);
 
-        // Always within [-100, 100] BPS
-        assertLe(rate, 100);
-        assertGe(rate, -100);
+        // Naturally bounded by ±FUNDING_SENSITIVITY_BPS (5000 BPS)
+        // since |longOI - shortOI| <= totalOI
+        assertLe(rate, 5000);
+        assertGe(rate, -5000);
     }
 
     function testFuzz_DirectionPnL_ZeroSum(

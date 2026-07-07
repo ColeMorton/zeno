@@ -37,12 +37,6 @@ contract PerpetualVault is IPerpetualVault, ReentrancyGuard {
     /// @dev Funding accrual interval: 1 hour
     uint256 public constant FUNDING_INTERVAL = 1 hours;
 
-    /// @dev Minimum price ratio: 0.50 vBTC/wBTC
-    uint256 public constant MIN_PRICE = 5e17;
-
-    /// @dev Maximum price ratio: 1.00 vBTC/wBTC
-    uint256 public constant MAX_PRICE = 1e18;
-
     /*//////////////////////////////////////////////////////////////
                             IMMUTABLE STATE
     //////////////////////////////////////////////////////////////*/
@@ -342,8 +336,9 @@ contract PerpetualVault is IPerpetualVault, ReentrancyGuard {
     function getCurrentPrice() public view override returns (uint256 price) {
         price = ICurveCryptoSwap(curvePool).price_oracle();
 
-        // Fail-fast bounds check
-        if (price < MIN_PRICE || price > MAX_PRICE) {
+        // Fail-fast on a broken oracle only; vBTC is a floating principal strip and may
+        // legitimately trade at any positive price
+        if (price == 0) {
             revert PriceOutOfBounds(price);
         }
     }

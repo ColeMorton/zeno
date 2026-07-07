@@ -19,11 +19,9 @@ library PerpetualMath {
     uint256 internal constant MAX_PAYOUT_BPS = 20000;
 
     /// @dev Funding rate sensitivity: K in formula K × (longOI - shortOI) / totalOI
-    /// @dev 5000 BPS = 50% max funding rate when fully one-sided
+    /// @dev 5000 BPS = 50% funding rate when fully one-sided; the formula is naturally
+    /// bounded by ±K since |longOI - shortOI| <= totalOI
     uint256 internal constant FUNDING_SENSITIVITY_BPS = 5000;
-
-    /// @dev Maximum funding rate per period (1% = 100 BPS)
-    uint256 internal constant MAX_FUNDING_RATE_BPS = 100;
 
     /*//////////////////////////////////////////////////////////////
                                ERRORS
@@ -52,14 +50,9 @@ library PerpetualMath {
         int256 oiDelta = int256(longOI) - int256(shortOI);
 
         // fundingRate = sensitivity × oiDelta / totalOI
+        // Naturally bounded by ±FUNDING_SENSITIVITY_BPS; the imbalance ratio prices the
+        // crowded side without an artificial cap subsidizing it.
         rateBPS = (int256(FUNDING_SENSITIVITY_BPS) * oiDelta) / int256(totalOI);
-
-        // Cap at maximum funding rate
-        if (rateBPS > int256(MAX_FUNDING_RATE_BPS)) {
-            rateBPS = int256(MAX_FUNDING_RATE_BPS);
-        } else if (rateBPS < -int256(MAX_FUNDING_RATE_BPS)) {
-            rateBPS = -int256(MAX_FUNDING_RATE_BPS);
-        }
     }
 
     /// @notice Calculate funding accumulator delta for a period

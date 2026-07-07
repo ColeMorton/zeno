@@ -439,22 +439,29 @@ contract PerpetualVaultTest is Test {
                        PRICE BOUNDS TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function test_GetCurrentPrice_RevertsBelowMin() public {
-        curvePool.setPriceOracle(0.40e18); // Below 0.50 min
+    function test_GetCurrentPrice_RevertsOnZeroPrice() public {
+        curvePool.setPriceOracle(0); // Only zero price is invalid
 
         vm.expectRevert(
-            abi.encodeWithSelector(IPerpetualVault.PriceOutOfBounds.selector, 0.40e18)
+            abi.encodeWithSelector(IPerpetualVault.PriceOutOfBounds.selector, 0)
         );
         vault.getCurrentPrice();
     }
 
-    function test_GetCurrentPrice_RevertsAboveMax() public {
-        curvePool.setPriceOracle(1.10e18); // Above 1.00 max
+    function test_GetCurrentPrice_AcceptsBelowFormerMin() public {
+        // vBTC can legitimately trade at any positive price (no bounds)
+        curvePool.setPriceOracle(0.40e18); // Below 0.50 old bound, now valid
 
-        vm.expectRevert(
-            abi.encodeWithSelector(IPerpetualVault.PriceOutOfBounds.selector, 1.10e18)
-        );
-        vault.getCurrentPrice();
+        uint256 price = vault.getCurrentPrice();
+        assertEq(price, 0.40e18);
+    }
+
+    function test_GetCurrentPrice_AcceptsAboveFormerMax() public {
+        // vBTC can legitimately trade at any positive price (no bounds)
+        curvePool.setPriceOracle(1.10e18); // Above 1.00 old bound, now valid
+
+        uint256 price = vault.getCurrentPrice();
+        assertEq(price, 1.10e18);
     }
 
     /*//////////////////////////////////////////////////////////////
