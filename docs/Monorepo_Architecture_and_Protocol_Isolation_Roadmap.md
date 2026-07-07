@@ -111,8 +111,7 @@ contracts/issuer/src/
 ├── core/           # TreasureNFT, AchievementNFT, DashboardNFT
 ├── registry/       # ChapterRegistry, ProfileRegistry
 ├── minting/        # VaultMintController, HybridMintController, *Minter, AuctionController
-├── visual/         # PixelArtRenderer, AchievementSVG, HandsDiamond*
-├── automation/     # SablierStreamWrapper, WithdrawalAutomationHelper
+├── visual/         # AchievementSVG
 ├── verifiers/      # (existing)
 ├── volatility/     # (existing)
 ├── perpetual/      # (existing)
@@ -177,7 +176,7 @@ apps/ascent, apps/vector              contracts/issuer
 
 ### Phase 4: Protocol Interface Package (Isolation Prep)
 1. Create `packages/protocol-interfaces/`
-2. Copy protocol interfaces: `IVaultNFT.sol`, `IBtcToken.sol`, `IHybridVaultNFT.sol`
+2. Copy protocol interfaces: `IVaultNFT.sol`, `IBtcToken.sol`
 3. Generate TypeScript types from ABIs
 4. Update issuer remapping to use interface package
 5. Verify issuer builds without `@protocol/` source remapping
@@ -251,7 +250,6 @@ btcnft-protocol/               # Standalone repository
 ├── contracts/
 │   ├── VaultNFT.sol
 │   ├── BtcToken.sol
-│   ├── HybridVaultNFT.sol
 │   ├── interfaces/
 │   └── libraries/
 ├── test/

@@ -5,7 +5,7 @@
 > **Last Updated:** 2026-01-03
 > **Layer:** Issuer
 > **Related Documents:**
-> - [Protocol HybridVaultNFT Specification](../protocol/Hybrid_Vault_Specification.md)
+> - [Protocol Hybrid Vault Specification](../protocol/Hybrid_Vault_Specification.md)
 > - [Protocol Technical Specification](../protocol/Technical_Specification.md)
 > - [Curve Liquidity Pool](../defi/Curve_Liquidity_Pool.md)
 > - [Integration Guide](./Integration_Guide.md)
@@ -14,22 +14,22 @@
 
 ## Overview
 
-The issuer-layer Hybrid Vault wraps the **protocol-layer `HybridVaultNFT`** with Curve LP integration, dynamic ratio formulas, and monthly configuration. The protocol layer is ratio-agnostic; all LP logic lives here.
+The issuer-layer Hybrid Vault composes **two protocol primitives** — a standard `VaultNFT` (cbBTC leg) and a `VestingEscrow` (LP leg) — with Curve LP integration, dynamic ratio formulas, and monthly configuration. The protocol layer is ratio-agnostic; all LP logic lives here.
 
 ```
-ISSUER LAYER: IssuerHybridController (Wrapper)
+ISSUER LAYER: HybridMintController (Composer)
 ├─ Dynamic ratio formula (70/30 default, 10-50% LP range)
 ├─ Curve pool integration (add_liquidity, get_dy)
 ├─ Monthly configuration (rate-limited updates)
 ├─ Self-calibrating slippage signal
-└─ Calls protocol HybridVaultNFT.mint()
+└─ Composes: VaultNFT.mint() → setRedeemHook(escrow) → escrow.deposit()
 
-PROTOCOL LAYER: HybridVaultNFT (Immutable)
-├─ Primary: cbBTC → 1% monthly withdrawal
-├─ Secondary: Any ERC-20 → 100% unlock at vesting
-├─ vestedBTC separation (primary only)
-├─ Dual match pools
-└─ Dormancy + delegation
+PROTOCOL LAYER: VaultNFT + VestingEscrow (Immutable)
+├─ VaultNFT: cbBTC → 1% monthly withdrawal
+│   ├─ vestedBTC stripping, match pool, dormancy, delegation
+│   └─ Redeem hook → atomic early exit of both legs
+└─ VestingEscrow: LP tokens → 100% claim at vesting
+    └─ Own match accumulator for forfeited escrow
 ```
 
 ### Key Architecture
@@ -39,10 +39,11 @@ Issuer Hybrid Vault Flow:
 ├─ User provides: 1.0 cbBTC
 ├─ Issuer calculates: 70% cbBTC + 30% LP (dynamic)
 ├─ Issuer adds 0.3 cbBTC to Curve pool → LP tokens
-├─ Issuer calls: hybridVault.mint(treasure, tokenId, 0.7 cbBTC, LP tokens)
-├─ Protocol stores: primary=0.7 cbBTC, secondary=LP tokens
-├─ cbBTC Withdrawal: 1% monthly (protocol handles)
-├─ LP Withdrawal: 100% at vesting (protocol handles)
+├─ Issuer calls: vaultNFT.mint(treasure, treasureId, cbBTC, 0.7 cbBTC)
+├─ Issuer binds: vaultNFT.setRedeemHook(vaultId, escrow)
+├─ Issuer escrows: vestingEscrow.deposit(vaultId, LP tokens)
+├─ cbBTC Withdrawal: 1% monthly (VaultNFT.withdraw)
+├─ LP Withdrawal: 100% at vesting (VestingEscrow.claim)
 └─ Protocol/Issuer Fees: $0 (all value to owner)
 ```
 
@@ -259,22 +260,21 @@ Month 120: ~38% cbBTC │ 0% LP
 
 ### Dual Withdrawal Functions (Protocol Layer)
 
-Users call the Protocol `HybridVaultNFT` directly for withdrawals:
+Users call the protocol contracts directly for withdrawals:
 
 ```solidity
-// Protocol HybridVaultNFT interface (simplified)
-interface IHybridVaultNFT {
-    /// @notice Withdraw 1% of primary collateral monthly (Zeno's paradox)
-    function withdrawPrimary(uint256 tokenId) external returns (uint256 amount);
+// VaultNFT — cbBTC leg
+function withdraw(uint256 tokenId) external returns (uint256 amount);      // 1% monthly (Zeno's paradox)
 
-    /// @notice Withdraw 100% of secondary collateral (one-time at vesting)
-    function withdrawSecondary(uint256 tokenId) external returns (uint256 amount);
-}
+// VestingEscrow — LP leg (claim rights follow vault ownership)
+function claim(uint256 tokenId) external returns (uint256 amount);         // 100% one-time at vesting
 
 // User calls:
-hybridVaultNFT.withdrawPrimary(tokenId);    // → cbBTC (1% monthly)
-hybridVaultNFT.withdrawSecondary(tokenId);  // → LP tokens (100% at vesting)
+vaultNFT.withdraw(tokenId);       // → cbBTC (1% monthly)
+vestingEscrow.claim(tokenId);     // → LP tokens (100% at vesting)
 ```
+
+Early exit is atomic: `vaultNFT.earlyRedeem(tokenId)` settles the escrowed LP leg in the same transaction via the redeem hook, applying the same pro-rata forfeiture curve to both legs.
 
 The issuer layer is not involved in withdrawals—all vault mechanics are handled by the protocol.
 
@@ -286,7 +286,7 @@ The hybrid model creates a self-reinforcing liquidity cycle without external inc
 
 ```
                     ┌─────────────────────────────────────────┐
-                    │           HYBRID VAULT NFT              │
+                    │      HYBRID POSITION (Vault+Escrow)     │
                     │  ┌─────────────────┬─────────────────┐  │
                     │  │    70% cbBTC    │   30% Curve LP  │  │
                     │  │  (1% monthly)   │ (100% at vesting)│  │
@@ -325,28 +325,24 @@ The hybrid model creates a self-reinforcing liquidity cycle without external inc
 
 ```
 contracts/issuer/src/
-├── HybridMintController.sol          # Thin controller for minting Protocol HybridVaultNFT
-│   ├── mintHybridVault(cbBTCAmount)  # Splits per formula, calls protocol.mint()
+├── HybridMintController.sol          # Thin controller composing VaultNFT + VestingEscrow
+│   ├── constructor(vaultNFT, vestingEscrow, treasureNFT, cbBTC, lpToken, curvePool)
+│   ├── mintHybridVault(cbBTCAmount)  # Splits per formula, mints vault, binds hook, escrows LP
 │   ├── calculateTargetLPRatio()      # Self-calibrating formula
 │   ├── measureSlippage()             # Slippage measurement for ratio
 │   └── updateMonthlyConfig()         # Issuer parameter updates (rate-limited)
 │
 ├── interfaces/
-│   ├── IHybridMintController.sol     # Controller interface
-│   ├── IProtocolHybridVaultNFT.sol   # Minimal protocol interface
 │   └── ICurveCryptoSwap.sol          # Curve CryptoSwap V2 interface
 │
 └── test/
-    ├── mocks/
-    │   ├── MockProtocolHybridVaultNFT.sol # Protocol vault mock
-    │   └── MockCurvePool.sol              # Curve pool mock
     └── unit/
-        └── HybridMintController.t.sol     # Unit tests
+        └── HybridMintController.t.sol # Unit tests
 ```
 
-**Key Architecture Change:** Users own the Protocol `HybridVaultNFT` directly. The issuer layer is a thin minting controller—no wrapper NFT, no nested ownership. Withdrawals call protocol directly:
-- `hybridVaultNFT.withdrawPrimary(tokenId)` → cbBTC
-- `hybridVaultNFT.withdrawSecondary(tokenId)` → LP tokens
+**Key Architecture:** Users own the protocol `VaultNFT` directly; the escrowed LP leg is keyed to the vault token ID, so claim rights follow vault ownership. The issuer layer is a thin minting controller—no wrapper NFT, no nested ownership. Withdrawals call protocol directly:
+- `vaultNFT.withdraw(tokenId)` → cbBTC
+- `vestingEscrow.claim(tokenId)` → LP tokens
 
 ### Minting Flow
 
@@ -360,23 +356,24 @@ User provides: 1.0 cbBTC
          │ 2. Split cbBTC: 70% vault, 30% LP       │
          │ 3. Mint TreasureNFT                     │
          │ 4. Add 30% cbBTC to Curve pool → LP     │
-         │ 5. Call protocol.mint(treasure, cbBTC,  │
-         │    LP tokens)                           │
-         │ 6. Transfer vault NFT to user           │
+         │ 5. vaultNFT.mint(treasure, cbBTC leg)   │
+         │ 6. vaultNFT.setRedeemHook(id, escrow)   │
+         │ 7. vestingEscrow.deposit(id, LP)        │
+         │ 8. Transfer vault NFT to user           │
          └─────────────────────────────────────────┘
                     │
        ┌────────────┴────────────┐
        ▼                         ▼
 ┌─────────────────────┐   ┌─────────────────────┐
-│  Protocol           │   │  Curve Pool         │
-│  HybridVaultNFT     │   │  add_liquidity()    │
-│  primary: 0.7 cbBTC │   │  0.3 cbBTC → LP     │
-│  secondary: LP      │   │                     │
-│  + TreasureNFT      │   │                     │
+│  Protocol           │   │  Protocol           │
+│  VaultNFT           │   │  VestingEscrow      │
+│  primary: 0.7 cbBTC │   │  secondary: LP      │
+│  + TreasureNFT      │   │  (from Curve        │
+│  hook → escrow      │   │   add_liquidity)    │
 └─────────────────────┘   └─────────────────────┘
        │
        ▼
-User owns: Protocol HybridVaultNFT directly (no wrapper)
+User owns: Protocol VaultNFT directly (escrow claim rights follow ownership)
 ```
 
 ### Curve CryptoSwap V2 Integration

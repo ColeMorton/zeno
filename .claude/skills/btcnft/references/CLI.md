@@ -49,7 +49,8 @@ BTC_TOKEN=0x...
 VAULT=0x...
 
 # Optional
-HYBRID_VAULT=0x...          # HybridVaultNFT address
+HYBRID_VAULT=0x...          # VaultNFT holding the hybrid primary leg
+VESTING_ESCROW=0x...        # VestingEscrow holding the hybrid secondary leg
 ```
 
 **Token aliases:** Commands accepting token references resolve aliases via `resolve_token_address()`:
@@ -183,7 +184,7 @@ Create a hybrid vault with dual collateral.
 | `primary_satoshis` | WBTC amount (satoshis) |
 | `secondary_satoshis` | cbBTC amount (satoshis) |
 
-**Env requires:** `HYBRID_VAULT`, `WBTC`, `CBBTC`, `TREASURE`. Approves both tokens and Treasure NFT, calls `mint(address,uint256,uint256,uint256)`.
+**Env requires:** `HYBRID_VAULT`, `VESTING_ESCROW`, `TREASURE`. Approves both leg tokens and the Treasure NFT, then mints the vault (`mint(address,uint256,address,uint256)`), binds the escrow via `setRedeemHook(uint256,address)`, and escrows the secondary leg via `deposit(uint256,uint256)`.
 
 ### `hybrid-withdraw-primary`
 

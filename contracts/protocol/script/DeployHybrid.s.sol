@@ -2,14 +2,16 @@
 pragma solidity ^0.8.24;
 
 import {Script, console} from "forge-std/Script.sol";
-import {HybridVaultNFT} from "../src/HybridVaultNFT.sol";
+import {VaultNFT} from "../src/VaultNFT.sol";
+import {VestingEscrow} from "../src/VestingEscrow.sol";
 import {BtcToken} from "../src/BtcToken.sol";
 import {MockTreasure} from "../test/mocks/MockTreasure.sol";
 import {MockCBBTC} from "../test/mocks/MockCBBTC.sol";
 import {MockWBTC} from "../test/mocks/MockWBTC.sol";
 
 /// @title DeployHybrid
-/// @notice Deploys HybridVaultNFT with cbBTC as primary and a mock LP token as secondary
+/// @notice Deploys the dual-collateral composition: VaultNFT (cbBTC primary leg) plus a
+/// VestingEscrow holding a mock LP token as the secondary leg.
 contract DeployHybrid is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envOr(
@@ -18,7 +20,7 @@ contract DeployHybrid is Script {
         );
         address deployer = vm.addr(deployerPrivateKey);
 
-        console.log("Deploying HybridVaultNFT with deployer:", deployer);
+        console.log("Deploying hybrid composition with deployer:", deployer);
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -33,25 +35,28 @@ contract DeployHybrid is Script {
         MockWBTC lpToken = new MockWBTC();
         console.log("MockLP (secondary) deployed at:", address(lpToken));
 
-        // Predict hybrid vault address for BtcToken deployment
+        // Predict vault address for BtcToken deployment
         uint256 nonce = vm.getNonce(deployer);
-        address predictedHybridVault = vm.computeCreateAddress(deployer, nonce + 1);
+        address predictedVault = vm.computeCreateAddress(deployer, nonce + 1);
 
-        // Deploy BtcToken (vestedBTC for hybrid vault)
-        BtcToken btcToken = new BtcToken(predictedHybridVault, "vestedBTC-Hybrid", "vHYBRID");
+        // Deploy BtcToken (vestedBTC for the vault)
+        BtcToken btcToken = new BtcToken(predictedVault, "vestedBTC-Hybrid", "vHYBRID");
         console.log("BtcToken deployed at:", address(btcToken));
 
-        // Deploy HybridVaultNFT
-        HybridVaultNFT hybridVault = new HybridVaultNFT(
+        // Deploy VaultNFT (primary leg)
+        VaultNFT vault = new VaultNFT(
             address(btcToken),
             address(cbbtc),
-            address(lpToken),
             "Hybrid Vault NFT",
             "HVAULT"
         );
-        console.log("HybridVaultNFT deployed at:", address(hybridVault));
+        console.log("VaultNFT deployed at:", address(vault));
 
-        require(address(hybridVault) == predictedHybridVault, "HybridVault address mismatch");
+        require(address(vault) == predictedVault, "Vault address mismatch");
+
+        // Deploy VestingEscrow (secondary leg)
+        VestingEscrow escrow = new VestingEscrow(address(vault), address(lpToken));
+        console.log("VestingEscrow deployed at:", address(escrow));
 
         // Mint tokens to deployer
         cbbtc.mint(deployer, 100 * 1e8);
@@ -65,11 +70,12 @@ contract DeployHybrid is Script {
 
         vm.stopBroadcast();
 
-        console.log("\n=== HybridVaultNFT Deployment Complete ===");
+        console.log("\n=== Hybrid Composition Deployment Complete ===");
         console.log("TREASURE:", address(treasure));
         console.log("CBBTC (primary):", address(cbbtc));
         console.log("LP_TOKEN (secondary):", address(lpToken));
         console.log("BTC_TOKEN:", address(btcToken));
-        console.log("HYBRID_VAULT:", address(hybridVault));
+        console.log("VAULT:", address(vault));
+        console.log("VESTING_ESCROW:", address(escrow));
     }
 }

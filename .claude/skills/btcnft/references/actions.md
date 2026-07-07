@@ -41,11 +41,11 @@ Every action a user, entity, agent, or smart contract can perform within the BTC
 
 | | |
 |---|---|
-| **Contract** | `HybridVaultNFT.mint(address treasureContract, uint256 treasureTokenId, uint256 primaryAmount, uint256 secondaryAmount)` |
-| **CLI** | `./btcnft hybrid-mint <treasure_token_id> <primary_satoshis> <secondary_satoshis>` |
+| **Contract** | `VaultNFT.mint(...)` then `VaultNFT.setRedeemHook(uint256 tokenId, address escrow)` then `VestingEscrow.deposit(uint256 tokenId, uint256 amount)` |
+| **CLI** | `./btcnft hybrid-mint <treasure_token_id> <primary_satoshis> <secondary_amount>` |
 | **Actor** | Anyone |
-| **Preconditions** | Sufficient primary + secondary token balances; ERC-20 approvals for both; ERC-721 approval for Treasure NFT |
-| **Effects** | Mints Hybrid Vault NFT; transfers Treasure NFT; locks primary (cbBTC) and secondary (LP/ERC-20) collateral |
+| **Preconditions** | Sufficient primary + secondary token balances; ERC-20 approvals (primary to vault, secondary to escrow); ERC-721 approval for Treasure NFT |
+| **Effects** | Mints standard Vault NFT (primary leg); binds VestingEscrow as redeem hook (owner-only, one-time); escrows secondary leg keyed to the vault token ID |
 | **Returns** | `uint256 tokenId` |
 
 ---
@@ -67,7 +67,7 @@ Every action a user, entity, agent, or smart contract can perform within the BTC
 
 | | |
 |---|---|
-| **Contract** | `HybridVaultNFT.withdrawPrimary(uint256 tokenId)` |
+| **Contract** | `VaultNFT.withdraw(uint256 tokenId)` (standard vault withdrawal on the primary leg) |
 | **CLI** | `./btcnft hybrid-withdraw-primary <vault_token_id>` |
 | **Actor** | Vault Owner |
 | **Preconditions** | Vested; 30+ days since last primary withdrawal |
@@ -78,11 +78,11 @@ Every action a user, entity, agent, or smart contract can perform within the BTC
 
 | | |
 |---|---|
-| **Contract** | `HybridVaultNFT.withdrawSecondary(uint256 tokenId)` |
+| **Contract** | `VestingEscrow.claim(uint256 tokenId)` |
 | **CLI** | `./btcnft hybrid-withdraw-secondary <vault_token_id>` |
-| **Actor** | Vault Owner |
-| **Preconditions** | Vested; secondary not already withdrawn |
-| **Effects** | Transfers 100% of secondary collateral to owner (one-time) |
+| **Actor** | Vault Owner (claim rights follow vault ownership) |
+| **Preconditions** | Vested; escrow position not already claimed |
+| **Effects** | Transfers 100% of escrowed secondary leg (plus accrued match share) to owner; clears position |
 | **Returns** | `uint256 amount` |
 
 ### 2.4 Withdraw as Delegate (Single-Collateral)
@@ -100,7 +100,7 @@ Every action a user, entity, agent, or smart contract can perform within the BTC
 
 | | |
 |---|---|
-| **Contract** | `HybridVaultNFT.withdrawPrimaryAsDelegate(uint256 tokenId)` |
+| **Contract** | `VaultNFT.withdrawAsDelegate(uint256 tokenId)` (primary leg only; the escrowed secondary is not delegatable) |
 | **CLI** | `./btcnft hybrid-delegate-withdraw <vault_token_id>` |
 | **Actor** | Delegate |
 | **Preconditions** | Active delegation; vault is vested; 30+ days since delegate's last withdrawal |
@@ -126,12 +126,12 @@ Every action a user, entity, agent, or smart contract can perform within the BTC
 
 | | |
 |---|---|
-| **Contract** | `HybridVaultNFT.earlyRedeem(uint256 tokenId)` |
+| **Contract** | `VaultNFT.earlyRedeem(uint256 tokenId)` (calls `VestingEscrow.onEarlyRedeem` via the redeem hook) |
 | **CLI** | `./btcnft hybrid-early-redeem <vault_token_id>` |
 | **Actor** | Vault Owner |
 | **Preconditions** | Vault exists; if vBTC minted, owner must hold full vBTC amount |
-| **Effects** | Pro-rata return of both primary and secondary collateral; forfeitures go to respective match pools; burns Vault NFT |
-| **Returns** | `(uint256 primaryReturned, uint256 primaryForfeited, uint256 secondaryReturned, uint256 secondaryForfeited)` |
+| **Effects** | Atomic: pro-rata return of both legs with the same forfeiture curve in one transaction; primary forfeit to vault match pool, secondary forfeit to escrow accumulator; burns Vault NFT |
+| **Returns** | `(uint256 returned, uint256 forfeited)` from the vault; escrow settlement emits `EarlyRedeemed(tokenId, redeemer, returned, forfeited)` |
 
 ---
 
@@ -152,10 +152,10 @@ Every action a user, entity, agent, or smart contract can perform within the BTC
 
 | | |
 |---|---|
-| **Contract** | `HybridVaultNFT.mintBtcToken(uint256 tokenId)` |
-| **CLI** | `./btcnft hybrid-separate <vault_token_id>` |
+| **Contract** | `VaultNFT.strip(uint256 tokenId, uint256 amount)` (standard vault stripping; the escrowed secondary is never strippable) |
+| **CLI** | `./btcnft hybrid-strip <vault_token_id> <amount>` |
 | **Actor** | Vault Owner |
-| **Preconditions** | Vault is vested; vBTC not yet minted |
+| **Preconditions** | Vault is vested |
 | **Effects** | Mints vBTC tokens from primary collateral only |
 | **Returns** | `uint256 amount` |
 
@@ -173,7 +173,7 @@ Every action a user, entity, agent, or smart contract can perform within the BTC
 
 | | |
 |---|---|
-| **Contract** | `HybridVaultNFT.returnBtcToken(uint256 tokenId)` |
+| **Contract** | `VaultNFT.recombine(uint256 tokenId, uint256 amount)` (standard vault recombination) |
 | **CLI** | `./btcnft hybrid-recombine <vault_token_id>` |
 | **Actor** | Vault Owner (must hold full original vBTC amount) |
 | **Preconditions** | Same as 4.3 |
@@ -198,22 +198,22 @@ Every action a user, entity, agent, or smart contract can perform within the BTC
 
 | | |
 |---|---|
-| **Contract** | `HybridVaultNFT.claimPrimaryMatch(uint256 tokenId)` |
+| **Contract** | `VaultNFT.claimMatch(uint256 tokenId)` (shared vault match pool) |
 | **CLI** | `./btcnft hybrid-claim-primary-match <vault_token_id>` |
 | **Actor** | Vault Owner |
-| **Preconditions** | Vested; primary match pool has balance |
-| **Effects** | Transfers pro-rata share of primary match pool |
+| **Preconditions** | Vested; vault match pool has balance |
+| **Effects** | Credits pro-rata share of the vault match pool to the primary leg |
 | **Returns** | `uint256 amount` |
 
 ### 5.3 Claim Secondary Match (Hybrid)
 
 | | |
 |---|---|
-| **Contract** | `HybridVaultNFT.claimSecondaryMatch(uint256 tokenId)` |
+| **Contract** | `VestingEscrow.claimMatch(uint256 tokenId)` |
 | **CLI** | `./btcnft hybrid-claim-secondary-match <vault_token_id>` |
 | **Actor** | Vault Owner |
-| **Preconditions** | Vested; secondary match pool has balance |
-| **Effects** | Transfers pro-rata share of secondary match pool |
+| **Preconditions** | Escrow position exists; pending match share > 0 |
+| **Effects** | Settles accrued forfeit share (accumulator-based) into the position's escrowed amount |
 | **Returns** | `uint256 amount` |
 
 ---
@@ -234,7 +234,7 @@ Every action a user, entity, agent, or smart contract can perform within the BTC
 
 | | |
 |---|---|
-| **Contract** | `HybridVaultNFT.grantWithdrawalDelegate(address delegate, uint256 percentageBPS)` |
+| **Contract** | `VaultNFT.grantWithdrawalDelegate(address delegate, uint256 percentageBPS)` (same contract; delegation covers the primary leg only) |
 | **CLI** | (same as single-collateral when targeting hybrid) |
 | **Actor** | Vault Owner |
 | **Preconditions** | Same as 6.1 |
@@ -254,7 +254,7 @@ Every action a user, entity, agent, or smart contract can perform within the BTC
 
 | | |
 |---|---|
-| **Contract** | `VaultNFT.grantVaultDelegate(uint256 tokenId, address delegate, uint256 percentageBPS, uint256 durationSeconds)` or `HybridVaultNFT.grantVaultDelegate(...)` |
+| **Contract** | `VaultNFT.grantVaultDelegate(uint256 tokenId, address delegate, uint256 percentageBPS, uint256 durationSeconds)` |
 | **CLI** | `./btcnft vault-delegate-grant <vault_token_id> <delegate_address> <percentage_bps> <duration_seconds>` |
 | **Actor** | Vault Owner |
 | **Preconditions** | Caller owns vault; delegate is not self; total vault delegation + new grant <= 10000 BPS |
@@ -264,7 +264,7 @@ Every action a user, entity, agent, or smart contract can perform within the BTC
 
 | | |
 |---|---|
-| **Contract** | `VaultNFT.revokeVaultDelegate(uint256 tokenId, address delegate)` or `HybridVaultNFT.revokeVaultDelegate(...)` |
+| **Contract** | `VaultNFT.revokeVaultDelegate(uint256 tokenId, address delegate)` |
 | **CLI** | `./btcnft vault-delegate-revoke <vault_token_id> <delegate_address>` |
 | **Actor** | Vault Owner |
 | **Preconditions** | Vault-specific delegation is active |
@@ -280,7 +280,7 @@ Dormancy applies only to vaults where vBTC has been separated (section 4). Three
 
 | | |
 |---|---|
-| **Contract** | `VaultNFT.pokeDormant(uint256 tokenId)` or `HybridVaultNFT.pokeDormant(uint256 tokenId)` |
+| **Contract** | `VaultNFT.pokeDormant(uint256 tokenId)` |
 | **CLI** | `./btcnft poke <vault_token_id>` / `./btcnft hybrid-poke <vault_token_id>` |
 | **Actor** | Anyone |
 | **Preconditions** | Vault is dormant-eligible (vBTC separated + 1129 days of inactivity); not already poked |
@@ -290,7 +290,7 @@ Dormancy applies only to vaults where vBTC has been separated (section 4). Three
 
 | | |
 |---|---|
-| **Contract** | `VaultNFT.proveActivity(uint256 tokenId)` or `HybridVaultNFT.proveActivity(uint256 tokenId)` |
+| **Contract** | `VaultNFT.proveActivity(uint256 tokenId)` |
 | **CLI** | `./btcnft prove-activity <vault_token_id>` / `./btcnft hybrid-prove-activity <vault_token_id>` |
 | **Actor** | Vault Owner |
 | **Preconditions** | Vault is in `POKE_PENDING` state |
@@ -300,12 +300,12 @@ Dormancy applies only to vaults where vBTC has been separated (section 4). Three
 
 | | |
 |---|---|
-| **Contract** | `VaultNFT.claimDormantCollateral(uint256 tokenId)` or `HybridVaultNFT.claimDormantCollateral(uint256 tokenId)` |
+| **Contract** | `VaultNFT.claimDormantCollateral(uint256 tokenId, uint256 amount)` |
 | **CLI** | `./btcnft claim-dormant <vault_token_id>` / `./btcnft hybrid-claim-dormant <vault_token_id>` |
-| **Actor** | vBTC Holder (must hold full vBTC amount) |
-| **Preconditions** | Grace period expired (vault is `CLAIMABLE`); caller holds full vBTC amount for this vault |
-| **Effects** | Transfers vault collateral to caller (both primary and secondary for hybrid); burns vBTC |
-| **Returns** | `uint256 collateral` (single) or `(uint256 primary, uint256 secondary)` (hybrid) |
+| **Actor** | vBTC Holder |
+| **Preconditions** | Grace period expired (vault is `CLAIMABLE`); caller holds sufficient vBTC for the claimed amount |
+| **Effects** | Transfers vault collateral to caller (primary leg only for hybrid; the escrowed secondary remains claimable by the vault owner); burns vBTC |
+| **Returns** | `uint256 collateral` |
 
 ---
 
@@ -369,15 +369,15 @@ These do not modify state but are essential for decision-making.
 
 | | |
 |---|---|
-| **Contract** | `HybridVaultNFT.getVaultInfo(uint256 tokenId)` |
+| **Contract** | `VaultNFT.getVaultInfo(uint256 tokenId)` + `VestingEscrow.escrowAmount(uint256 tokenId)` / `claimable(uint256 tokenId)` |
 | **CLI** | `./btcnft hybrid-status <vault_token_id>` |
-| **Returns** | Treasure contract/ID, primary/secondary amounts, mint timestamp, last primary withdrawal, secondary withdrawn flag, vBTC amount |
+| **Returns** | Standard vault info for the primary leg plus escrowed secondary amount and claimability |
 
 ### 9.3 Check Vesting Status
 
 | | |
 |---|---|
-| **Contract** | `VaultNFT.isVested(uint256 tokenId)` or `HybridVaultNFT.isVested(uint256 tokenId)` |
+| **Contract** | `VaultNFT.isVested(uint256 tokenId)` |
 | **CLI** | Included in `status` / `hybrid-status` output |
 | **Returns** | `bool` |
 
@@ -385,7 +385,7 @@ These do not modify state but are essential for decision-making.
 
 | | |
 |---|---|
-| **Contract** | `VaultNFT.getWithdrawableAmount(uint256 tokenId)` or `HybridVaultNFT.getWithdrawablePrimary(uint256 tokenId)` / `getWithdrawableSecondary(uint256 tokenId)` |
+| **Contract** | `VaultNFT.getWithdrawableAmount(uint256 tokenId)` (primary) / `VestingEscrow.claimable(uint256 tokenId)` (secondary) |
 | **CLI** | Included in `status` / `hybrid-status` output |
 | **Returns** | `uint256` |
 
@@ -409,7 +409,7 @@ These do not modify state but are essential for decision-making.
 
 | | |
 |---|---|
-| **Contract** | `VaultNFT.isDormantEligible(uint256 tokenId)` or `HybridVaultNFT.isDormantEligible(uint256 tokenId)` |
+| **Contract** | `VaultNFT.isDormantEligible(uint256 tokenId)` |
 | **CLI** | Included in `status` / `hybrid-status` output |
 | **Returns** | `(bool eligible, DormancyState state)` |
 

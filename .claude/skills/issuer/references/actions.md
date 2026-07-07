@@ -53,7 +53,7 @@ This document catalogs **every action** available in the issuer layer — organi
 | Action | Actor | Function | CLI | Prerequisites | Effects |
 |--------|-------|----------|-----|---------------|---------|
 | Mint standard vault | Anyone | `VaultMintController.mintVault(bytes32, uint256)` | `mint-vault` | WBTC balance >= amount; WBTC approved to controller; amount > 0 | Creates VaultNFT + TreasureNFT, locks WBTC collateral; returns vault ID |
-| Mint hybrid vault | Anyone | `HybridMintController.mintHybridVault(uint256)` | `mint-hybrid` | cbBTC balance >= amount; cbBTC approved to controller; amount > 0 | Creates HybridVaultNFT with LP split; returns vault ID |
+| Mint hybrid vault | Anyone | `HybridMintController.mintHybridVault(uint256)` | `mint-hybrid` | cbBTC balance >= amount; cbBTC approved to controller; amount > 0 | Mints VaultNFT + escrows LP leg in VestingEscrow (redeem hook bound); returns vault ID |
 | Update monthly LP config | Admin | `HybridMintController.updateMonthlyConfig(MonthlyConfig)` | `--` | Caller is owner; config update period elapsed since last update | Updates target LP ratio configuration |
 
 #### Queries
@@ -264,23 +264,7 @@ This document catalogs **every action** available in the issuer layer — organi
 
 ### 8. Streaming
 
-**Contracts:** `SablierStreamWrapper.sol`
-
-#### Write Actions
-
-| Action | Actor | Function | CLI | Prerequisites | Effects |
-|--------|-------|----------|-----|---------------|---------|
-| Configure vault for streaming | Holder | `SablierStreamWrapper.configureVault(uint256, address, bool)` | `stream-configure` | Caller owns vault; recipient != address(0) | Sets stream recipient and enabled flag for vault |
-| Create stream from vault | Anyone | `SablierStreamWrapper.createStreamFromVault(uint256)` | `stream-create` | Vault is configured; streaming is enabled; vault has withdrawable amount > 0 | Creates Sablier stream from vault's available withdrawal to recipient; returns stream ID |
-| Batch create streams | Anyone | `SablierStreamWrapper.batchCreateStreams(uint256[])` | `stream-batch` | At least one vault in array is configured, enabled, and has withdrawable amount | Creates streams for eligible vaults; skips ineligible ones without reverting |
-
-#### Queries
-
-| Query | Function | CLI | Returns |
-|-------|----------|-----|---------|
-| Can create stream | `SablierStreamWrapper.canCreateStream(uint256)` | `stream-status` | Boolean |
-| Get vault config | `SablierStreamWrapper.getVaultConfig(uint256)` | `stream-status` | Config struct (recipient, enabled) |
-| Get vault streams | `SablierStreamWrapper.getVaultStreams(uint256)` | `stream-status` | Array of stream IDs created for vault |
+Sablier streaming is research-only; no streaming contract is deployed. See `.claude/skills/research/references/Sablier_Streaming_Integration.md`.
 
 ---
 
@@ -627,10 +611,6 @@ Actions available at the contract level but without CLI wrappers. Call these via
 | `setRevenueReceiver(address)` | Admin | Change fee collection address |
 | `withdraw()` | Admin | Transfer accumulated ETH to revenue receiver |
 
-### WithdrawalAutomationHelper (Read-Only)
+### Withdrawal Automation (Read-Only)
 
-| Function | Actor | Description |
-|----------|-------|-------------|
-| `batchCanDelegateWithdraw(...)` | Anyone | Check batch withdrawal eligibility for keeper automation |
-| `getNextWithdrawalTime(...)` | Anyone | Get next eligible withdrawal timestamp |
-| `getAutomationStatus(...)` | Anyone | Get automation readiness status |
+Batch eligibility checks for keeper automation are served off-chain by multicalling `VaultNFT.canDelegateWithdraw(tokenId, delegate)`; no on-chain helper contract exists.

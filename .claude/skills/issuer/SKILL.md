@@ -61,10 +61,9 @@ Maps each contract in `contracts/issuer/src/` to its reference doc and CLI comma
 | `DashboardNFT.sol` | `Integration_Guide.md` Section 12 | `dashboard-mint`, `dashboard-features` |
 | `perpetual/PerpetualVault.sol`, `PerpetualMath.sol` | (no reference doc) | `perp-*` |
 | `volatility/VolatilityPool.sol`, `VarianceOracle.sol` | (no reference doc) | `vol-*` |
-| `SablierStreamWrapper.sol` | `Integration_Guide.md` Section 10 | `stream-*` |
-| `WithdrawalAutomationHelper.sol` | `Integration_Guide.md` Section 10 | — |
-| `PixelArtRenderer.sol`, `HandsDiamond*.sol` | `Pixel_Art_Guide.md` | — |
 | `EntryBadge.sol` | `Integration_Guide.md` Section 5 | — |
+
+Sablier streaming is research-only (no deployed contract); see `.claude/skills/research/references/Sablier_Streaming_Integration.md`.
 
 ## CLI Quick Reference
 

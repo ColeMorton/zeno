@@ -36,11 +36,11 @@ Any ERC-721 NFT that can be deposited into a Vault. Issuers define which Treasur
 |-----------|-------|
 | Standard | ERC-20 (Fungible) |
 | Decimals | 8 (matches WBTC) |
-| Backing | 1:1 with Vault collateral at mint |
+| Backing | 1:1 by immunized vault reserve at all times |
 
 **Also known as:** btcToken (internal contract name)
 
-Fungible token representing a claim on BTC collateral. Created by separating collateral from a Vault NFT. Enables DeFi composability (DEX trading, lending, liquidity pools).
+Floating principal-strip token. Created by stripping any amount of a vested Vault's active collateral into an immunized reserve (`strip(tokenId, amount)`), fractionally and repeatedly — vesting is the protocol's time lock, so stripping unlocks only after it completes. The reserve cannot be withdrawn, so `totalStrippedReserve == vBTC totalSupply` is a protocol invariant: par (1:1) is the on-chain NAV floor. vBTC floats freely below par; the discount prices recombination timing and control. Redemption is only possible through recombination (owner burns vBTC to reactivate reserve) or fractional dormancy claims — the owner-buyback arbitrage disciplines the float without a peg. Enables DeFi composability (DEX trading, lending, liquidity pools).
 
 #### vestedBTC Variants
 
@@ -54,64 +54,51 @@ Each collateral type has its own vestedBTC token to maintain risk isolation:
 
 **Note:** Each variant has independent pricing and risk profile based on its underlying collateral's custody model.
 
-### Expedition Credits (xBTC)
-
-| Attribute | Value |
-|-----------|-------|
-| Standard | ERC-20 (Fungible) |
-| Decimals | 8 (matches WBTC/vBTC) |
-| Backing | None (utility token) |
-
-**Also known as:** ExpeditionCredits (contract name)
-
-Bootstrap-phase minting reward token. Minted 1:1 with collateral when creating single-collateral vaults during Bootstrap (days 0-1128). Enables DeFi participation before vestedBTC exists.
-
-**Key Properties:**
-- Minted automatically at vault creation, amount = collateral deposited
-- Fixed supply per mint (no inflation, no decay)
-- Ecosystem-scoped: transfers restricted to whitelisted protocol contracts and EOA wallets
-- Not minted for hybrid vaults
-- Kept on early redemption (no clawback)
-- Post-Bootstrap: participation history unlocks DeFi Pioneer achievements
 
 **Lifecycle:** Minting stops after Bootstrap phase ends (day 1129). Existing tokens remain valid.
 
-### Hybrid Vault NFT (Protocol Layer)
+### Hybrid Vault (Composition)
 
 | Attribute | Value |
 |-----------|-------|
-| Standard | ERC-721 |
-| Layer | Protocol |
-| Contains | Primary (cbBTC) + Secondary (any ERC-20) |
+| Standard | ERC-721 (VaultNFT) + escrow position |
+| Layer | Protocol primitives, composed by issuer |
+| Contains | Primary (cbBTC) in VaultNFT + Secondary (any ERC-20) in VestingEscrow |
 
-Immutable protocol-layer construct that accepts two ERC-20 tokens with asymmetric withdrawal models.
+Dual-collateral position composed from two protocol primitives: a standard VaultNFT holding
+the primary leg (1% monthly withdrawal, stripping, dormancy, delegation) and a VestingEscrow
+position holding the secondary leg (100% one-time at vesting), both keyed to the same vault
+token and vesting clock.
 
 **Key Properties:**
-- Primary: 1% monthly withdrawal (Zeno's paradox)
-- Secondary: 100% one-time at vesting
-- vestedBTC separation (primary only)
-- Dual match pools (primary + secondary)
-- Ratio-agnostic: caller determines split
+- Primary: 1% monthly withdrawal (Zeno's paradox), full VaultNFT feature set
+- Secondary: 100% one-time at vesting via `VestingEscrow.claim`
+- Atomic early exit: escrow bound as the vault's redeem hook; `earlyRedeem` settles both legs
+- Escrow match pool: forfeited secondary accrues to remaining escrow positions pro-rata
+- Claim rights follow vault ownership
 
-**See:** [Protocol HybridVaultNFT Specification](protocol/Hybrid_Vault_Specification.md)
-
-### Hybrid Vault NFT (Issuer Layer)
+### VestingEscrow
 
 | Attribute | Value |
 |-----------|-------|
-| Standard | ERC-721 |
-| Layer | Issuer |
-| Wraps | Protocol HybridVaultNFT |
+| Layer | Protocol |
+| Holds | Secondary ERC-20 leg per vault token ID |
 
-Issuer-layer wrapper that adds Curve LP integration, dynamic ratio formulas, and monthly configuration on top of the protocol-layer HybridVaultNFT.
+Protocol contract escrowing a secondary token against a VaultNFT, released in full at vesting.
+Copies the vault's mint timestamp at deposit and requires the vault's redeem hook to be bound
+to the escrow, guaranteeing atomic settlement on early redemption.
+
+### HybridMintController (Issuer Layer)
+
+Issuer-layer controller that composes the hybrid position: splits cbBTC per a dynamic LP ratio,
+adds single-sided Curve liquidity, mints the VaultNFT, binds the escrow redeem hook, and
+deposits the LP leg.
 
 **Key Properties:**
 - Dynamic LP ratio (10-50% range, 30% default)
 - Curve pool integration (add_liquidity, get_dy)
 - Monthly issuer configuration (rate-limited)
 - Self-calibrating slippage signal
-
-**See:** [Issuer Hybrid Vault Specification](issuer/Hybrid_Vault_Specification.md)
 
 ---
 
@@ -123,7 +110,7 @@ Issuer-layer wrapper that adds Curve LP integration, dynamic ratio formulas, and
 |-------|-------------|
 | Days 0–1128 | First 1129 days of protocol existence |
 
-The period from protocol deployment until the first vaults complete vesting. No vestedBTC circulates, governance is founder-led via Transitional Voting Power, and the match pool accumulates from early redeemer forfeitures. Ends when first vaults reach day 1129, unlocking vestedBTC minting, withdrawals, match claims, and delegation.
+The period from protocol deployment until the first vaults complete vesting. No vestedBTC circulates (stripping is vesting-gated), governance is founder-led via Transitional Voting Power, and the match pool accrues from early redeemer forfeitures. Ends when first vaults reach day 1129, unlocking stripping, withdrawals, and delegated withdrawals.
 
 ---
 
@@ -159,7 +146,7 @@ Interval between withdrawal opportunities.
 |-------|-------------|
 | 1129 days | Inactivity period |
 
-Time without activity before a separated Vault becomes dormant-eligible.
+Time without activity before a Vault with outstanding stripped reserve becomes dormant-eligible.
 
 ---
 
@@ -178,7 +165,7 @@ Entity that creates minting opportunities. Controls entry requirements, Treasure
 
 ### Holder
 
-Owner of a Vault NFT. Has withdrawal rights, Treasure ownership, and (unless separated) redemption rights.
+Owner of a Vault NFT. Has withdrawal rights over active collateral, Treasure ownership, and redemption rights (early redemption requires fully recombining any stripped reserve first).
 
 ### vestedBTC Holder
 
@@ -196,25 +183,25 @@ Creating a new Vault NFT by depositing Treasure NFT + BTC collateral.
 - **Instant Mint**: Immediate permissionless minting
 - **Window Mint**: Campaign-based coordinated releases
 
-### Separation
+### Stripping
 
-Converting Vault collateral into fungible vestedBTC tokens via `mintBtcToken()`.
+Moving any amount of a vested Vault's active collateral into the immunized reserve via `strip(tokenId, amount)`, minting vestedBTC 1:1. Fractional and repeatable; unlocks at vesting completion.
 
-**Effect:** Vault retains withdrawal rights; vestedBTC represents collateral claim.
+**Effect:** Vault retains withdrawal rights over remaining active collateral only; the reserve is immunized (withdrawals cannot touch it) and backs the minted vestedBTC 1:1.
 
 ### Recombination
 
-Returning vestedBTC to restore full Vault rights via `returnBtcToken()`.
+Burning vestedBTC via `recombine(tokenId, amount)` to move reserve back into active collateral.
 
-**Requirement:** All-or-nothing (full original amount required).
+**Requirement:** Fractional — any amount up to the outstanding reserve, repeatedly. Early redemption requires the reserve to be fully recombined first (recombination before redemption).
 
 ### Collateral Matching
 
-Pro-rata distribution of forfeited collateral from early redeemers to remaining Vault holders.
+Pro-rata distribution of forfeited collateral from early redeemers to remaining Vault holders via a global accumulator (`accMatchPerCollateral`). Each vault's share settles into its active collateral automatically on every collateral-changing operation, or explicitly via `claimMatch()`. Order-independent and conserving.
 
 ### Dormancy Claim
 
-Process by which vestedBTC holders claim collateral from abandoned (dormant) Vaults.
+Process by which vestedBTC holders claim reserve collateral 1:1 from abandoned (dormant) Vaults via `claimDormantCollateral(tokenId, amount)`. Fractional: any holder may burn any amount of vestedBTC up to the outstanding reserve. The vault, its Treasure, and its active collateral remain with the owner.
 
 ---
 
@@ -235,10 +222,11 @@ Process by which vestedBTC holders claim collateral from abandoned (dormant) Vau
 
 | Code | Documentation | Description |
 |------|---------------|-------------|
-| `BtcToken` | vestedBTC | Separated collateral token |
+| `BtcToken` | vestedBTC | Stripped principal token |
 | `btcToken` | vestedBTC | Contract instance |
-| `mintBtcToken()` | Separation | Function to create vestedBTC |
-| `returnBtcToken()` | Recombination | Function to restore Vault rights |
+| `strip()` | Stripping | Function to create vestedBTC (fractional) |
+| `recombine()` | Recombination | Function to reactivate reserve (fractional) |
+| `strippedReserve` | Reserve | Immunized collateral backing vestedBTC 1:1 |
 | `vBTC` | vestedBTC | Token symbol |
 
 ---
@@ -250,9 +238,9 @@ Process by which vestedBTC holders claim collateral from abandoned (dormant) Vau
 | Attribute | Value |
 |-----------|-------|
 | Scope | All vaults owned by wallet |
-| Fields | percentageBPS, grantedAt, active |
+| Fields | percentageBPS, grantedAt, epoch, active |
 
-Struct representing a wallet-level delegation grant that applies to all vaults owned by the granting wallet. Does not expire automatically.
+Struct representing a wallet-level delegation grant that applies to all vaults owned by the granting wallet. Does not expire automatically. The `epoch` field ties the grant to the owner's delegation epoch: `revokeAllWithdrawalDelegates()` increments the epoch, instantly invalidating all prior grants while keeping re-granting clean.
 
 ### VaultDelegatePermission
 
@@ -663,7 +651,7 @@ Voting power derived from a wallet's actual BTC exposure across the protocol.
 | Source | Calculation |
 |--------|-------------|
 | vestedBTC balance | Direct wallet balance |
-| Unsplit Vault collateral | Collateral where `mintBtcToken()` not called |
+| Unstripped Vault collateral | Active collateral (not stripped into reserve) |
 | yvBTC shares | Converted to underlying vestedBTC |
 | LP tokens | Converted to underlying vestedBTC |
 
@@ -681,9 +669,9 @@ Founder's decaying bonus power that transitions governance control to community 
 
 **Formula:** `transitionalPower = totalProtocolBTC × (1 - daysSinceLaunch / 1129)`
 
-### Unsplit Vault
+### Unstripped Vault
 
-VaultNFT where `mintBtcToken()` has not been called. Collateral remains unified with the vault.
+VaultNFT with no outstanding stripped reserve (`strip()` never called, or fully recombined). All collateral is active and unified with the vault.
 
 **Voting Power:** Full collateral amount counts toward organic voting power.
 

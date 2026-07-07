@@ -653,7 +653,7 @@ contracts/protocol/
 ├── src/
 │   ├── VaultNFT.sol         # ERC-998 composable vault
 │   ├── BtcToken.sol         # ERC-20 vestedBTC
-│   ├── HybridVaultNFT.sol   # Dual-collateral variant
+│   ├── VestingEscrow.sol    # Secondary leg of the hybrid composition
 │   └── libraries/
 │       └── VaultMath.sol    # Immutable calculations
 └── interfaces/

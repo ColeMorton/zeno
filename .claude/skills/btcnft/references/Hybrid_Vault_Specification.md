@@ -1,8 +1,8 @@
-# Protocol HybridVaultNFT Specification
+# Protocol Hybrid Vault Specification
 
-> **Version:** 1.0
+> **Version:** 2.0
 > **Status:** Canonical
-> **Last Updated:** 2026-01-03
+> **Last Updated:** 2026-07-07
 > **Layer:** Protocol
 > **Related Documents:**
 > - [Technical Specification](./Technical_Specification.md)
@@ -12,59 +12,67 @@
 
 ## Overview
 
-The protocol-layer `HybridVaultNFT` is an immutable dual-collateral vault that accepts two ERC-20 tokens with asymmetric withdrawal models:
+The protocol hybrid vault is a **composition of two immutable primitives**, not a dedicated contract. A standard `VaultNFT` holds the primary leg; a `VestingEscrow` holds the secondary leg, keyed to the same vault token ID and the same vesting clock:
 
-| Component | Collateral | Withdrawal Model |
-|-----------|-----------|------------------|
-| **Primary** | cbBTC (or any ERC-20) | 1% monthly perpetual (Zeno's paradox) |
-| **Secondary** | Any ERC-20 (LP tokens) | 100% one-time at vesting |
+| Component | Contract | Collateral | Withdrawal Model |
+|-----------|----------|-----------|------------------|
+| **Primary** | `VaultNFT` | cbBTC (or any ERC-20) | 1% monthly perpetual (Zeno's paradox) |
+| **Secondary** | `VestingEscrow` | Any ERC-20 (LP tokens) | 100% one-time claim at vesting |
 
 ```
 Protocol Layer (Immutable):
-├─ HybridVaultNFT.sol
-│   ├─ Primary: 1% monthly withdrawal
-│   ├─ Secondary: 100% unlock at vesting
-│   ├─ vestedBTC separation (primary only)
-│   ├─ Dual match pools
+├─ VaultNFT.sol (primary leg)
+│   ├─ 1% monthly withdrawal
+│   ├─ vestedBTC stripping (strip/recombine)
+│   ├─ Shared match pool
 │   ├─ Dormancy mechanics
-│   └─ Withdrawal delegation (primary only)
+│   ├─ Withdrawal delegation
+│   └─ setRedeemHook → atomic early-exit binding
+│
+└─ VestingEscrow.sol (secondary leg)
+    ├─ 100% unlock at vesting (claim)
+    ├─ Own match accumulator (forfeited escrow)
+    └─ IRedeemHook.onEarlyRedeem (settled by vault's earlyRedeem)
 ```
 
 ---
 
 ## Design Principles
 
-### 1. Ratio Agnostic
+### 1. Single Vault Primitive
 
-The protocol has **zero knowledge** of collateral ratios. Callers (issuer contracts) determine the split:
+There is no dual-collateral vault contract. The vault knows nothing about the escrow beyond a one-time hook address; the escrow reads the vault's owner, mint timestamp, and hook binding. Callers (issuer contracts) compose the two:
 
 ```solidity
-// Issuer contract determines ratio
-uint256 primaryAmount = totalCbBTC * 7000 / 10000;  // 70%
-uint256 secondaryAmount = lpTokensFromCurve;        // 30%
-
-hybridVault.mint(treasure, tokenId, primaryAmount, secondaryAmount);
+// Issuer contract composes the legs
+uint256 vaultId = vaultNFT.mint(treasure, tokenId, address(cbBTC), primaryAmount);
+vaultNFT.setRedeemHook(vaultId, address(escrow));   // owner-only, one-time
+escrow.deposit(vaultId, lpTokensFromCurve);         // requires hook binding
 ```
 
 ### 2. Asymmetric Withdrawal
 
-Different collateral types have different withdrawal models:
+Different legs have different withdrawal models:
 
 | Model | Rationale |
 |-------|-----------|
-| Primary: 1% monthly | Perpetual income stream (Zeno's paradox) |
-| Secondary: 100% one-time | Liquidity event for LP tokens |
+| Primary: 1% monthly (`VaultNFT.withdraw`) | Perpetual income stream (Zeno's paradox) |
+| Secondary: 100% one-time (`VestingEscrow.claim`) | Liquidity event for LP tokens |
 
-### 3. Dual Match Pools
+### 3. Separate Match Accounting
 
-Both collateral types have separate match pools funded by early redemption forfeitures:
+Each leg accrues early-redemption forfeitures independently:
 
-- `primaryMatchPool` — forfeited cbBTC
-- `secondaryMatchPool` — forfeited LP tokens
+- `VaultNFT.matchPool` — forfeited primary collateral (shared with all standard vaults)
+- `VestingEscrow.matchPool` — forfeited escrow, distributed pro-rata via an order-independent accumulator (`accMatchPerEscrowed`)
 
-### 4. Immutability
+### 4. Atomic Early Exit
 
-All parameters are bytecode constants. No governance, no admin functions.
+`VaultNFT.earlyRedeem` calls `IRedeemHook.onEarlyRedeem(tokenId, redeemer)` at the end. `VestingEscrow` implements the hook and settles the secondary leg with the **same pro-rata forfeiture curve** in the same transaction. `VestingEscrow.deposit` reverts unless the hook is already bound, so an escrowed position can never strand on vault burn.
+
+### 5. Immutability
+
+All parameters are bytecode constants. No governance, no admin functions on either contract.
 
 ---
 
@@ -74,130 +82,115 @@ All parameters are bytecode constants. No governance, no admin functions.
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
-| `primaryToken` | Fixed at deployment | Constructor |
-| `secondaryToken` | Fixed at deployment | Constructor |
-| `btcToken` | vestedBTC instance | Constructor |
+| `VaultNFT.collateralToken` | Fixed at deployment | Constructor |
+| `VestingEscrow.vault` | VaultNFT instance | Constructor |
+| `VestingEscrow.token` | Escrowed ERC-20 | Constructor |
 | `VESTING_PERIOD` | 1129 days | VaultMath library |
 | `WITHDRAWAL_RATE` | 1% monthly (1000 BPS) | VaultMath library |
 | `WITHDRAWAL_PERIOD` | 30 days | VaultMath library |
 
 ### Core Functions
 
-#### Mint
+#### Compose (Mint + Bind + Deposit)
 
 ```solidity
-function mint(
-    address treasureContract,
-    uint256 treasureTokenId,
-    uint256 primaryAmount,
-    uint256 secondaryAmount
-) external returns (uint256 tokenId);
+// VaultNFT
+function mint(address treasureContract, uint256 treasureTokenId, address collateralToken, uint256 collateralAmount) external returns (uint256 tokenId);
+function setRedeemHook(uint256 tokenId, address hook) external;  // owner-only, one-time
+
+// VestingEscrow
+function deposit(uint256 tokenId, uint256 amount) external;  // requires redeemHook(tokenId) == escrow
 ```
 
-Creates a hybrid vault with:
-- Treasure NFT (transferred to contract)
-- Primary collateral (cbBTC)
-- Secondary collateral (any ERC-20)
+- One escrow position per vault (`AlreadyDeposited` otherwise)
+- Deposit copies the vault's mint timestamp as the position's vesting clock (survives vault burn)
 
 #### Withdraw Primary
 
 ```solidity
-function withdrawPrimary(uint256 tokenId) external returns (uint256 amount);
+function withdraw(uint256 tokenId) external returns (uint256 amount);  // VaultNFT
 ```
 
-- 1% of primary collateral monthly
-- Perpetual (Zeno's paradox)
-- Requires full vesting (1129 days)
-- 30-day cooldown between withdrawals
+- 1% of primary collateral monthly, perpetual (Zeno's paradox)
+- Requires full vesting (1129 days); 30-day cooldown
 
-#### Withdraw Secondary
+#### Claim Secondary
 
 ```solidity
-function withdrawSecondary(uint256 tokenId) external returns (uint256 amount);
+function claim(uint256 tokenId) external returns (uint256 amount);  // VestingEscrow
 ```
 
-- 100% of secondary collateral
-- One-time only (flag set after withdrawal)
-- Requires full vesting (1129 days)
+- 100% of escrowed amount (plus accrued match share), one-time — position cleared after claim
+- Requires full vesting (same clock as the vault)
+- Claim rights follow vault ownership (`vault.ownerOf(tokenId)`)
 
-#### Early Redemption
+#### Early Redemption (Atomic)
 
 ```solidity
-function earlyRedeem(uint256 tokenId) external returns (
-    uint256 primaryReturned,
-    uint256 primaryForfeited,
-    uint256 secondaryReturned,
-    uint256 secondaryForfeited
-);
+// VaultNFT — settles both legs in one transaction
+function earlyRedeem(uint256 tokenId) external returns (uint256 returned, uint256 forfeited);
+
+// VestingEscrow — called by the vault, not by users
+function onEarlyRedeem(uint256 tokenId, address redeemer) external;
 ```
 
-- Both collaterals use same linear ramp formula
-- Forfeited amounts go to respective match pools
-- Burns vault and treasure NFTs
+- Both legs use the same linear ramp formula (`VaultMath.calculateEarlyRedemption`)
+- Primary forfeiture → `VaultNFT.matchPool`; secondary forfeiture → `VestingEscrow` accumulator
+- Burns vault and treasure NFTs; escrow position cleared, returned tokens sent to the redeemer
 
-### vestedBTC Separation (Primary Only)
+### vestedBTC Stripping (Primary Only)
 
 ```solidity
-function mintBtcToken(uint256 tokenId) external returns (uint256 amount);
-function returnBtcToken(uint256 tokenId) external;
+function strip(uint256 tokenId, uint256 amount) external;      // VaultNFT
+function recombine(uint256 tokenId, uint256 amount) external;  // VaultNFT
 ```
 
-- Only primary collateral can be separated
-- Mints vestedBTC tokens representing collateral claim
-- Enables DeFi composability (trading, lending)
+- Only the vault's primary collateral can be stripped into vestedBTC
+- The escrowed secondary leg is never strippable
 
-### Match Pool Claims
+### Match Claims
 
 ```solidity
-function claimPrimaryMatch(uint256 tokenId) external returns (uint256 amount);
-function claimSecondaryMatch(uint256 tokenId) external returns (uint256 amount);
+function claimMatch(uint256 tokenId) external returns (uint256 amount);  // VaultNFT (primary)
+function claimMatch(uint256 tokenId) external returns (uint256 amount);  // VestingEscrow (secondary)
+function pendingMatch(uint256 tokenId) external view returns (uint256);  // both
 ```
 
-- Vested vaults can claim proportional share of match pools
-- Increases respective collateral balance
+- Vault match: standard `VaultNFT` mechanics, shared pool with all vaults
+- Escrow match: settles the position's accrued share into `escrowAmount` (pull-based accumulator)
 
 ### Dormancy
 
-Same mechanics as VaultNFT:
+Standard `VaultNFT` mechanics apply to the primary leg:
 - `pokeDormant()` — Start grace period
 - `proveActivity()` — Reset dormancy
-- `claimDormantCollateral()` — Claim both collateral types
+- `claimDormantCollateral()` — Claim primary collateral
+
+The escrowed secondary leg is not subject to dormancy; it remains claimable by the vault owner at vesting.
 
 ### Withdrawal Delegation
 
-Same pattern as VaultNFT, applies to primary only:
+Standard `VaultNFT` pattern, applies to the primary leg only:
 - Wallet-level delegation (all vaults)
 - Vault-specific delegation (single vault)
-- `withdrawPrimaryAsDelegate()` — Delegate withdrawal
-- Secondary is NOT delegatable
+- `withdrawAsDelegate()` — Delegate withdrawal
+- The secondary leg is NOT delegatable
 
 ---
 
 ## State Storage
 
 ```solidity
-// Per-vault state
-mapping(uint256 => uint256) private _primaryAmount;
-mapping(uint256 => uint256) private _secondaryAmount;
-mapping(uint256 => uint256) private _mintTimestamp;
-mapping(uint256 => uint256) private _lastPrimaryWithdrawal;
-mapping(uint256 => bool) private _secondaryWithdrawn;
-mapping(uint256 => uint256) private _lastActivity;
-mapping(uint256 => uint256) private _pokeTimestamp;
+// VaultNFT — standard single-collateral vault state (see Technical Specification)
 
-// Treasure state
-mapping(uint256 => address) private _treasureContract;
-mapping(uint256 => uint256) private _treasureTokenId;
+// VestingEscrow
+mapping(uint256 => uint256) public escrowAmount;     // per vault token ID
+mapping(uint256 => uint256) public mintTimestamp;    // copied from vault at deposit
+mapping(uint256 => uint256) private _matchDebt;      // accumulator checkpoint
 
-// vestedBTC separation (primary only)
-mapping(uint256 => uint256) private _btcTokenAmount;
-mapping(uint256 => uint256) private _originalMintedAmount;
-
-// Match pools
-uint256 public primaryMatchPool;
-uint256 public secondaryMatchPool;
-uint256 public totalActivePrimary;
-uint256 public totalActiveSecondary;
+uint256 public matchPool;             // forfeited escrow not yet settled
+uint256 public totalEscrowed;         // settled escrow across all positions
+uint256 public accMatchPerEscrowed;   // forfeit accrued per unit escrowed (1e18 fixed-point)
 ```
 
 ---
@@ -205,33 +198,33 @@ uint256 public totalActiveSecondary;
 ## Withdrawal Timeline
 
 ```
-Day 0:      Vault created
-            Primary + Secondary deposited
+Day 0:      Vault minted (primary leg)
+            Hook bound, secondary leg escrowed
 
 Day 0-1129: Vesting period
-            Both components locked
+            Both legs locked
 
 Day 1129:   Maturity
-            Primary: 1% monthly withdrawals begin
-            Secondary: 100% available (one-time)
+            Primary: 1% monthly withdrawals begin (VaultNFT.withdraw)
+            Secondary: 100% claimable (VestingEscrow.claim, one-time)
 
 Day 1129+:  Post-maturity
             Primary: Perpetual asymptotic depletion
-            Secondary: Zero (already withdrawn)
+            Secondary: Zero (already claimed)
 ```
 
 ---
 
-## Comparison: VaultNFT vs HybridVaultNFT
+## Comparison: Standard vs Hybrid
 
-| Property | VaultNFT | HybridVaultNFT |
-|----------|----------|----------------|
-| Collateral | Single (cbBTC) | Dual (primary + secondary) |
+| Property | Standard Vault | Hybrid (VaultNFT + VestingEscrow) |
+|----------|----------------|-----------------------------------|
+| Collateral | Single (cbBTC) | Dual (vault primary + escrowed secondary) |
 | Withdrawal | 1% monthly | Primary: 1% monthly, Secondary: 100% one-time |
-| Match Pool | Single | Dual (primary + secondary) |
+| Match Pool | Single | Vault pool + escrow accumulator |
 | vestedBTC | Full collateral | Primary only |
 | Delegation | Full withdrawal | Primary only |
-| Complexity | Lower | Higher |
+| Extra contracts | None | VestingEscrow bound as redeem hook |
 
 ---
 
@@ -239,32 +232,28 @@ Day 1129+:  Post-maturity
 
 ### Issuer Integration
 
-The issuer layer wraps HybridVaultNFT with additional logic:
+The issuer layer composes the primitives (see `HybridMintController`):
 
 ```solidity
-// Issuer contract (e.g., IssuerHybridController)
-contract IssuerHybridController {
-    IHybridVaultNFT public hybridVault;
-    ICurvePool public curvePool;
+contract HybridMintController {
+    IVaultNFT public vaultNFT;
+    VestingEscrow public vestingEscrow;
+    ICurveCryptoSwap public curvePool;
 
-    function mintHybridVault(uint256 cbBTCAmount) external {
-        // Calculate split (e.g., 70/30)
-        uint256 primaryAmount = cbBTCAmount * 7000 / 10000;
-        uint256 lpAmount = cbBTCAmount * 3000 / 10000;
+    function mintHybridVault(uint256 cbBTCAmount) external returns (uint256 vaultId) {
+        // Split per dynamic LP ratio (e.g., 70/30)
+        uint256 lpPortion = cbBTCAmount * 3000 / 10000;
+        uint256 vaultPortion = cbBTCAmount - lpPortion;
 
-        // Add LP to Curve
-        uint256 lpTokens = curvePool.add_liquidity([lpAmount, 0], 0);
+        // Add LP leg to Curve
+        uint256 lpTokens = curvePool.add_liquidity([lpPortion, 0], 0);
 
-        // Mint treasure
-        uint256 treasureId = treasureNFT.mint(msg.sender);
-
-        // Mint hybrid vault
-        hybridVault.mint(
-            address(treasureNFT),
-            treasureId,
-            primaryAmount,
-            lpTokens
-        );
+        // Compose: mint vault, bind hook, escrow LP, hand vault to user
+        uint256 treasureId = treasureNFT.mint(address(this));
+        vaultId = vaultNFT.mint(address(treasureNFT), treasureId, address(cbBTC), vaultPortion);
+        vaultNFT.setRedeemHook(vaultId, address(vestingEscrow));
+        vestingEscrow.deposit(vaultId, lpTokens);
+        IERC721(address(vaultNFT)).transferFrom(address(this), msg.sender, vaultId);
     }
 }
 ```
@@ -275,10 +264,10 @@ contract IssuerHybridController {
 
 | File | Description |
 |------|-------------|
-| `contracts/protocol/src/HybridVaultNFT.sol` | Main contract |
-| `contracts/protocol/src/interfaces/IHybridVaultNFT.sol` | Interface |
-| `contracts/protocol/test/unit/HybridVaultNFT.t.sol` | Unit tests |
-| `contracts/protocol/script/DeployHybrid.s.sol` | Deployment |
+| `contracts/protocol/src/VaultNFT.sol` | Primary leg (standard vault + redeem hook) |
+| `contracts/protocol/src/VestingEscrow.sol` | Secondary leg escrow |
+| `contracts/protocol/src/interfaces/IRedeemHook.sol` | Atomic early-exit callback |
+| `contracts/issuer/src/HybridMintController.sol` | Issuer-layer composition |
 
 ---
 

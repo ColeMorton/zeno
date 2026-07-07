@@ -325,7 +325,7 @@ Difference over 30 years: 1.35^30 / 1.27^30 = 2.8x more capital
 
 ### Strategy 3: Hybrid Vault + LP Capture
 
-**Thesis:** Use HybridVaultNFT's dual-collateral feature to lock LP tokens alongside BTC, capturing LP appreciation without additional transactions.
+**Thesis:** Use the hybrid composition (VaultNFT + VestingEscrow) to lock LP tokens alongside BTC, capturing LP appreciation without additional transactions.
 
 **Mechanics:**
 ```
