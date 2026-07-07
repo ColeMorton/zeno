@@ -1099,7 +1099,7 @@ Align pixel art trait rarity with the achievement rarity system:
 
 ### 11.6 On-Chain Pixel Art Storage
 
-For permanent on-chain storage, the protocol uses **packed bitmaps** via `PixelArtRenderer.sol`:
+For permanent on-chain storage, the protocol uses the **packed bitmap** pattern (self-contained generated Solidity libraries; no renderer contract is deployed):
 
 #### Supported Formats
 
@@ -1169,14 +1169,14 @@ library MyPixelArt256Mono {
 
 #### On-Chain vs Off-Chain Decision
 
-| Criteria | On-Chain (PixelArtRenderer) | Off-Chain (IPFS) |
+| Criteria | On-Chain (packed bitmap) | Off-Chain (IPFS) |
 |----------|----------------------------|------------------|
 | File size | < 5KB Solidity | Any size |
 | Permanence | Immutable, Ethereum-guaranteed | Depends on pinning |
 | Animation | Not supported | Supported (WebP/GIF) |
 | Cost | ~65K gas deployment | ~$0.01 IPFS pin |
 
-**Implementation**: See `contracts/issuer/src/PixelArtRenderer.sol` and [Visual Assets Guide](./Visual_Assets_Guide.md) Section 4.1.2.
+**Implementation**: See [Visual Assets Guide](./Visual_Assets_Guide.md) Section 4.1.2.
 
 ---
 

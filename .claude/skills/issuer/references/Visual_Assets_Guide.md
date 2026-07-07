@@ -45,7 +45,7 @@ The BTCNFT Protocol uses a **hybrid on-chain/off-chain architecture**:
 | Metadata URI | `baseTokenURI` reference | JSON generation |
 | Tier calculation | Collateral amounts | Percentile computation |
 
-**On-chain rendering is available** for Achievement badges (`AchievementSVG.sol`) and pixel art (`PixelArtRenderer.sol`).
+**On-chain rendering is available** for Achievement badges (`AchievementSVG.sol`) and pixel art (generated packed-bitmap libraries).
 
 ### Token Taxonomy
 
@@ -338,7 +338,7 @@ For pixel art, raw SVG storage is inefficient (~50 bytes per pixel). The protoco
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  On-Chain Storage (PixelArtRenderer Pattern)                │
+│  On-Chain Storage (removed PixelArtRenderer pattern)        │
 ├─────────────────────────────────────────────────────────────┤
 │  Palette: 48 bytes (16 colors × 3 bytes RGB)                │
 │  Bitmap:  2,048 bytes (64×64 pixels × 4 bits)               │
@@ -369,7 +369,7 @@ function getDataURI() returns (string memory); // Returns base64 data URI
 | Raw SVG (~50 bytes/pixel) | ~80 KB | 1x |
 | Packed bitmap (0.5 bytes/pixel) | 2 KB | **40x** |
 
-**Implementation**: `contracts/issuer/src/PixelArtRenderer.sol`
+**Implementation**: removed from the codebase (rebuild if on-chain pixel art ships); pattern preserved here for reference
 
 ### 4.2 SVG Optimization Checklist
 

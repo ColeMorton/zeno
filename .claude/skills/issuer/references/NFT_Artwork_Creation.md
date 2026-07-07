@@ -413,11 +413,10 @@ library Annual128Mono {
 
 ### 7.1 On-Chain Storage
 
-Generated libraries integrate with `PixelArtRenderer.sol`:
+Generated libraries are self-contained — each exposes its own `getSVG()`:
 
 ```solidity
 import {Annual128Mono} from "./Annual128Mono.sol";
-import {PixelArtRenderer} from "./PixelArtRenderer.sol";
 
 // Render on-demand (view function, zero gas for reads)
 string memory svg = Annual128Mono.getSVG();
