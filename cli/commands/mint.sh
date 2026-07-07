@@ -54,4 +54,5 @@ TOKEN_ID=$(parse_token_id_from_log "$TX_HASH")
 
 print_success "Vault minted successfully" "$TX_HASH"
 echo "Vault Token ID: $TOKEN_ID"
-print_vault_summary "$TOKEN_ID"
+echo ""
+echo "View vault status: ./btcnft status $TOKEN_ID"

@@ -50,21 +50,6 @@ load_env() {
     done
 }
 
-# Validate argument count
-# Usage: require_args <min_count> <arg_names...>
-require_args() {
-    local min_count="$1"
-    shift
-    local arg_names=("$@")
-    local actual_count="${#REMAINING_ARGS[@]}"
-
-    if [[ $actual_count -lt $min_count ]]; then
-        echo "Error: Missing required arguments" >&2
-        echo "Usage: $COMMAND_NAME ${arg_names[*]}" >&2
-        exit 1
-    fi
-}
-
 # Cast call wrapper with error handling
 # Usage: cast_call <contract> <signature> [args...]
 cast_call() {
@@ -124,13 +109,6 @@ parse_revert_reason() {
 
     # Fallback: show raw output
     echo "$output" >&2
-}
-
-# Get transaction receipt and extract event logs
-# Usage: get_tx_logs <tx_hash>
-get_tx_logs() {
-    local tx_hash="$1"
-    cast receipt "$tx_hash" --rpc-url "$RPC_URL" --json | jq -r '.logs'
 }
 
 # Extract token ID from event log topic
@@ -258,13 +236,6 @@ print_success() {
         echo "Transaction: $tx_hash"
     fi
     echo ""
-}
-
-# Print vault status summary
-print_vault_summary() {
-    local token_id="$1"
-    echo ""
-    echo "View vault status: ./btcnft status $token_id"
 }
 
 # Require a contract address env var to be set (fail-fast)

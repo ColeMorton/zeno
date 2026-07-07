@@ -20,17 +20,6 @@ _get_rpc_url() {
     esac
 }
 
-# Get chain ID for network
-_get_chain_id() {
-    case "$1" in
-        local)   echo "31337" ;;
-        sepolia) echo "11155111" ;;
-        holesky) echo "17000" ;;
-        base)    echo "8453" ;;
-        *)       echo "" ;;
-    esac
-}
-
 # Get display name for network
 _get_network_display_name() {
     case "$1" in
@@ -71,13 +60,6 @@ get_rpc_url() {
     _get_rpc_url "$network"
 }
 
-# Get chain ID for network (public API)
-get_chain_id() {
-    local network="${1:-$CURRENT_NETWORK}"
-    validate_network "$network"
-    _get_chain_id "$network"
-}
-
 # Get display name for network (public API)
 get_network_name() {
     local network="${1:-$CURRENT_NETWORK}"
@@ -89,18 +71,6 @@ get_network_name() {
 is_local_network() {
     local network="${1:-$CURRENT_NETWORK}"
     [[ "$network" == "local" ]]
-}
-
-# Check if network is a testnet
-is_testnet() {
-    local network="${1:-$CURRENT_NETWORK}"
-    [[ "$network" == "sepolia" || "$network" == "holesky" ]]
-}
-
-# Check if network is a mainnet (production)
-is_mainnet() {
-    local network="${1:-$CURRENT_NETWORK}"
-    [[ "$network" == "base" ]]
 }
 
 # Get environment file path for network

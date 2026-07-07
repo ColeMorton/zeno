@@ -134,158 +134,18 @@ main() {
     export CURRENT_NETWORK
     export COMMAND_NAME="btcnft-issuer $command"
 
-    # Route to appropriate script
-    case "$command" in
-        # Mint Controllers
-        mint-vault)
-            exec "$CLI_DIR/commands/mint-vault.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        mint-hybrid)
-            exec "$CLI_DIR/commands/mint-hybrid.sh" "${REMAINING_ARGS[@]}"
-            ;;
+    # Route to appropriate script (command names map 1:1 to script filenames)
+    local d f
+    for d in commands queries; do
+        f="$CLI_DIR/$d/$command.sh"
+        if [[ -x "$f" ]]; then
+            exec "$f" "${REMAINING_ARGS[@]}"
+        fi
+    done
 
-        # Auctions
-        auction-create-dutch)
-            exec "$CLI_DIR/commands/auction-create-dutch.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        auction-create-english)
-            exec "$CLI_DIR/commands/auction-create-english.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        auction-purchase)
-            exec "$CLI_DIR/commands/auction-purchase.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        auction-bid)
-            exec "$CLI_DIR/commands/auction-bid.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        auction-settle)
-            exec "$CLI_DIR/commands/auction-settle.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Perpetuals
-        perp-open)
-            exec "$CLI_DIR/commands/perp-open.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        perp-close)
-            exec "$CLI_DIR/commands/perp-close.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        perp-add-collateral)
-            exec "$CLI_DIR/commands/perp-add-collateral.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Volatility Pool
-        vol-deposit)
-            exec "$CLI_DIR/commands/vol-deposit.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        vol-withdraw)
-            exec "$CLI_DIR/commands/vol-withdraw.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        vol-settle)
-            exec "$CLI_DIR/commands/vol-settle.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Achievements
-        achieve-minter)
-            exec "$CLI_DIR/commands/achieve-minter.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        achieve-matured)
-            exec "$CLI_DIR/commands/achieve-matured.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        achieve-duration)
-            exec "$CLI_DIR/commands/achieve-duration.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        achieve-hodler-supreme)
-            exec "$CLI_DIR/commands/achieve-hodler-supreme.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Chapters
-        chapter-claim)
-            exec "$CLI_DIR/commands/chapter-claim.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        chapter-create)
-            exec "$CLI_DIR/commands/chapter-create.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        chapter-add-achievement)
-            exec "$CLI_DIR/commands/chapter-add-achievement.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        chapter-set-active)
-            exec "$CLI_DIR/commands/chapter-set-active.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Profile & Dashboard
-        profile-create)
-            exec "$CLI_DIR/commands/profile-create.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        dashboard-mint)
-            exec "$CLI_DIR/commands/dashboard-mint.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Streaming
-        stream-configure)
-            exec "$CLI_DIR/commands/stream-configure.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        stream-create)
-            exec "$CLI_DIR/commands/stream-create.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        stream-batch)
-            exec "$CLI_DIR/commands/stream-batch.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Treasure NFT
-        treasure-mint)
-            exec "$CLI_DIR/commands/treasure-mint.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        treasure-authorize)
-            exec "$CLI_DIR/commands/treasure-authorize.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Queries
-        auction-status)
-            exec "$CLI_DIR/queries/auction-status.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        perp-position)
-            exec "$CLI_DIR/queries/perp-position.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        perp-market)
-            exec "$CLI_DIR/queries/perp-market.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        vol-pool-status)
-            exec "$CLI_DIR/queries/vol-pool-status.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        vol-position)
-            exec "$CLI_DIR/queries/vol-position.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        achieve-check)
-            exec "$CLI_DIR/queries/achieve-check.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        achieve-status)
-            exec "$CLI_DIR/queries/achieve-status.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        chapter-claimable)
-            exec "$CLI_DIR/queries/chapter-claimable.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        chapter-info)
-            exec "$CLI_DIR/queries/chapter-info.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        profile-status)
-            exec "$CLI_DIR/queries/profile-status.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        dashboard-features)
-            exec "$CLI_DIR/queries/dashboard-features.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        stream-status)
-            exec "$CLI_DIR/queries/stream-status.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        treasure-status)
-            exec "$CLI_DIR/queries/treasure-status.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Unknown command
-        *)
-            echo "Error: Unknown command '$command'" >&2
-            echo "Run './btcnft-issuer --help' for usage" >&2
-            exit 1
-            ;;
-    esac
+    echo "Error: Unknown command '$command'" >&2
+    echo "Run './btcnft-issuer --help' for usage" >&2
+    exit 1
 }
 
 main "$@"

@@ -27,6 +27,15 @@ require_vault_exists "$TOKEN_ID"
 COLLATERAL=$(cast_call "$VAULT" "collateralAmount(uint256)(uint256)" "$TOKEN_ID")
 MINT_TS=$(cast_call "$VAULT" "mintTimestamp(uint256)(uint256)" "$TOKEN_ID")
 
+# Check for outstanding stripped reserve (must be zero)
+RESERVE=$(cast_call "$VAULT" "strippedReserve(uint256)(uint256)" "$TOKEN_ID")
+if [[ "$RESERVE" != "0" ]]; then
+    echo "Error: Vault has outstanding stripped reserve" >&2
+    echo "Outstanding reserve: $(format_btc "$RESERVE") BTC" >&2
+    echo "You must recombine the full reserve before early redemption" >&2
+    exit 1
+fi
+
 # Get current timestamp
 CURRENT_TS=$(cast block latest --rpc-url "$RPC_URL" --json | jq -r '.timestamp')
 CURRENT_TS=$((16#${CURRENT_TS:2}))

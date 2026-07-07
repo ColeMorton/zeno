@@ -30,19 +30,19 @@ Commands:
     mint                       Create vault
     withdraw                   Withdraw collateral
     early-redeem               Early exit with penalty
-    separate                   Mint vBTC from vault
-    recombine                  Return vBTC to vault
-    claim-match                Claim match pool share
+    strip                      Move collateral to reserve (mint vBTC)
+    recombine                  Move reserve back to collateral (burn vBTC)
+    claim-match                Settle match pool share
 
   Hybrid Vault (Dual-Collateral):
     hybrid-mint                Create hybrid vault
     hybrid-withdraw-primary    Withdraw primary collateral
     hybrid-withdraw-secondary  Withdraw secondary collateral (one-time)
     hybrid-early-redeem        Early exit hybrid vault
-    hybrid-separate            Mint vBTC from hybrid vault
-    hybrid-recombine           Return vBTC to hybrid vault
-    hybrid-claim-primary-match Claim primary match pool
-    hybrid-claim-secondary-match Claim secondary match pool
+    hybrid-strip               Move primary collateral to reserve (mint vBTC)
+    hybrid-recombine           Move primary reserve back to collateral (burn vBTC)
+    hybrid-claim-primary-match Settle primary match pool
+    hybrid-claim-secondary-match Settle secondary match pool
 
   Delegation:
     delegate-grant             Grant wallet-level delegation
@@ -127,142 +127,31 @@ main() {
 
     # Route to appropriate script
     case "$command" in
-        # Setup
-        setup)
+        # Local-only guards
+        setup|time-skip)
             if ! is_local_network; then
-                echo "Error: setup is only available on local network" >&2
+                echo "Error: $command is only available on local network" >&2
                 exit 1
             fi
-            exec "$CLI_DIR/commands/setup.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Vault (Single-Collateral)
-        mint)
-            exec "$CLI_DIR/commands/mint.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        withdraw)
-            exec "$CLI_DIR/commands/withdraw.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        early-redeem)
-            exec "$CLI_DIR/commands/early-redeem.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        separate)
-            exec "$CLI_DIR/commands/separate.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        recombine)
-            exec "$CLI_DIR/commands/recombine.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        claim-match)
-            exec "$CLI_DIR/commands/claim-match.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Hybrid Vault (Dual-Collateral)
-        hybrid-mint)
-            exec "$CLI_DIR/commands/hybrid-mint.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        hybrid-withdraw-primary)
-            exec "$CLI_DIR/commands/hybrid-withdraw-primary.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        hybrid-withdraw-secondary)
-            exec "$CLI_DIR/commands/hybrid-withdraw-secondary.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        hybrid-early-redeem)
-            exec "$CLI_DIR/commands/hybrid-early-redeem.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        hybrid-separate)
-            exec "$CLI_DIR/commands/hybrid-separate.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        hybrid-recombine)
-            exec "$CLI_DIR/commands/hybrid-recombine.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        hybrid-claim-primary-match)
-            exec "$CLI_DIR/commands/hybrid-claim-primary-match.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        hybrid-claim-secondary-match)
-            exec "$CLI_DIR/commands/hybrid-claim-secondary-match.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Delegation
-        delegate-grant)
-            exec "$CLI_DIR/commands/delegate-grant.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        delegate-revoke)
-            exec "$CLI_DIR/commands/delegate-revoke.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        delegate-withdraw)
-            exec "$CLI_DIR/commands/delegate-withdraw.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        vault-delegate-grant)
-            exec "$CLI_DIR/commands/vault-delegate-grant.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        vault-delegate-revoke)
-            exec "$CLI_DIR/commands/vault-delegate-revoke.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        hybrid-delegate-withdraw)
-            exec "$CLI_DIR/commands/hybrid-delegate-withdraw.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Dormancy
-        poke)
-            exec "$CLI_DIR/commands/poke.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        prove-activity)
-            exec "$CLI_DIR/commands/prove-activity.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        claim-dormant)
-            exec "$CLI_DIR/commands/claim-dormant.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        hybrid-poke)
-            exec "$CLI_DIR/commands/hybrid-poke.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        hybrid-prove-activity)
-            exec "$CLI_DIR/commands/hybrid-prove-activity.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        hybrid-claim-dormant)
-            exec "$CLI_DIR/commands/hybrid-claim-dormant.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Token Operations
-        token-approve)
-            exec "$CLI_DIR/commands/token-approve.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Queries
-        status)
-            exec "$CLI_DIR/queries/status.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        hybrid-status)
-            exec "$CLI_DIR/queries/hybrid-status.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        delegates)
-            exec "$CLI_DIR/queries/delegates.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        hybrid-delegates)
-            exec "$CLI_DIR/queries/hybrid-delegates.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        batch-status)
-            exec "$CLI_DIR/queries/batch-status.sh" "${REMAINING_ARGS[@]}"
-            ;;
-        token-balance)
-            exec "$CLI_DIR/queries/token-balance.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Development
-        time-skip)
-            if ! is_local_network; then
-                echo "Error: time-skip is only available on local network" >&2
-                exit 1
-            fi
-            exec "$CLI_DIR/dev/time-skip.sh" "${REMAINING_ARGS[@]}"
-            ;;
-
-        # Unknown command
-        *)
-            echo "Error: Unknown command '$command'" >&2
-            echo "Run './btcnft --help' for usage" >&2
-            exit 1
             ;;
     esac
+
+    if [[ "$command" == "time-skip" ]]; then
+        exec "$CLI_DIR/dev/time-skip.sh" "${REMAINING_ARGS[@]}"
+    fi
+
+    # Command names map 1:1 to script filenames
+    local d f
+    for d in commands queries; do
+        f="$CLI_DIR/$d/$command.sh"
+        if [[ -x "$f" ]]; then
+            exec "$f" "${REMAINING_ARGS[@]}"
+        fi
+    done
+
+    echo "Error: Unknown command '$command'" >&2
+    echo "Run './btcnft --help' for usage" >&2
+    exit 1
 }
 
 main "$@"

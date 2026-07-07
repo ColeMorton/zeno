@@ -53,4 +53,5 @@ NEW_COLLATERAL=$(cast_call "$VAULT" "collateralAmount(uint256)(uint256)" "$TOKEN
 print_success "Withdrawal complete" "$TX_HASH"
 echo "Withdrawn:  $(format_btc "$WITHDRAWABLE") BTC"
 echo "Remaining:  $(format_btc "$NEW_COLLATERAL") BTC"
-print_vault_summary "$TOKEN_ID"
+echo ""
+echo "View vault status: ./btcnft status $TOKEN_ID"

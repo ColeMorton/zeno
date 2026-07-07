@@ -32,4 +32,5 @@ TX_HASH=$(cast_send "$VAULT" "proveActivity(uint256)" "$TOKEN_ID")
 
 print_success "Activity proven" "$TX_HASH"
 echo "Dormancy timer has been reset."
-print_vault_summary "$TOKEN_ID"
+echo ""
+echo "View vault status: ./btcnft status $TOKEN_ID"
