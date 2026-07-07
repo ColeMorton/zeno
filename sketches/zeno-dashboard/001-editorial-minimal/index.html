@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zeno — Protocol Dashboard (Editorial)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../theme/tokens.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-display);
+      background: var(--color-bg);
+      color: var(--color-text-primary);
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    /* Layout */
+    .app {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 0 40px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 0 24px;
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--color-accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      color: #0b0b0b;
+    }
+    .logo-text {
+      font-weight: 600;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .header-address {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+      font-family: var(--font-mono);
+      background: var(--color-surface);
+      padding: 8px 14px;
+      border-radius: 100px;
+      border: 1px solid var(--color-border);
+      cursor: default;
+    }
+    .btn-connect {
+      background: var(--color-accent);
+      color: #0b0b0b;
+      border: none;
+      padding: 10px 22px;
+      border-radius: 100px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s var(--ease-out);
+    }
+    .btn-connect:hover {
+      background: var(--color-accent-hover);
+      transform: translateY(-1px);
+    }
+
+    /* Hero metrics */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+      padding: 60px 0 56px;
+    }
+    .metric-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .metric-group:first-child .metric-value {
+      color: var(--color-accent);
+    }
+    .metric-value {
+      font-size: 52px;
+      font-weight: 300;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      color: var(--color-text-primary);
+      transition: color 0.3s;
+    }
+    .metric-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 8px;
+    }
+    .metric-change {
+      font-size: 12px;
+      color: var(--color-success);
+      margin-top: 6px;
+      font-weight: 500;
+    }
+
+    /* Section header */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 32px 0 20px;
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-text-muted);
+    }
+    .section-action {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: color 0.2s;
+      background: none;
+      border: none;
+      font-family: inherit;
+    }
+    .section-action:hover {
+      color: var(--color-accent);
+    }
+
+    /* Vault list */
+    .vault-list {
+      display: flex;
+      flex-direction: column;
+    }
+    .vault-row {
+      display: grid;
+      grid-template-columns: 1fr 140px 100px 36px;
+      align-items: center;
+      padding: 18px 0;
+      border-top: 1px solid var(--color-border-light);
+      cursor: pointer;
+      transition: background 0.2s;
+      border-radius: 0;
+      margin: 0 -12px;
+      padding: 18px 12px;
+    }
+    .vault-row:last-child {
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .vault-row:hover {
+      background: var(--color-surface-hover);
+    }
+    .vault-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .vault-name {
+      font-weight: 500;
+      font-size: 15px;
+    }
+    .vault-meta {
+      font-size: 12px;
+      color: var(--color-text-muted);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .vault-value {
+      font-weight: 500;
+      font-size: 15px;
+      font-family: var(--font-mono);
+      color: var(--color-text-primary);
+      text-align: right;
+    }
+    .vault-usd {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      font-family: var(--font-mono);
+      text-align: right;
+    }
+    .vault-status {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      text-align: center;
+    }
+    .status-active { color: var(--color-active); }
+    .status-dormant { color: var(--color-dormant); }
+    .status-matured { color: var(--color-matured); }
+    .vault-arrow {
+      color: var(--color-text-muted);
+      font-size: 16px;
+      text-align: right;
+      transition: transform 0.2s var(--ease-out);
+    }
+    .vault-row:hover .vault-arrow {
+      color: var(--color-accent);
+      transform: translateX(4px);
+    }
+
+    /* Detail panel (hidden by default, toggled via JS) */
+    .detail-panel {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      padding: 28px 20px;
+      background: var(--color-surface);
+      border-radius: var(--radius-md);
+      margin: 4px 0 16px;
+      border: 1px solid var(--color-border);
+    }
+    .detail-panel.open {
+      display: grid;
+    }
+    .detail-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .detail-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-text-muted);
+      font-weight: 600;
+    }
+    .detail-value {
+      font-size: 18px;
+      font-weight: 400;
+    }
+    .detail-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .btn-detail {
+      padding: 10px 20px;
+      border-radius: 100px;
+      font-size: 13px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s var(--ease-out);
+    }
+    .btn-detail.primary {
+      background: var(--color-accent);
+      color: #0b0b0b;
+    }
+    .btn-detail.primary:hover {
+      background: var(--color-accent-hover);
+    }
+    .btn-detail.secondary {
+      background: var(--color-surface-elevated);
+      color: var(--color-text-secondary);
+      border: 1px solid var(--color-border);
+    }
+    .btn-detail.secondary:hover {
+      border-color: var(--color-text-muted);
+      color: var(--color-text-primary);
+    }
+
+    /* Empty state */
+    .empty-state {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 0;
+      text-align: center;
+    }
+    .empty-state.show {
+      display: flex;
+    }
+    .empty-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--color-accent-subtle);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+    .empty-text {
+      color: var(--color-text-muted);
+      font-size: 14px;
+      max-width: 280px;
+      line-height: 1.6;
+    }
+    .btn-empty {
+      margin-top: 20px;
+      background: var(--color-accent);
+      color: #0b0b0b;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 100px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s var(--ease-out);
+    }
+    .btn-empty:hover {
+      background: var(--color-accent-hover);
+    }
+
+    /* Transition overlay */
+    .transition-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 11, 11, 0.7);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .transition-overlay.open {
+      display: flex;
+    }
+    .transition-card {
+      background: var(--color-surface-elevated);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      max-width: 420px;
+      width: 100%;
+      border: 1px solid var(--color-border);
+      animation: fadeSlideUp 0.3s var(--ease-out);
+    }
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .transition-card h3 {
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    .transition-card p {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .transition-card .btn-detail {
+      width: 100%;
+    }
+
+    /* Mobile */
+    @media (max-width: 720px) {
+      .app { padding: 0 20px; }
+      .metrics-grid { grid-template-columns: 1fr; gap: 32px; padding: 40px 0; }
+      .metric-value { font-size: 40px; }
+      .vault-row { grid-template-columns: 1fr 100px auto; gap: 12px; }
+      .vault-usd { display: none; }
+      .detail-panel { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <div class="logo-icon">Z</div>
+        <span class="logo-text">Zeno</span>
+      </div>
+      <div class="header-actions">
+        <span class="header-address">0x71C7…9bE3</span>
+        <button class="btn-connect" id="connectBtn">Disconnect</button>
+      </div>
+    </header>
+
+    <!-- Metrics -->
+    <div class="metrics-grid">
+      <div class="metric-group">
+        <span class="metric-value" id="tvlValue">$12.4M</span>
+        <span class="metric-label">Total Value Locked</span>
+        <span class="metric-change">↑ 4.2% this week</span>
+      </div>
+      <div class="metric-group">
+        <span class="metric-value">847</span>
+        <span class="metric-label">Active Vaults</span>
+        <span class="metric-change">↑ 12 this week</span>
+      </div>
+      <div class="metric-group">
+        <span class="metric-value">2,341</span>
+        <span class="metric-label">Total Minted</span>
+        <span class="metric-change">↑ 8.7% this month</span>
+      </div>
+    </div>
+
+    <!-- Vaults section -->
+    <div class="section-header">
+      <span class="section-title">Your Vaults</span>
+      <button class="section-action" id="createVaultBtn">+ Create Vault</button>
+    </div>
+
+    <div class="vault-list" id="vaultList">
+      <!-- Rows inserted by JS -->
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">⊕</div>
+      <div class="empty-text">No vaults yet. Create one to start earning yield on your BTC.</div>
+      <button class="btn-empty">Create Your First Vault</button>
+    </div>
+
+    <!-- Detail panel (inline after selected row) -->
+    <div class="detail-panel" id="detailPanel">
+      <div class="detail-section">
+        <span class="detail-label">Vault Type</span>
+        <span class="detail-value" id="detailType">Standard</span>
+        <span class="detail-label">Created</span>
+        <span class="detail-value" id="detailCreated">Mar 12, 2025</span>
+        <span class="detail-label">Status</span>
+        <span class="detail-value" id="detailStatus">Active</span>
+      </div>
+      <div class="detail-section">
+        <span class="detail-label">Collateral</span>
+        <span class="detail-value" id="detailCollateral">45.20 BTC</span>
+        <span class="detail-label">Next Vesting</span>
+        <span class="detail-value" id="detailVesting">Oct 14, 2026</span>
+        <div class="detail-actions">
+          <button class="btn-detail primary">Deposit</button>
+          <button class="btn-detail secondary">Withdraw</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create vault overlay -->
+    <div class="transition-overlay" id="createOverlay">
+      <div class="transition-card">
+        <h3>Create Vault</h3>
+        <p>Choose a vault type and deposit BTC collateral. Funds will be vested on a 1129-day schedule with 12% annual withdrawal rate.</p>
+        <button class="btn-detail primary" id="closeOverlay">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const vaults = [
+      { name: 'Alpha Vault', balance: '45.20', usd: '$3,619,840', type: 'Standard', status: 'active', created: 'Mar 12, 2025', vesting: 'Oct 14, 2026' },
+      { name: 'Treasury Vault', balance: '12.80', usd: '$1,024,640', type: 'Hybrid', status: 'dormant', created: 'Nov 3, 2024', vesting: 'Dec 7, 2025' },
+      { name: 'Yield Vault #42', balance: '8.34', usd: '$667,867', type: 'Standard', status: 'active', created: 'Jun 21, 2025', vesting: 'Jun 25, 2028' },
+      { name: 'Institutional Pool', balance: '22.00', usd: '$1,761,600', type: 'Delegated', status: 'active', created: 'Feb 8, 2025', vesting: 'Mar 14, 2028' },
+      { name: 'Long Hold Vault', balance: '3.50', usd: '$280,280', type: 'Hybrid', status: 'matured', created: 'May 1, 2022', vesting: 'Jun 4, 2025' },
+    ];
+
+    const statusLabels = { active: 'Active', dormant: 'Dormant', matured: 'Matured' };
+    const statusClasses = { active: 'status-active', dormant: 'status-dormant', matured: 'status-matured' };
+
+    let selectedIndex = null;
+
+    function renderVaults() {
+      const list = document.getElementById('vaultList');
+      list.innerHTML = '';
+      vaults.forEach((v, i) => {
+        const row = document.createElement('div');
+        row.className = 'vault-row';
+        row.dataset.index = i;
+        row.innerHTML = `
+          <div class="vault-info">
+            <span class="vault-name">${v.name}</span>
+            <div class="vault-meta">
+              <span>${v.type}</span>
+              <span>·</span>
+              <span>Created ${v.created}</span>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div class="vault-value">${v.balance} BTC</div>
+            <div class="vault-usd">${v.usd}</div>
+          </div>
+          <div>
+            <div class="vault-status ${statusClasses[v.status]}">${statusLabels[v.status]}</div>
+          </div>
+          <div class="vault-arrow">→</div>
+        `;
+        row.addEventListener('click', () => toggleDetail(i));
+        list.appendChild(row);
+      });
+      document.getElementById('emptyState').classList.toggle('show', vaults.length === 0);
+    }
+
+    function toggleDetail(index) {
+      const panel = document.getElementById('detailPanel');
+      if (selectedIndex === index && panel.classList.contains('open')) {
+        panel.classList.remove('open');
+        selectedIndex = null;
+        return;
+      }
+      selectedIndex = index;
+      const v = vaults[index];
+      document.getElementById('detailType').textContent = v.type;
+      document.getElementById('detailCreated').textContent = v.created;
+      document.getElementById('detailStatus').textContent = statusLabels[v.status];
+      document.getElementById('detailCollateral').textContent = v.balance + ' BTC';
+      document.getElementById('detailVesting').textContent = v.vesting;
+      panel.classList.add('open');
+    }
+
+    document.getElementById('createVaultBtn').addEventListener('click', () => {
+      document.getElementById('createOverlay').classList.add('open');
+    });
+    document.getElementById('closeOverlay').addEventListener('click', () => {
+      document.getElementById('createOverlay').classList.remove('open');
+    });
+    document.getElementById('createOverlay').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        document.getElementById('createOverlay').classList.remove('open');
+      }
+    });
+
+    renderVaults();
+  </script>
+</body>
+</html>
