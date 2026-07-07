@@ -5,7 +5,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {IVaultMintController} from "./interfaces/IVaultMintController.sol";
 import {IVaultMint} from "./interfaces/IVaultState.sol";
 
 /// @notice Minimal interface for TreasureNFT with achievement support
@@ -16,8 +15,20 @@ interface ITreasureNFTWithAchievement {
 /// @title VaultMintController - Atomic vault minting with achievement treasures
 /// @notice Mints treasure + vault in a single transaction
 /// @dev Pattern based on AchievementMinter.mintHodlerSupremeVault()
-contract VaultMintController is IVaultMintController {
+contract VaultMintController {
     using SafeERC20 for IERC20;
+
+    /// @notice Emitted when a vault is atomically minted
+    event VaultMinted(
+        address indexed owner,
+        uint256 indexed vaultId,
+        uint256 treasureId,
+        bytes32 achievementType,
+        uint256 collateralAmount
+    );
+
+    error ZeroCollateral();
+    error ZeroAddress();
 
     address public immutable treasureNFT;
     address public immutable vaultNFT;
@@ -36,7 +47,10 @@ contract VaultMintController is IVaultMintController {
         collateralToken = collateralToken_;
     }
 
-    /// @inheritdoc IVaultMintController
+    /// @notice Atomically mint treasure with achievement and wrap into vault
+    /// @param achievementType The achievement type for the treasure
+    /// @param collateralAmount Amount of collateral to deposit
+    /// @return vaultId The minted vault token ID
     function mintVault(
         bytes32 achievementType,
         uint256 collateralAmount

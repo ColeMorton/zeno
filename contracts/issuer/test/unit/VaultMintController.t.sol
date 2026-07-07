@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {VaultMintController} from "../../src/VaultMintController.sol";
-import {IVaultMintController} from "../../src/interfaces/IVaultMintController.sol";
 import {TreasureNFT} from "../../src/TreasureNFT.sol";
 import {MockVaultNFT} from "../mocks/MockVaultNFT.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
@@ -82,7 +81,7 @@ contract VaultMintControllerTest is Test {
         wbtc.approve(address(controller), COLLATERAL_AMOUNT);
 
         vm.expectEmit(true, true, false, true);
-        emit IVaultMintController.VaultMinted(alice, 0, 0, TRAILHEAD, COLLATERAL_AMOUNT);
+        emit VaultMintController.VaultMinted(alice, 0, 0, TRAILHEAD, COLLATERAL_AMOUNT);
 
         controller.mintVault(TRAILHEAD, COLLATERAL_AMOUNT);
 
@@ -92,7 +91,7 @@ contract VaultMintControllerTest is Test {
     function test_mintVault_revertsWhen_zeroCollateral() public {
         vm.startPrank(alice);
 
-        vm.expectRevert(IVaultMintController.ZeroCollateral.selector);
+        vm.expectRevert(VaultMintController.ZeroCollateral.selector);
         controller.mintVault(TRAILHEAD, 0);
 
         vm.stopPrank();

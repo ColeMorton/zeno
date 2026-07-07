@@ -2,12 +2,34 @@
 pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IQuizVerifier} from "../interfaces/IQuizVerifier.sol";
+import {IAchievementVerifier} from "../interfaces/IAchievementVerifier.sol";
 
 /// @title QuizVerifier - On-chain quiz verification for achievement eligibility
 /// @notice Stores quiz definitions and verifies user answers on-chain
 /// @dev Implements IAchievementVerifier for integration with ChapterMinter
-contract QuizVerifier is Ownable, IQuizVerifier {
+contract QuizVerifier is Ownable, IAchievementVerifier {
+    // ==================== Events ====================
+
+    /// @notice Emitted when a user completes a quiz
+    event QuizCompleted(address indexed wallet, bytes32 indexed quizId, uint8 score, uint8 required);
+
+    /// @notice Emitted when a quiz is registered
+    event QuizRegistered(bytes32 indexed quizId, uint8 questionCount, uint8 passingScore);
+
+    // ==================== Errors ====================
+
+    /// @notice Quiz not found
+    error QuizNotFound(bytes32 quizId);
+
+    /// @notice User already passed this quiz
+    error QuizAlreadyPassed(address wallet, bytes32 quizId);
+
+    /// @notice Quiz failed - score below passing threshold
+    error QuizFailed(uint8 score, uint8 required);
+
+    /// @notice Answer count doesn't match question count
+    error InvalidAnswerCount(uint256 provided, uint256 expected);
+
     // ==================== Storage ====================
 
     struct QuizDefinition {
@@ -28,7 +50,9 @@ contract QuizVerifier is Ownable, IQuizVerifier {
 
     // ==================== Core Functions ====================
 
-    /// @inheritdoc IQuizVerifier
+    /// @notice Submit quiz answers for verification
+    /// @param quizId The quiz identifier
+    /// @param answers Array of answer indices (0-3 for multiple choice)
     function submitQuiz(bytes32 quizId, uint8[] calldata answers) external {
         QuizDefinition storage quiz = _quizzes[quizId];
         if (!quiz.exists) revert QuizNotFound(quizId);
@@ -52,7 +76,10 @@ contract QuizVerifier is Ownable, IQuizVerifier {
         emit QuizCompleted(msg.sender, quizId, correct, quiz.passingScore);
     }
 
-    /// @inheritdoc IQuizVerifier
+    /// @notice Register a new quiz definition
+    /// @param quizId The quiz identifier
+    /// @param correctAnswers Array of correct answer indices per question
+    /// @param passingScore Minimum correct answers required to pass
     function registerQuiz(bytes32 quizId, uint8[] calldata correctAnswers, uint8 passingScore) external onlyOwner {
         _quizzes[quizId] = QuizDefinition({
             correctAnswers: correctAnswers,
@@ -75,12 +102,18 @@ contract QuizVerifier is Ownable, IQuizVerifier {
 
     // ==================== View Functions ====================
 
-    /// @inheritdoc IQuizVerifier
+    /// @notice Check if a wallet has passed a specific quiz
+    /// @param wallet The wallet address
+    /// @param quizId The quiz identifier
     function quizPassed(address wallet, bytes32 quizId) external view returns (bool) {
         return _quizPassed[wallet][quizId];
     }
 
-    /// @inheritdoc IQuizVerifier
+    /// @notice Get quiz definition
+    /// @param quizId The quiz identifier
+    /// @return questionCount Number of questions
+    /// @return passingScore Minimum correct answers required
+    /// @return exists Whether the quiz is registered
     function getQuiz(bytes32 quizId) external view returns (uint8 questionCount, uint8 passingScore, bool exists) {
         QuizDefinition storage quiz = _quizzes[quizId];
         return (uint8(quiz.correctAnswers.length), quiz.passingScore, quiz.exists);

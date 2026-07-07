@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {QuizVerifier} from "../../src/verifiers/QuizVerifier.sol";
-import {IQuizVerifier} from "../../src/interfaces/IQuizVerifier.sol";
 
 contract QuizVerifierTest is Test {
     QuizVerifier public verifier;
@@ -50,7 +49,7 @@ contract QuizVerifierTest is Test {
         answers[2] = 2;
 
         vm.expectEmit(true, false, false, true);
-        emit IQuizVerifier.QuizRegistered(newQuizId, 3, 2);
+        emit QuizVerifier.QuizRegistered(newQuizId, 3, 2);
         verifier.registerQuiz(newQuizId, answers, 2);
     }
 
@@ -105,7 +104,7 @@ contract QuizVerifierTest is Test {
 
         vm.prank(alice);
         vm.expectEmit(true, true, false, true);
-        emit IQuizVerifier.QuizCompleted(alice, QUIZ_ID, 5, PASSING_SCORE);
+        emit QuizVerifier.QuizCompleted(alice, QUIZ_ID, 5, PASSING_SCORE);
         verifier.submitQuiz(QUIZ_ID, answers);
     }
 
@@ -114,7 +113,7 @@ contract QuizVerifierTest is Test {
         uint8[] memory answers = new uint8[](5);
 
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(IQuizVerifier.QuizNotFound.selector, invalidQuiz));
+        vm.expectRevert(abi.encodeWithSelector(QuizVerifier.QuizNotFound.selector, invalidQuiz));
         verifier.submitQuiz(invalidQuiz, answers);
     }
 
@@ -130,7 +129,7 @@ contract QuizVerifierTest is Test {
         verifier.submitQuiz(QUIZ_ID, answers);
 
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(IQuizVerifier.QuizAlreadyPassed.selector, alice, QUIZ_ID));
+        vm.expectRevert(abi.encodeWithSelector(QuizVerifier.QuizAlreadyPassed.selector, alice, QUIZ_ID));
         verifier.submitQuiz(QUIZ_ID, answers);
     }
 
@@ -138,7 +137,7 @@ contract QuizVerifierTest is Test {
         uint8[] memory answers = new uint8[](3); // Wrong count
 
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(IQuizVerifier.InvalidAnswerCount.selector, 3, 5));
+        vm.expectRevert(abi.encodeWithSelector(QuizVerifier.InvalidAnswerCount.selector, 3, 5));
         verifier.submitQuiz(QUIZ_ID, answers);
     }
 
@@ -152,7 +151,7 @@ contract QuizVerifierTest is Test {
         answers[4] = 0; // wrong
 
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(IQuizVerifier.QuizFailed.selector, 2, PASSING_SCORE));
+        vm.expectRevert(abi.encodeWithSelector(QuizVerifier.QuizFailed.selector, 2, PASSING_SCORE));
         verifier.submitQuiz(QUIZ_ID, answers);
     }
 
@@ -262,7 +261,7 @@ contract QuizVerifierTest is Test {
             verifier.submitQuiz(QUIZ_ID, answers);
             assertTrue(verifier.quizPassed(alice, QUIZ_ID));
         } else {
-            vm.expectRevert(abi.encodeWithSelector(IQuizVerifier.QuizFailed.selector, correctCount, PASSING_SCORE));
+            vm.expectRevert(abi.encodeWithSelector(QuizVerifier.QuizFailed.selector, correctCount, PASSING_SCORE));
             verifier.submitQuiz(QUIZ_ID, answers);
         }
     }
