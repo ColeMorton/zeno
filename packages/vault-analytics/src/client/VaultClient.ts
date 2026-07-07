@@ -62,7 +62,7 @@ export class VaultClient {
    *
    * @param options - Query options
    * @param options.scope - Filter by issuer or treasure contract
-   * @param options.filters - Status filters (vesting, separation, dormancy)
+   * @param options.filters - Status filters (vesting, strip, dormancy)
    * @param options.pagination - Page number and size
    * @param options.sortBy - Sort field ('collateral' | 'mintTimestamp' | 'tokenId')
    * @param options.sortOrder - Sort direction ('asc' | 'desc')
@@ -80,7 +80,7 @@ export class VaultClient {
    * @example Fetch with filters
    * ```typescript
    * const vaults = await client.getVaults({
-   *   filters: { vestingStatus: 'vested', separationStatus: 'combined' }
+   *   filters: { vestingStatus: 'vested', stripStatus: 'combined' }
    * });
    * ```
    */
@@ -186,7 +186,7 @@ export class VaultClient {
    *
    * @param options - Query options with ranking configuration
    * @param options.scope - Filter by issuer or treasure contract
-   * @param options.filters - Status filters (vesting, separation, dormancy)
+   * @param options.filters - Status filters (vesting, strip, dormancy)
    * @param options.pagination - Page number and size (default: page 1, size 25)
    * @param options.sortBy - Sort field: 'collateral' | 'mintTimestamp' | 'tokenId'
    * @param options.sortOrder - Sort direction: 'asc' | 'desc'

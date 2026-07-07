@@ -6,9 +6,9 @@ import type { Address } from 'viem';
 export type VestingStatus = 'vesting' | 'vested' | 'all';
 
 /**
- * Separation status filter values
+ * Strip status filter values
  */
-export type SeparationStatus = 'combined' | 'separated' | 'all';
+export type StripStatus = 'combined' | 'stripped' | 'all';
 
 /**
  * Dormancy status filter values
@@ -21,8 +21,8 @@ export type DormancyStatus = 'active' | 'poke_pending' | 'claimable' | 'all';
 export interface VaultFilter {
   /** Filter by vesting completion status */
   vestingStatus?: VestingStatus;
-  /** Filter by collateral separation status */
-  separationStatus?: SeparationStatus;
+  /** Filter by collateral strip status */
+  stripStatus?: StripStatus;
   /** Filter by dormancy state */
   dormancyStatus?: DormancyStatus;
 }

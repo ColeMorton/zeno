@@ -29,7 +29,7 @@ const VAULTS_QUERY = `
       collateralAmount
       mintTimestamp
       lastWithdrawal
-      vestedBTCAmount
+      strippedReserve
       lastActivity
       pokeTimestamp
       windowId
@@ -160,7 +160,7 @@ export class SubgraphClient {
       collateralAmount: BigInt(raw.collateralAmount),
       mintTimestamp: BigInt(raw.mintTimestamp),
       lastWithdrawal: BigInt(raw.lastWithdrawal),
-      vestedBTCAmount: BigInt(raw.vestedBTCAmount),
+      strippedReserve: BigInt(raw.strippedReserve),
       lastActivity: BigInt(raw.lastActivity),
       pokeTimestamp: BigInt(raw.pokeTimestamp),
       windowId: BigInt(raw.windowId),

@@ -52,27 +52,28 @@ export interface EarlyRedemptionEvent extends EventMetadata {
 }
 
 /**
- * Emitted when vestedBTC is minted from a vested vault
+ * Emitted when active collateral is stripped into the immunized reserve and vBTC is minted 1:1
  */
-export interface BtcTokenMintedEvent extends EventMetadata {
-  type: 'BtcTokenMinted';
+export interface StrippedEvent extends EventMetadata {
+  type: 'Stripped';
   tokenId: bigint;
   to: Address;
   amount: bigint;
 }
 
 /**
- * Emitted when vestedBTC is returned to recombine with vault
+ * Emitted when vBTC is burned to move reserve back into active collateral
  */
-export interface BtcTokenReturnedEvent extends EventMetadata {
-  type: 'BtcTokenReturned';
+export interface RecombinedEvent extends EventMetadata {
+  type: 'Recombined';
   tokenId: bigint;
   from: Address;
   amount: bigint;
 }
 
 /**
- * Emitted when match pool bonus is claimed
+ * Emitted when accrued match pool share is settled into a vault's active collateral.
+ * Fires on every settlement, so a single vault can emit this many times.
  */
 export interface MatchClaimedEvent extends EventMetadata {
   type: 'MatchClaimed';
@@ -124,14 +125,14 @@ export interface ActivityProvenEvent extends EventMetadata {
 }
 
 /**
- * Emitted when dormant collateral is claimed
+ * Emitted when a third party burns vBTC to claim reserve from a dormant vault
  */
 export interface DormantCollateralClaimedEvent extends EventMetadata {
   type: 'DormantCollateralClaimed';
   tokenId: bigint;
   originalOwner: Address;
   claimer: Address;
-  collateralClaimed: bigint;
+  amount: bigint;
 }
 
 // ============================================================================
@@ -313,8 +314,8 @@ export type ProtocolEvent =
   | VaultMintedEvent
   | WithdrawnEvent
   | EarlyRedemptionEvent
-  | BtcTokenMintedEvent
-  | BtcTokenReturnedEvent
+  | StrippedEvent
+  | RecombinedEvent
   | MatchClaimedEvent
   | MatchPoolFundedEvent
   | DormantPokedEvent
@@ -365,8 +366,8 @@ export const EVENT_TYPES = [
   'VaultMinted',
   'Withdrawn',
   'EarlyRedemption',
-  'BtcTokenMinted',
-  'BtcTokenReturned',
+  'Stripped',
+  'Recombined',
   'MatchClaimed',
   'MatchPoolFunded',
   'DormantPoked',

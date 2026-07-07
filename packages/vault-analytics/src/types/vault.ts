@@ -20,8 +20,8 @@ export interface Vault {
   mintTimestamp: bigint;
   /** Timestamp of last withdrawal (0 if never withdrawn) */
   lastWithdrawal: bigint;
-  /** Amount of vestedBTC minted from this vault (0 = combined) */
-  vestedBTCAmount: bigint;
+  /** Immunized reserve backing outstanding vBTC 1:1 (0 = combined) */
+  strippedReserve: bigint;
   /** Last activity timestamp for dormancy tracking */
   lastActivity: bigint;
   /** Poke timestamp for dormancy (0 = not poked) */
@@ -44,7 +44,7 @@ export interface RawVaultData {
   collateralAmount: string;
   mintTimestamp: string;
   lastWithdrawal: string;
-  vestedBTCAmount: string;
+  strippedReserve: string;
   lastActivity: string;
   pokeTimestamp: string;
   windowId: string;

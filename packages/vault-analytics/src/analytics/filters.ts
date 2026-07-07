@@ -32,25 +32,25 @@ export function isVested(vault: Vault, currentTimestamp?: bigint): boolean {
 }
 
 /**
- * Check if a vault's collateral is separated.
+ * Check if a vault is stripped.
  *
- * A vault is separated when vestedBTC tokens have been minted against
- * the vault's collateral.
+ * A vault is stripped when it holds an immunized reserve backing
+ * outstanding vBTC 1:1.
  *
  * @param vault - Vault to check
- * @returns true if vestedBTC has been minted from this vault
+ * @returns true if the vault has a stripped reserve
  *
- * @example Check separation status
+ * @example Check strip status
  * ```typescript
- * if (isSeparated(vault)) {
- *   console.log(`Vault has ${vault.vestedBTCAmount} vBTC minted`);
+ * if (isStripped(vault)) {
+ *   console.log(`Vault has ${vault.strippedReserve} reserve backing vBTC`);
  * } else {
  *   console.log('Collateral is still combined');
  * }
  * ```
  */
-export function isSeparated(vault: Vault): boolean {
-  return vault.vestedBTCAmount > 0n;
+export function isStripped(vault: Vault): boolean {
+  return vault.strippedReserve > 0n;
 }
 
 /**
@@ -90,10 +90,10 @@ export function getDormancyStatus(
 
   // Check if dormant-eligible (all conditions must be met)
   const vested = now >= vault.mintTimestamp + VESTING_PERIOD;
-  const separated = vault.vestedBTCAmount > 0n;
+  const stripped = vault.strippedReserve > 0n;
   const inactive = now >= vault.lastActivity + DORMANCY_THRESHOLD;
 
-  if (vested && separated && inactive) {
+  if (vested && stripped && inactive) {
     // Dormant-eligible but not yet poked, still considered active
     return 'active';
   }
@@ -138,13 +138,13 @@ export function getVestingDaysRemaining(
 /**
  * Filter vaults by status criteria.
  *
- * Supports filtering by vesting status, separation status, and dormancy status.
+ * Supports filtering by vesting status, strip status, and dormancy status.
  * Filters can be combined - all conditions must match.
  *
  * @param vaults - Array of vaults to filter
  * @param filter - Filter criteria
  * @param filter.vestingStatus - 'vesting' | 'vested' | 'all'
- * @param filter.separationStatus - 'combined' | 'separated' | 'all'
+ * @param filter.stripStatus - 'combined' | 'stripped' | 'all'
  * @param filter.dormancyStatus - 'active' | 'poke_pending' | 'claimable' | 'all'
  * @param currentTimestamp - Current block timestamp (defaults to now)
  * @returns Filtered vault array
@@ -158,7 +158,7 @@ export function getVestingDaysRemaining(
  * ```typescript
  * const target = filterVaults(vaults, {
  *   vestingStatus: 'vested',
- *   separationStatus: 'combined',
+ *   stripStatus: 'combined',
  *   dormancyStatus: 'active'
  * });
  * ```
@@ -167,7 +167,7 @@ export function getVestingDaysRemaining(
  * ```typescript
  * const allVesting = filterVaults(vaults, {
  *   vestingStatus: 'all',
- *   separationStatus: 'combined'
+ *   stripStatus: 'combined'
  * });
  * ```
  */
@@ -186,11 +186,11 @@ export function filterVaults(
       if (filter.vestingStatus === 'vesting' && vested) return false;
     }
 
-    // Separation status filter
-    if (filter.separationStatus && filter.separationStatus !== 'all') {
-      const separated = isSeparated(vault);
-      if (filter.separationStatus === 'separated' && !separated) return false;
-      if (filter.separationStatus === 'combined' && separated) return false;
+    // Strip status filter
+    if (filter.stripStatus && filter.stripStatus !== 'all') {
+      const stripped = isStripped(vault);
+      if (filter.stripStatus === 'stripped' && !stripped) return false;
+      if (filter.stripStatus === 'combined' && stripped) return false;
     }
 
     // Dormancy status filter
@@ -212,7 +212,7 @@ export function filterVaults(
  * @param currentTimestamp - Current block timestamp (defaults to now)
  * @returns Status object containing:
  *   - `isVested`: Whether vesting period is complete
- *   - `isSeparated`: Whether collateral has been separated
+ *   - `isStripped`: Whether the vault holds a stripped reserve
  *   - `dormancyStatus`: Current dormancy state
  *   - `vestingDaysRemaining`: Days until vesting (0 if vested)
  *   - `vestingEndsAt`: Timestamp when vesting completes
@@ -238,7 +238,7 @@ export function deriveVaultStatus(vault: Vault, currentTimestamp?: bigint) {
 
   return {
     isVested: isVested(vault, now),
-    isSeparated: isSeparated(vault),
+    isStripped: isStripped(vault),
     dormancyStatus: getDormancyStatus(vault, now),
     vestingDaysRemaining: getVestingDaysRemaining(vault, now),
     vestingEndsAt: vault.mintTimestamp + VESTING_PERIOD,

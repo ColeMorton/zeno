@@ -15,8 +15,8 @@ import type {
   VaultMintedEvent,
   WithdrawnEvent,
   EarlyRedemptionEvent,
-  BtcTokenMintedEvent,
-  BtcTokenReturnedEvent,
+  StrippedEvent,
+  RecombinedEvent,
   MatchClaimedEvent,
   MatchPoolFundedEvent,
   DormantPokedEvent,
@@ -89,14 +89,14 @@ const VAULT_NFT_EVENTS = [
   parseAbiItem('event VaultMinted(uint256 indexed tokenId, address indexed owner, address treasureContract, uint256 treasureTokenId, uint256 collateral)'),
   parseAbiItem('event Withdrawn(uint256 indexed tokenId, address indexed to, uint256 amount)'),
   parseAbiItem('event EarlyRedemption(uint256 indexed tokenId, address indexed owner, uint256 returned, uint256 forfeited)'),
-  parseAbiItem('event BtcTokenMinted(uint256 indexed tokenId, address indexed to, uint256 amount)'),
-  parseAbiItem('event BtcTokenReturned(uint256 indexed tokenId, address indexed from, uint256 amount)'),
+  parseAbiItem('event Stripped(uint256 indexed tokenId, address indexed to, uint256 amount)'),
+  parseAbiItem('event Recombined(uint256 indexed tokenId, address indexed from, uint256 amount)'),
   parseAbiItem('event MatchClaimed(uint256 indexed tokenId, uint256 amount)'),
   parseAbiItem('event MatchPoolFunded(uint256 amount, uint256 newBalance)'),
   parseAbiItem('event DormantPoked(uint256 indexed tokenId, address indexed owner, address indexed poker, uint256 graceDeadline)'),
   parseAbiItem('event DormancyStateChanged(uint256 indexed tokenId, uint8 newState)'),
   parseAbiItem('event ActivityProven(uint256 indexed tokenId, address indexed owner)'),
-  parseAbiItem('event DormantCollateralClaimed(uint256 indexed tokenId, address indexed originalOwner, address indexed claimer, uint256 collateralClaimed)'),
+  parseAbiItem('event DormantCollateralClaimed(uint256 indexed tokenId, address indexed originalOwner, address indexed claimer, uint256 amount)'),
   parseAbiItem('event WithdrawalDelegateGranted(uint256 indexed tokenId, address indexed delegate, uint256 percentageBPS)'),
   parseAbiItem('event WithdrawalDelegateRevoked(uint256 indexed tokenId, address indexed delegate)'),
   parseAbiItem('event AllWithdrawalDelegatesRevoked(uint256 indexed tokenId)'),
@@ -269,24 +269,24 @@ export class AnvilIndexer {
           } as EarlyRedemptionEvent);
           break;
 
-        case 'BtcTokenMinted':
+        case 'Stripped':
           this.events.push({
-            type: 'BtcTokenMinted',
+            type: 'Stripped',
             ...metadata,
             tokenId: args.tokenId as bigint,
             to: args.to as Address,
             amount: args.amount as bigint,
-          } as BtcTokenMintedEvent);
+          } as StrippedEvent);
           break;
 
-        case 'BtcTokenReturned':
+        case 'Recombined':
           this.events.push({
-            type: 'BtcTokenReturned',
+            type: 'Recombined',
             ...metadata,
             tokenId: args.tokenId as bigint,
             from: args.from as Address,
             amount: args.amount as bigint,
-          } as BtcTokenReturnedEvent);
+          } as RecombinedEvent);
           break;
 
         case 'MatchClaimed':
@@ -343,7 +343,7 @@ export class AnvilIndexer {
             tokenId: args.tokenId as bigint,
             originalOwner: args.originalOwner as Address,
             claimer: args.claimer as Address,
-            collateralClaimed: args.collateralClaimed as bigint,
+            amount: args.amount as bigint,
           } as DormantCollateralClaimedEvent);
           break;
 

@@ -91,7 +91,7 @@ Filter vaults by status.
 ```typescript
 const filtered = filterVaults(vaults, {
   vestingStatus: 'vested',      // 'vesting' | 'vested' | 'all'
-  separationStatus: 'combined', // 'combined' | 'separated' | 'all'
+  stripStatus: 'combined',      // 'combined' | 'stripped' | 'all'
   dormancyStatus: 'active',     // 'active' | 'poke_pending' | 'claimable' | 'all'
 });
 ```
@@ -126,7 +126,7 @@ Get complete derived status for a vault.
 const status = deriveVaultStatus(vault);
 // {
 //   isVested: boolean,
-//   isSeparated: boolean,
+//   isStripped: boolean,
 //   dormancyStatus: 'active' | 'poke_pending' | 'claimable',
 //   vestingDaysRemaining: number,
 //   vestingEndsAt: bigint
@@ -138,7 +138,7 @@ const status = deriveVaultStatus(vault);
 ```typescript
 import {
   isVested,              // Check if vault is vested
-  isSeparated,           // Check if collateral is separated
+  isStripped,            // Check if vault holds a stripped reserve
   getDormancyStatus,     // Get dormancy state
   getVestingDaysRemaining, // Days until vesting completes
 } from '@btcnft/vault-analytics';

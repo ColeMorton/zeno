@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isVested,
-  isSeparated,
+  isStripped,
   getDormancyStatus,
   getVestingDaysRemaining,
   filterVaults,
@@ -19,7 +19,7 @@ const createMockVault = (overrides: Partial<Vault> = {}): Vault => ({
   collateralAmount: 100000000n,
   mintTimestamp: BigInt(Math.floor(Date.now() / 1000)),
   lastWithdrawal: 0n,
-  vestedBTCAmount: 0n,
+  strippedReserve: 0n,
   lastActivity: BigInt(Math.floor(Date.now() / 1000)),
   pokeTimestamp: 0n,
   windowId: 1n,
@@ -50,15 +50,15 @@ describe('isVested', () => {
   });
 });
 
-describe('isSeparated', () => {
+describe('isStripped', () => {
   it('returns false for combined vault', () => {
-    const vault = createMockVault({ vestedBTCAmount: 0n });
-    expect(isSeparated(vault)).toBe(false);
+    const vault = createMockVault({ strippedReserve: 0n });
+    expect(isStripped(vault)).toBe(false);
   });
 
-  it('returns true for separated vault', () => {
-    const vault = createMockVault({ vestedBTCAmount: 100000000n });
-    expect(isSeparated(vault)).toBe(true);
+  it('returns true for stripped vault', () => {
+    const vault = createMockVault({ strippedReserve: 100000000n });
+    expect(isStripped(vault)).toBe(true);
   });
 });
 
@@ -136,25 +136,25 @@ describe('filterVaults', () => {
     expect(filtered[0]?.tokenId).toBe(1n);
   });
 
-  it('filters by separation status - combined', () => {
+  it('filters by strip status - combined', () => {
     const vaults = [
-      createMockVault({ tokenId: 1n, vestedBTCAmount: 0n }), // combined
-      createMockVault({ tokenId: 2n, vestedBTCAmount: 100000000n }), // separated
+      createMockVault({ tokenId: 1n, strippedReserve: 0n }), // combined
+      createMockVault({ tokenId: 2n, strippedReserve: 100000000n }), // stripped
     ];
 
-    const filtered = filterVaults(vaults, { separationStatus: 'combined' }, now);
+    const filtered = filterVaults(vaults, { stripStatus: 'combined' }, now);
 
     expect(filtered).toHaveLength(1);
     expect(filtered[0]?.tokenId).toBe(1n);
   });
 
-  it('filters by separation status - separated', () => {
+  it('filters by strip status - stripped', () => {
     const vaults = [
-      createMockVault({ tokenId: 1n, vestedBTCAmount: 0n }), // combined
-      createMockVault({ tokenId: 2n, vestedBTCAmount: 100000000n }), // separated
+      createMockVault({ tokenId: 1n, strippedReserve: 0n }), // combined
+      createMockVault({ tokenId: 2n, strippedReserve: 100000000n }), // stripped
     ];
 
-    const filtered = filterVaults(vaults, { separationStatus: 'separated' }, now);
+    const filtered = filterVaults(vaults, { stripStatus: 'stripped' }, now);
 
     expect(filtered).toHaveLength(1);
     expect(filtered[0]?.tokenId).toBe(2n);
@@ -162,14 +162,14 @@ describe('filterVaults', () => {
 
   it('applies multiple filters', () => {
     const vaults = [
-      createMockVault({ tokenId: 1n, mintTimestamp: now, vestedBTCAmount: 0n }),
-      createMockVault({ tokenId: 2n, mintTimestamp: now - VESTING_PERIOD - 1n, vestedBTCAmount: 0n }),
-      createMockVault({ tokenId: 3n, mintTimestamp: now - VESTING_PERIOD - 1n, vestedBTCAmount: 100n }),
+      createMockVault({ tokenId: 1n, mintTimestamp: now, strippedReserve: 0n }),
+      createMockVault({ tokenId: 2n, mintTimestamp: now - VESTING_PERIOD - 1n, strippedReserve: 0n }),
+      createMockVault({ tokenId: 3n, mintTimestamp: now - VESTING_PERIOD - 1n, strippedReserve: 100n }),
     ];
 
     const filtered = filterVaults(
       vaults,
-      { vestingStatus: 'vested', separationStatus: 'combined' },
+      { vestingStatus: 'vested', stripStatus: 'combined' },
       now
     );
 
@@ -194,14 +194,14 @@ describe('deriveVaultStatus', () => {
     const now = BigInt(Math.floor(Date.now() / 1000));
     const vault = createMockVault({
       mintTimestamp: now - 86400n * 100n,
-      vestedBTCAmount: 0n,
+      strippedReserve: 0n,
       pokeTimestamp: 0n,
     });
 
     const status = deriveVaultStatus(vault, now);
 
     expect(status.isVested).toBe(false);
-    expect(status.isSeparated).toBe(false);
+    expect(status.isStripped).toBe(false);
     expect(status.dormancyStatus).toBe('active');
     expect(status.vestingDaysRemaining).toBe(1029);
     expect(status.vestingEndsAt).toBe(vault.mintTimestamp + VESTING_PERIOD);

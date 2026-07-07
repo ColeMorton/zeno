@@ -16,7 +16,7 @@ const createMockVault = (overrides: Partial<Vault> = {}): Vault => ({
   collateralAmount: 100000000n, // 1 BTC
   mintTimestamp: BigInt(Math.floor(Date.now() / 1000) - 86400 * 100),
   lastWithdrawal: 0n,
-  vestedBTCAmount: 0n,
+  strippedReserve: 0n,
   lastActivity: BigInt(Math.floor(Date.now() / 1000)),
   pokeTimestamp: 0n,
   windowId: 1n,
