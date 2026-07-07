@@ -931,8 +931,7 @@ MarketStats (1) ── aggregates ── All entities
 - `VaultNFT.canDelegateWithdraw()` - Check eligibility
 
 **Issuer Layer:**
-- `WithdrawalAutomationHelper.batchCanDelegateWithdraw()` - Batch eligibility checks
-- `WithdrawalAutomationHelper.getAutomationStatus()` - Detailed status
+- `VaultNFT.canDelegateWithdraw()` - Per-vault eligibility checks (the batch helper contract was removed; batch reads belong off-chain via multicall)
 
 **External Dependencies:**
 - Gelato Web3 Functions - Term expiry automation
