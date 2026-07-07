@@ -26,7 +26,7 @@ require_hybrid_vault_exists "$TOKEN_ID"
 require_hybrid_vested "$TOKEN_ID"
 
 # Check withdrawable amount
-WITHDRAWABLE=$(cast_call "$HYBRID_VAULT" "getWithdrawablePrimary(uint256)(uint256)" "$TOKEN_ID")
+WITHDRAWABLE=$(cast_call "$HYBRID_VAULT" "getWithdrawableAmount(uint256)(uint256)" "$TOKEN_ID")
 
 if [[ "$WITHDRAWABLE" == "0" ]]; then
     echo "Error: No withdrawable primary amount" >&2
@@ -42,10 +42,10 @@ confirm_non_local_action "withdraw primary from hybrid vault"
 # Execute withdrawal
 echo ""
 echo "Executing withdrawal..."
-TX_HASH=$(cast_send "$HYBRID_VAULT" "withdrawPrimary(uint256)" "$TOKEN_ID")
+TX_HASH=$(cast_send "$HYBRID_VAULT" "withdraw(uint256)" "$TOKEN_ID")
 
 # Get new primary amount
-NEW_PRIMARY=$(cast_call "$HYBRID_VAULT" "primaryAmount(uint256)(uint256)" "$TOKEN_ID")
+NEW_PRIMARY=$(cast_call "$HYBRID_VAULT" "collateralAmount(uint256)(uint256)" "$TOKEN_ID")
 
 print_success "Primary withdrawal complete" "$TX_HASH"
 echo "Withdrawn:  $(format_btc "$WITHDRAWABLE") BTC"

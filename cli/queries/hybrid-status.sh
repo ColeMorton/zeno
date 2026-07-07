@@ -5,6 +5,7 @@ set -e
 source "$(dirname "$0")/../lib/common.sh"
 load_env
 require_contract_set "HYBRID_VAULT"
+require_contract_set "VESTING_ESCROW"
 
 # Validate arguments
 if [[ ${#REMAINING_ARGS[@]} -lt 1 ]]; then
@@ -26,16 +27,19 @@ OWNER=$(cast_call "$HYBRID_VAULT" "ownerOf(uint256)(address)" "$TOKEN_ID")
 echo "Owner: $OWNER"
 echo ""
 
-# Get collateral amounts
-PRIMARY=$(cast_call "$HYBRID_VAULT" "primaryAmount(uint256)(uint256)" "$TOKEN_ID")
-SECONDARY=$(cast_call "$HYBRID_VAULT" "secondaryAmount(uint256)(uint256)" "$TOKEN_ID")
+# Get collateral amounts (primary from the vault, secondary from the escrow)
+PRIMARY=$(cast_call "$HYBRID_VAULT" "collateralAmount(uint256)(uint256)" "$TOKEN_ID")
+SECONDARY=$(cast_call "$VESTING_ESCROW" "escrowAmount(uint256)(uint256)" "$TOKEN_ID")
+RESERVE=$(cast_call "$HYBRID_VAULT" "strippedReserve(uint256)(uint256)" "$TOKEN_ID")
 MINT_TS=$(cast_call "$HYBRID_VAULT" "mintTimestamp(uint256)(uint256)" "$TOKEN_ID")
-LAST_PRIMARY_WD=$(cast_call "$HYBRID_VAULT" "lastPrimaryWithdrawal(uint256)(uint256)" "$TOKEN_ID")
-SECONDARY_WITHDRAWN=$(cast_call "$HYBRID_VAULT" "secondaryWithdrawn(uint256)(bool)" "$TOKEN_ID")
+LAST_PRIMARY_WD=$(cast_call "$HYBRID_VAULT" "lastWithdrawal(uint256)(uint256)" "$TOKEN_ID")
 
 echo "=== Collateral ==="
 echo "Primary:   $(format_btc "$PRIMARY") BTC ($PRIMARY satoshis)"
 echo "Secondary: $(format_btc "$SECONDARY") BTC ($SECONDARY satoshis)"
+if [[ "$RESERVE" != "0" ]]; then
+    echo "Stripped reserve: $(format_btc "$RESERVE") BTC"
+fi
 echo ""
 
 echo "=== Withdrawal Rate ==="
@@ -68,22 +72,22 @@ echo ""
 
 # Withdrawal status
 if [[ "$IS_VESTED" == "true" ]]; then
-    WITHDRAWABLE_PRIMARY=$(cast_call "$HYBRID_VAULT" "getWithdrawablePrimary(uint256)(uint256)" "$TOKEN_ID")
+    WITHDRAWABLE_PRIMARY=$(cast_call "$HYBRID_VAULT" "getWithdrawableAmount(uint256)(uint256)" "$TOKEN_ID")
     echo "=== Withdrawals ==="
     echo "Primary withdrawable: $(format_btc "$WITHDRAWABLE_PRIMARY") BTC"
 
-    if [[ "$SECONDARY_WITHDRAWN" == "true" ]]; then
+    if [[ "$SECONDARY" == "0" ]]; then
         echo "Secondary: ALREADY WITHDRAWN"
     else
-        WITHDRAWABLE_SECONDARY=$(cast_call "$HYBRID_VAULT" "getWithdrawableSecondary(uint256)(uint256)" "$TOKEN_ID")
+        WITHDRAWABLE_SECONDARY=$(cast_call "$VESTING_ESCROW" "claimable(uint256)(uint256)" "$TOKEN_ID")
         echo "Secondary withdrawable: $(format_btc "$WITHDRAWABLE_SECONDARY") BTC"
     fi
     echo ""
 fi
 
-# Match pools
-PRIMARY_MATCH=$(cast_call "$HYBRID_VAULT" "primaryMatchPool()(uint256)")
-SECONDARY_MATCH=$(cast_call "$HYBRID_VAULT" "secondaryMatchPool()(uint256)")
+# Match pools (primary on the vault, secondary on the escrow)
+PRIMARY_MATCH=$(cast_call "$HYBRID_VAULT" "matchPool()(uint256)")
+SECONDARY_MATCH=$(cast_call "$VESTING_ESCROW" "matchPool()(uint256)")
 if [[ "$PRIMARY_MATCH" != "0" || "$SECONDARY_MATCH" != "0" ]]; then
     echo "=== Match Pools ==="
     echo "Primary pool:   $(format_btc "$PRIMARY_MATCH") BTC"

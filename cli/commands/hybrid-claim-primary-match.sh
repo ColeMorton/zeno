@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claim primary match pool share from hybrid vault
+# Claim primary match pool share for a hybrid vault
 set -e
 
 source "$(dirname "$0")/../lib/common.sh"
@@ -10,8 +10,7 @@ require_contract_set "HYBRID_VAULT"
 if [[ ${#REMAINING_ARGS[@]} -lt 1 ]]; then
     echo "Usage: ./btcnft hybrid-claim-primary-match <vault_token_id>"
     echo ""
-    echo "Claims a pro-rata share of the primary match pool."
-    echo "Requires vault to be fully vested."
+    echo "Settles the vault's accrued share of the primary match pool."
     exit 1
 fi
 
@@ -21,21 +20,20 @@ echo "=== Claiming Primary Match Pool for Hybrid Vault #$TOKEN_ID ==="
 echo "Network: $(get_network_name)"
 echo ""
 
-# Verify vault exists and is vested
+# Verify vault exists
 require_hybrid_vault_exists "$TOKEN_ID"
-require_hybrid_vested "$TOKEN_ID"
 
-# Check match pool
-MATCH_POOL=$(cast_call "$HYBRID_VAULT" "primaryMatchPool()(uint256)")
-if [[ "$MATCH_POOL" == "0" ]]; then
-    echo "Primary match pool is empty. Nothing to claim."
+# Check pending match share
+PENDING=$(cast_call "$HYBRID_VAULT" "pendingMatch(uint256)(uint256)" "$TOKEN_ID")
+if [[ "$PENDING" == "0" ]]; then
+    echo "No pending primary match share. Nothing to claim."
     exit 0
 fi
 
-PRIMARY_BEFORE=$(cast_call "$HYBRID_VAULT" "primaryAmount(uint256)(uint256)" "$TOKEN_ID")
+PRIMARY_BEFORE=$(cast_call "$HYBRID_VAULT" "collateralAmount(uint256)(uint256)" "$TOKEN_ID")
 
-echo "Primary match pool: $(format_btc "$MATCH_POOL") BTC"
-echo "Your primary:       $(format_btc "$PRIMARY_BEFORE") BTC"
+echo "Pending match share: $(format_btc "$PENDING") BTC"
+echo "Your primary:        $(format_btc "$PRIMARY_BEFORE") BTC"
 echo ""
 
 # Confirm on testnet
@@ -43,9 +41,9 @@ confirm_non_local_action "claim primary match pool"
 
 # Claim match
 echo "Claiming primary match pool share..."
-TX_HASH=$(cast_send "$HYBRID_VAULT" "claimPrimaryMatch(uint256)" "$TOKEN_ID")
+TX_HASH=$(cast_send "$HYBRID_VAULT" "claimMatch(uint256)" "$TOKEN_ID")
 
-PRIMARY_AFTER=$(cast_call "$HYBRID_VAULT" "primaryAmount(uint256)(uint256)" "$TOKEN_ID")
+PRIMARY_AFTER=$(cast_call "$HYBRID_VAULT" "collateralAmount(uint256)(uint256)" "$TOKEN_ID")
 CLAIMED=$((PRIMARY_AFTER - PRIMARY_BEFORE))
 
 print_success "Primary match pool claimed" "$TX_HASH"

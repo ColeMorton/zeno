@@ -1,16 +1,17 @@
 #!/bin/bash
-# Withdraw secondary collateral from a vested hybrid vault (one-time)
+# Claim the escrowed secondary leg of a vested hybrid vault (one-time)
 set -e
 
 source "$(dirname "$0")/../lib/common.sh"
 load_env
 require_contract_set "HYBRID_VAULT"
+require_contract_set "VESTING_ESCROW"
 
 # Validate arguments
 if [[ ${#REMAINING_ARGS[@]} -lt 1 ]]; then
     echo "Usage: ./btcnft hybrid-withdraw-secondary <vault_token_id>"
     echo ""
-    echo "Withdraws 100% of secondary collateral (one-time withdrawal)."
+    echo "Claims 100% of the escrowed secondary leg (one-time withdrawal)."
     echo "Requires vault to be fully vested."
     exit 1
 fi
@@ -25,11 +26,10 @@ echo ""
 require_hybrid_vault_exists "$TOKEN_ID"
 require_hybrid_vested "$TOKEN_ID"
 
-# Check if already withdrawn
-SECONDARY=$(cast_call "$HYBRID_VAULT" "secondaryAmount(uint256)(uint256)" "$TOKEN_ID")
-ALREADY_WITHDRAWN=$(cast_call "$HYBRID_VAULT" "secondaryWithdrawn(uint256)(bool)" "$TOKEN_ID")
+# Check if already withdrawn (escrow position cleared on claim)
+SECONDARY=$(cast_call "$VESTING_ESCROW" "escrowAmount(uint256)(uint256)" "$TOKEN_ID")
 
-if [[ "$ALREADY_WITHDRAWN" == "true" ]]; then
+if [[ "$SECONDARY" == "0" ]]; then
     echo "Error: Secondary collateral already withdrawn" >&2
     exit 1
 fi
@@ -42,7 +42,7 @@ confirm_non_local_action "withdraw secondary from hybrid vault"
 
 # Execute withdrawal
 echo "Executing withdrawal..."
-TX_HASH=$(cast_send "$HYBRID_VAULT" "withdrawSecondary(uint256)" "$TOKEN_ID")
+TX_HASH=$(cast_send "$VESTING_ESCROW" "claim(uint256)" "$TOKEN_ID")
 
 print_success "Secondary withdrawal complete" "$TX_HASH"
 echo "Withdrawn: $(format_btc "$SECONDARY") BTC"

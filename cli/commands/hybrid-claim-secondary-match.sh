@@ -1,17 +1,17 @@
 #!/bin/bash
-# Claim secondary match pool share from hybrid vault
+# Claim secondary match pool share for a hybrid vault's escrow position
 set -e
 
 source "$(dirname "$0")/../lib/common.sh"
 load_env
 require_contract_set "HYBRID_VAULT"
+require_contract_set "VESTING_ESCROW"
 
 # Validate arguments
 if [[ ${#REMAINING_ARGS[@]} -lt 1 ]]; then
     echo "Usage: ./btcnft hybrid-claim-secondary-match <vault_token_id>"
     echo ""
-    echo "Claims a pro-rata share of the secondary match pool."
-    echo "Requires vault to be fully vested."
+    echo "Settles the escrow position's accrued share of the secondary match pool."
     exit 1
 fi
 
@@ -21,21 +21,20 @@ echo "=== Claiming Secondary Match Pool for Hybrid Vault #$TOKEN_ID ==="
 echo "Network: $(get_network_name)"
 echo ""
 
-# Verify vault exists and is vested
+# Verify vault exists
 require_hybrid_vault_exists "$TOKEN_ID"
-require_hybrid_vested "$TOKEN_ID"
 
-# Check match pool
-MATCH_POOL=$(cast_call "$HYBRID_VAULT" "secondaryMatchPool()(uint256)")
-if [[ "$MATCH_POOL" == "0" ]]; then
-    echo "Secondary match pool is empty. Nothing to claim."
+# Check pending match share
+PENDING=$(cast_call "$VESTING_ESCROW" "pendingMatch(uint256)(uint256)" "$TOKEN_ID")
+if [[ "$PENDING" == "0" ]]; then
+    echo "No pending secondary match share. Nothing to claim."
     exit 0
 fi
 
-SECONDARY_BEFORE=$(cast_call "$HYBRID_VAULT" "secondaryAmount(uint256)(uint256)" "$TOKEN_ID")
+SECONDARY_BEFORE=$(cast_call "$VESTING_ESCROW" "escrowAmount(uint256)(uint256)" "$TOKEN_ID")
 
-echo "Secondary match pool: $(format_btc "$MATCH_POOL") BTC"
-echo "Your secondary:       $(format_btc "$SECONDARY_BEFORE") BTC"
+echo "Pending match share: $(format_btc "$PENDING") BTC"
+echo "Your secondary:      $(format_btc "$SECONDARY_BEFORE") BTC"
 echo ""
 
 # Confirm on testnet
@@ -43,9 +42,9 @@ confirm_non_local_action "claim secondary match pool"
 
 # Claim match
 echo "Claiming secondary match pool share..."
-TX_HASH=$(cast_send "$HYBRID_VAULT" "claimSecondaryMatch(uint256)" "$TOKEN_ID")
+TX_HASH=$(cast_send "$VESTING_ESCROW" "claimMatch(uint256)" "$TOKEN_ID")
 
-SECONDARY_AFTER=$(cast_call "$HYBRID_VAULT" "secondaryAmount(uint256)(uint256)" "$TOKEN_ID")
+SECONDARY_AFTER=$(cast_call "$VESTING_ESCROW" "escrowAmount(uint256)(uint256)" "$TOKEN_ID")
 CLAIMED=$((SECONDARY_AFTER - SECONDARY_BEFORE))
 
 print_success "Secondary match pool claimed" "$TX_HASH"

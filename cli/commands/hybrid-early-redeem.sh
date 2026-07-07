@@ -5,13 +5,15 @@ set -e
 source "$(dirname "$0")/../lib/common.sh"
 load_env
 require_contract_set "HYBRID_VAULT"
+require_contract_set "VESTING_ESCROW"
 
 # Validate arguments
 if [[ ${#REMAINING_ARGS[@]} -lt 1 ]]; then
     echo "Usage: ./btcnft hybrid-early-redeem <vault_token_id>"
     echo ""
-    echo "Burns the hybrid vault and returns pro-rata collateral based on elapsed time."
-    echo "Returns both primary and secondary collateral with forfeiture penalty."
+    echo "Burns the vault and returns pro-rata collateral based on elapsed time."
+    echo "The escrowed secondary leg settles automatically in the same transaction"
+    echo "via the vault's redeem hook, with the same forfeiture curve."
     exit 1
 fi
 
@@ -25,9 +27,18 @@ echo ""
 require_hybrid_vault_exists "$TOKEN_ID"
 
 # Get vault info
-PRIMARY=$(cast_call "$HYBRID_VAULT" "primaryAmount(uint256)(uint256)" "$TOKEN_ID")
-SECONDARY=$(cast_call "$HYBRID_VAULT" "secondaryAmount(uint256)(uint256)" "$TOKEN_ID")
+PRIMARY=$(cast_call "$HYBRID_VAULT" "collateralAmount(uint256)(uint256)" "$TOKEN_ID")
+SECONDARY=$(cast_call "$VESTING_ESCROW" "escrowAmount(uint256)(uint256)" "$TOKEN_ID")
 MINT_TS=$(cast_call "$HYBRID_VAULT" "mintTimestamp(uint256)(uint256)" "$TOKEN_ID")
+
+# Check for outstanding stripped reserve (must be zero)
+RESERVE=$(cast_call "$HYBRID_VAULT" "strippedReserve(uint256)(uint256)" "$TOKEN_ID")
+if [[ "$RESERVE" != "0" ]]; then
+    echo "Error: Hybrid vault has outstanding stripped reserve" >&2
+    echo "Outstanding reserve: $(format_btc "$RESERVE") BTC" >&2
+    echo "You must recombine the full reserve before early redemption" >&2
+    exit 1
+fi
 
 # Get current timestamp
 CURRENT_TS=$(cast block latest --rpc-url "$RPC_URL" --json | jq -r '.timestamp')
@@ -62,7 +73,7 @@ echo ""
 
 if [[ $PRIMARY_FORFEITED -gt 0 || $SECONDARY_FORFEITED -gt 0 ]]; then
     echo "WARNING: This action is irreversible!"
-    echo "Forfeited collateral goes to the match pool."
+    echo "Forfeited collateral goes to the respective match pools."
     echo ""
 fi
 
@@ -77,12 +88,12 @@ fi
 # Confirm on testnet
 confirm_non_local_action "early redeem hybrid vault"
 
-# Execute early redemption
+# Execute early redemption (escrow leg settles automatically via redeem hook)
 echo ""
 echo "Executing early redemption..."
 TX_HASH=$(cast_send "$HYBRID_VAULT" "earlyRedeem(uint256)" "$TOKEN_ID")
 
-print_success "Hybrid vault redeemed" "$TX_HASH"
+print_success "Hybrid vault redeemed (both legs settled in one transaction)" "$TX_HASH"
 echo "Primary received:    $(format_btc "$PRIMARY_RETURNED") BTC"
 echo "Primary forfeited:   $(format_btc "$PRIMARY_FORFEITED") BTC"
 echo "Secondary received:  $(format_btc "$SECONDARY_RETURNED") BTC"

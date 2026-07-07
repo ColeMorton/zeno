@@ -50,7 +50,7 @@ confirm_non_local_action "withdraw as delegate from hybrid vault"
 
 # Execute delegated withdrawal
 echo "Executing delegated withdrawal..."
-TX_HASH=$(cast_send "$HYBRID_VAULT" "withdrawPrimaryAsDelegate(uint256)" "$TOKEN_ID")
+TX_HASH=$(cast_send "$HYBRID_VAULT" "withdrawAsDelegate(uint256)" "$TOKEN_ID")
 
 print_success "Delegated withdrawal complete" "$TX_HASH"
 echo "Withdrawn: $(format_btc "$WITHDRAWABLE") BTC"
