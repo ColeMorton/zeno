@@ -164,6 +164,13 @@ interface IVaultNFT is IERC721, IVaultNFTDelegation {
     /// @notice Thrown when a dormant reserve claim is attempted before the grace period expires.
     error NotClaimable(uint256 tokenId);
 
+    /// @notice Thrown when setting a redeem hook on a vault that already has one bound.
+    error HookAlreadySet(uint256 tokenId);
+
+    /// @notice Emitted when a redeem hook is bound to a vault.
+    /// @param tokenId The vault token ID.
+    /// @param hook The hook address bound to the vault.
+    event RedeemHookSet(uint256 indexed tokenId, address indexed hook);
 
     // ========== Core Vault Functions ==========
 
@@ -262,6 +269,20 @@ interface IVaultNFT is IERC721, IVaultNFTDelegation {
         external
         view
         returns (bool eligible, DormancyState state);
+
+    // ========== Redeem Hook ==========
+
+    /// @notice Bind a one-time redeem hook to a vault, notified atomically on early redemption.
+    /// @dev Only the current vault owner may set the hook, and only once — the binding is
+    /// permanent for the life of the vault so escrows composed on top of it cannot be detached.
+    /// @param tokenId The vault token ID to bind the hook to.
+    /// @param hook The `IRedeemHook` implementer to notify on early redemption.
+    function setRedeemHook(uint256 tokenId, address hook) external;
+
+    /// @notice Get the redeem hook bound to a vault.
+    /// @param tokenId The vault token ID to query.
+    /// @return The bound hook address (zero if none).
+    function redeemHook(uint256 tokenId) external view returns (address);
 
     // ========== View Functions ==========
 

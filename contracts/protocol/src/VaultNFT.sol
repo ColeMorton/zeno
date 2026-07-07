@@ -6,6 +6,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IVaultNFT} from "./interfaces/IVaultNFT.sol";
+import {IRedeemHook} from "./interfaces/IRedeemHook.sol";
 import {IBtcToken} from "./interfaces/IBtcToken.sol";
 import {VaultMath} from "./libraries/VaultMath.sol";
 
@@ -80,6 +81,8 @@ contract VaultNFT is ERC721, IVaultNFT {
     mapping(uint256 => uint256) private _pokeTimestamp;
     /// @notice Mapping from vault token ID to the accumulator value at its last match settlement
     mapping(uint256 => uint256) private _matchDebt;
+    /// @notice Mapping from vault token ID to a one-time redeem hook notified on early redemption
+    mapping(uint256 => address) public redeemHook;
 
     // ========== Wallet-Level Withdrawal Delegation State ==========
 
@@ -241,6 +244,8 @@ contract VaultNFT is ERC721, IVaultNFT {
 
         IERC721(treasureContract_).transferFrom(address(this), BURN_ADDRESS, treasureTokenId_);
 
+        address hook = redeemHook[tokenId];
+
         _clearVaultState(tokenId);
         _burn(tokenId);
 
@@ -249,6 +254,26 @@ contract VaultNFT is ERC721, IVaultNFT {
         }
 
         emit EarlyRedemption(tokenId, msg.sender, returned, forfeited);
+
+        if (hook != address(0)) {
+            delete redeemHook[tokenId];
+            IRedeemHook(hook).onEarlyRedeem(tokenId, msg.sender);
+        }
+    }
+
+    /// @notice Bind a one-time redeem hook to a vault, notified atomically on early redemption
+    /// @dev Only the current vault owner may set the hook, and only once — the binding is
+    /// permanent for the life of the vault so escrows composed on top of it cannot be detached.
+    /// @param tokenId The vault token ID to bind the hook to
+    /// @param hook The `IRedeemHook` implementer to notify on early redemption
+    function setRedeemHook(uint256 tokenId, address hook) external {
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner(tokenId);
+        if (hook == address(0)) revert ZeroAddress();
+        if (redeemHook[tokenId] != address(0)) revert HookAlreadySet(tokenId);
+
+        redeemHook[tokenId] = hook;
+
+        emit RedeemHookSet(tokenId, hook);
     }
 
     /// @notice Strip active collateral into the immunized reserve, minting vBTC 1:1
