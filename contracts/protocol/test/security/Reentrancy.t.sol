@@ -7,13 +7,11 @@ import {BtcToken} from "../../src/BtcToken.sol";
 import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
-import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
 import {MaliciousDelegate} from "../mocks/MaliciousDelegate.sol";
 
 contract ReentrancyTest is Test {
     VaultNFT public vault;
     BtcToken public btcToken;
-    ExpeditionCredits public xbtc;
     MockTreasure public treasure;
     MockWBTC public wbtc;
     MaliciousDelegate public maliciousDelegate;
@@ -34,10 +32,9 @@ contract ReentrancyTest is Test {
         treasure = new MockTreasure();
         wbtc = new MockWBTC();
 
-        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
+        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
         btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
-        xbtc = new ExpeditionCredits(vaultAddr, address(this));
-        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
+        vault = new VaultNFT(address(btcToken), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
 
         // Fund alice
         wbtc.mint(alice, 100 * ONE_BTC);
@@ -138,50 +135,53 @@ contract ReentrancyTest is Test {
     }
 
     function test_ClaimDormant_RequiresBtcToken() public {
-        // Test that dormancy claim requires BTC token burn
+        // Test that dormancy claim requires vBTC burn
         // Dormancy threshold: 1129 days, Grace period: 30 days
 
         vm.prank(alice);
         uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), 10 * ONE_BTC);
 
-        // Skip to vested (1129 days from mint)
-        uint256 vestedTime = block.timestamp + VESTING_PERIOD;
-        vm.warp(vestedTime);
+        // vm.getBlockTimestamp, not block.timestamp: via-IR rematerializes TIMESTAMP
+        // per use, so relative warps computed from block.timestamp are unreliable in tests.
+        uint256 t = vm.getBlockTimestamp();
 
-        // Mint BTC token (required for dormancy eligibility)
+        // Vest, then strip the full collateral into the reserve (mints vBTC 1:1)
+        t += VESTING_PERIOD;
+        vm.warp(t);
+
         vm.prank(alice);
-        vault.mintBtcToken(tokenId);
+        vault.strip(tokenId, 10 * ONE_BTC);
 
-        // CRITICAL: Transfer BTC token away - this makes vault dormant-eligible
-        // Dormancy requires owner's BTC token balance < minted amount
+        // CRITICAL: Transfer vBTC away - this makes vault dormant-eligible
+        // Dormancy requires owner's vBTC balance < stripped reserve
         vm.prank(alice);
         btcToken.transfer(bob, 10 * ONE_BTC);
 
-        // Skip to dormant state (1129 days from last activity which was mintBtcToken)
-        uint256 dormantTime = vestedTime + VESTING_PERIOD; // VESTING_PERIOD = DORMANCY_THRESHOLD = 1129 days
-        vm.warp(dormantTime);
+        // Skip to dormant state (1129 days from last activity which was strip)
+        t += VESTING_PERIOD; // VESTING_PERIOD = DORMANCY_THRESHOLD = 1129 days
+        vm.warp(t);
 
         // Bob pokes dormancy
         vm.prank(bob);
         vault.pokeDormant(tokenId);
 
         // Skip grace period (30 days)
-        uint256 claimableTime = dormantTime + 30 days;
-        vm.warp(claimableTime);
+        t += 30 days;
+        vm.warp(t);
 
-        // Charlie tries to claim without BTC token - should fail
+        // Charlie tries to claim without vBTC - should fail
         vm.prank(charlie);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.InsufficientBtcToken.selector, 10 * ONE_BTC, 0));
-        vault.claimDormantCollateral(tokenId);
+        vault.claimDormantCollateral(tokenId, 10 * ONE_BTC);
 
-        // Bob has the BTC token, so bob can claim
+        // Bob has the vBTC, so bob can claim
         uint256 bobWbtcBefore = wbtc.balanceOf(bob);
         vm.prank(bob);
-        vault.claimDormantCollateral(tokenId);
+        vault.claimDormantCollateral(tokenId, 10 * ONE_BTC);
         uint256 bobWbtcAfter = wbtc.balanceOf(bob);
 
         assertEq(bobWbtcAfter - bobWbtcBefore, 10 * ONE_BTC);
-        assertEq(btcToken.balanceOf(bob), 0); // BTC token was burned
+        assertEq(btcToken.balanceOf(bob), 0); // vBTC was burned
     }
 
     function test_MultipleWithdrawals_NoDoubleSpend() public {

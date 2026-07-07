@@ -25,17 +25,25 @@ OWNER=$(cast_call "$VAULT" "ownerOf(uint256)(address)" "$TOKEN_ID")
 echo "Owner: $OWNER"
 echo ""
 
-# Get vault info
-COLLATERAL=$(cast_call "$VAULT" "collateralAmount(uint256)(uint256)" "$TOKEN_ID")
-MINT_TS=$(cast_call "$VAULT" "mintTimestamp(uint256)(uint256)" "$TOKEN_ID")
-LAST_WITHDRAWAL=$(cast_call "$VAULT" "lastWithdrawal(uint256)(uint256)" "$TOKEN_ID")
-LAST_ACTIVITY=$(cast_call "$VAULT" "lastActivity(uint256)(uint256)" "$TOKEN_ID")
-BTC_TOKEN_AMOUNT=$(cast_call "$VAULT" "btcTokenAmount(uint256)(uint256)" "$TOKEN_ID")
-ORIGINAL_AMOUNT=$(cast_call "$VAULT" "originalMintedAmount(uint256)(uint256)" "$TOKEN_ID")
+# Get vault info (8-field tuple)
+# Returns: treasureContract, treasureId, collateralToken, collateralAmount, strippedReserve, mintTimestamp, lastWithdrawal, lastActivity
+VAULT_INFO=$(cast_call "$VAULT" "getVaultInfo(uint256)" "$TOKEN_ID")
+
+# Parse the output
+TREASURE_CONTRACT=$(echo "$VAULT_INFO" | awk '{print $1}')
+TREASURE_ID=$(echo "$VAULT_INFO" | awk '{print $2}')
+COLLATERAL_TOKEN=$(echo "$VAULT_INFO" | awk '{print $3}')
+COLLATERAL=$(echo "$VAULT_INFO" | awk '{print $4}')
+RESERVE=$(echo "$VAULT_INFO" | awk '{print $5}')
+MINT_TS=$(echo "$VAULT_INFO" | awk '{print $6}')
+LAST_WITHDRAWAL=$(echo "$VAULT_INFO" | awk '{print $7}')
+LAST_ACTIVITY=$(echo "$VAULT_INFO" | awk '{print $8}')
 
 echo "=== Collateral ==="
-echo "Current:  $(format_btc "$COLLATERAL") BTC ($COLLATERAL satoshis)"
-echo "Original: $(format_btc "$ORIGINAL_AMOUNT") BTC"
+echo "Active:   $(format_btc "$COLLATERAL") BTC ($COLLATERAL satoshis)"
+if [[ "$RESERVE" != "0" ]]; then
+    echo "Reserve:  $(format_btc "$RESERVE") BTC (immunized, backing vBTC)"
+fi
 echo ""
 
 echo "=== Withdrawal Rate ==="
@@ -89,29 +97,39 @@ if [[ "$IS_VESTED" == "true" ]]; then
 fi
 
 # vBTC status
-echo "=== vBTC Token ==="
-if [[ "$BTC_TOKEN_AMOUNT" != "0" ]]; then
-    echo "Status: SEPARATED"
-    echo "Amount: $(format_btc "$BTC_TOKEN_AMOUNT") vBTC"
+echo "=== Stripped Reserve ==="
+if [[ "$RESERVE" != "0" ]]; then
+    echo "Status: STRIPPED (vBTC outstanding)"
+    echo "Amount: $(format_btc "$RESERVE") vBTC"
 else
-    echo "Status: NOT SEPARATED"
+    echo "Status: NOT STRIPPED"
 fi
 echo ""
 
 # Dormancy status
-if [[ "$IS_VESTED" == "true" && "$BTC_TOKEN_AMOUNT" != "0" ]]; then
+if [[ "$RESERVE" != "0" ]]; then
     DORMANCY_INFO=$(cast_call "$VAULT" "isDormantEligible(uint256)" "$TOKEN_ID")
-    echo "=== Dormancy ==="
-    echo "$DORMANCY_INFO"
-    echo ""
+    ELIGIBLE=$(echo "$DORMANCY_INFO" | cut -d' ' -f1)
+    if [[ "$ELIGIBLE" == "true" ]]; then
+        echo "=== Dormancy ==="
+        echo "$DORMANCY_INFO"
+        echo ""
+    fi
 fi
 
 # Delegation status
-TOTAL_DELEGATED=$(cast_call "$VAULT" "totalDelegatedBPS(uint256)(uint256)" "$TOKEN_ID")
-if [[ "$TOTAL_DELEGATED" != "0" ]]; then
-    DELEGATED_PERCENT=$(echo "scale=2; $TOTAL_DELEGATED / 100" | bc)
+WALLET_DELEGATED=$(cast_call "$VAULT" "walletTotalDelegatedBPS(address)(uint256)" "$OWNER")
+VAULT_DELEGATED=$(cast_call "$VAULT" "vaultTotalDelegatedBPS(uint256)(uint256)" "$TOKEN_ID")
+if [[ "$WALLET_DELEGATED" != "0" || "$VAULT_DELEGATED" != "0" ]]; then
     echo "=== Delegation ==="
-    echo "Total delegated: ${DELEGATED_PERCENT}%"
+    if [[ "$WALLET_DELEGATED" != "0" ]]; then
+        WALLET_PERCENT=$(echo "scale=2; $WALLET_DELEGATED / 100" | bc)
+        echo "Wallet-level: ${WALLET_PERCENT}%"
+    fi
+    if [[ "$VAULT_DELEGATED" != "0" ]]; then
+        VAULT_PERCENT=$(echo "scale=2; $VAULT_DELEGATED / 100" | bc)
+        echo "Vault-specific: ${VAULT_PERCENT}%"
+    fi
     echo "View delegates: ./btcnft delegates $TOKEN_ID"
     echo ""
 fi

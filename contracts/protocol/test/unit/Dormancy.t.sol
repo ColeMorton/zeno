@@ -1,73 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {VaultNFT} from "../../src/VaultNFT.sol";
-import {BtcToken} from "../../src/BtcToken.sol";
 import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
-import {IVaultNFTDormancy} from "../../src/interfaces/IVaultNFTDormancy.sol";
-import {MockTreasure} from "../mocks/MockTreasure.sol";
-import {MockWBTC} from "../mocks/MockWBTC.sol";
-import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
+import {BaseTest} from "../utils/BaseTest.sol";
 
-contract DormancyEdgeCasesTest is Test {
-    VaultNFT public vault;
-    BtcToken public btcToken;
-    ExpeditionCredits public xbtc;
-    MockTreasure public treasure;
-    MockWBTC public wbtc;
-
-    address public alice;
-    address public bob;
-    address public charlie;
-
-    uint256 constant ONE_BTC = 1e8;
-    uint256 constant VESTING_PERIOD = 1129 days;
-    uint256 constant WITHDRAWAL_PERIOD = 30 days;
-    uint256 constant DORMANCY_THRESHOLD = 1129 days;
-    uint256 constant GRACE_PERIOD = 30 days;
-
-    function setUp() public {
-        alice = makeAddr("alice");
-        bob = makeAddr("bob");
-        charlie = makeAddr("charlie");
-
-        treasure = new MockTreasure();
-        wbtc = new MockWBTC();
-
-        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
-        btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
-        xbtc = new ExpeditionCredits(vaultAddr, address(this));
-        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
-
-        wbtc.mint(alice, 100 * ONE_BTC);
-        wbtc.mint(bob, 100 * ONE_BTC);
-        wbtc.mint(charlie, 100 * ONE_BTC);
-        treasure.mintBatch(alice, 10);
-        treasure.mintBatch(bob, 10);
-        treasure.mintBatch(charlie, 10);
-
-        _approveAll(alice);
-        _approveAll(bob);
-        _approveAll(charlie);
-    }
-
-    function _approveAll(address user) internal {
-        vm.startPrank(user);
-        wbtc.approve(address(vault), type(uint256).max);
-        treasure.setApprovalForAll(address(vault), true);
-        btcToken.approve(address(vault), type(uint256).max);
-        vm.stopPrank();
-    }
-
+contract DormancyTest is BaseTest {
+    /// @dev Mint a vault for alice, strip the full collateral, ship the vBTC to bob,
+    /// and warp past the dormancy threshold. Returns the dormant-eligible token ID.
     function _setupDormantVault() internal returns (uint256 tokenId) {
-        vm.prank(alice);
-        tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
-        vm.prank(alice);
-        vault.mintBtcToken(tokenId);
+        tokenId = _mintVault(alice, 0, ONE_BTC);
+        _stripAll(alice, tokenId);
 
         vm.prank(alice);
         btcToken.transfer(bob, ONE_BTC);
@@ -75,58 +17,63 @@ contract DormancyEdgeCasesTest is Test {
         vm.warp(block.timestamp + DORMANCY_THRESHOLD + 1);
     }
 
-    function test_Dormancy_TransferDuringPokePending_ResetsDormancy() public {
-        uint256 tokenId = _setupDormantVault();
-
-        vm.prank(bob);
-        vault.pokeDormant(tokenId);
-
-        (, IVaultNFTDormancy.DormancyState state) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(state), uint256(IVaultNFTDormancy.DormancyState.POKE_PENDING));
-
-        vm.prank(alice);
-        vault.transferFrom(alice, charlie, tokenId);
-
-        (bool eligible, IVaultNFTDormancy.DormancyState newState) = vault.isDormantEligible(tokenId);
-        assertFalse(eligible);
-        assertEq(uint256(newState), uint256(IVaultNFTDormancy.DormancyState.ACTIVE));
-
-        vm.warp(block.timestamp + GRACE_PERIOD);
-
-        vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.NotClaimable.selector, tokenId));
-        vault.claimDormantCollateral(tokenId);
-    }
-
-    function test_Dormancy_BtcTokenRepurchasedInGrace_NotEligible() public {
-        uint256 tokenId = _setupDormantVault();
-
+    /// @dev Poke and pass the grace period so the reserve becomes claimable.
+    function _makeClaimable(uint256 tokenId) internal {
         vm.prank(charlie);
         vault.pokeDormant(tokenId);
+        vm.warp(block.timestamp + GRACE_PERIOD);
+    }
 
-        vm.warp(block.timestamp + GRACE_PERIOD / 2);
+    // ========== Eligibility ==========
 
-        vm.prank(bob);
-        btcToken.transfer(alice, ONE_BTC);
+    function test_Dormancy_Eligible_WhenReserveOutstandingAndInactive() public {
+        uint256 tokenId = _setupDormantVault();
+
+        (bool eligible, IVaultNFT.DormancyState state) = vault.isDormantEligible(tokenId);
+        assertTrue(eligible);
+        assertEq(uint256(state), uint256(IVaultNFT.DormancyState.ACTIVE));
+    }
+
+    function test_Dormancy_NoReserve_NotEligible() public {
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
+
+        vm.warp(block.timestamp + DORMANCY_THRESHOLD + 1);
 
         (bool eligible,) = vault.isDormantEligible(tokenId);
         assertFalse(eligible);
 
-        vm.warp(block.timestamp + GRACE_PERIOD);
-
-        vm.prank(charlie);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.NotClaimable.selector, tokenId));
-        vault.claimDormantCollateral(tokenId);
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotDormantEligible.selector, tokenId));
+        vault.pokeDormant(tokenId);
     }
 
-    function test_Dormancy_ExactThresholdBoundary_NotEligibleBefore() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
+    function test_Dormancy_OwnerHoldsFullReserveInBtcToken_NotEligible() public {
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
+        _stripAll(alice, tokenId);
 
-        vm.warp(block.timestamp + VESTING_PERIOD);
+        vm.warp(block.timestamp + DORMANCY_THRESHOLD + 1);
 
+        (bool eligible,) = vault.isDormantEligible(tokenId);
+        assertFalse(eligible);
+    }
+
+    function test_Dormancy_OwnerHoldsPartialBtcToken_StillEligible() public {
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
+        _stripAll(alice, tokenId);
+
+        // Owner keeps half: balance < reserve, still eligible
         vm.prank(alice);
-        vault.mintBtcToken(tokenId);
+        btcToken.transfer(bob, ONE_BTC / 2);
+
+        vm.warp(block.timestamp + DORMANCY_THRESHOLD + 1);
+
+        (bool eligible,) = vault.isDormantEligible(tokenId);
+        assertTrue(eligible);
+    }
+
+    function test_Dormancy_ExactThresholdBoundary() public {
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
+        _stripAll(alice, tokenId);
 
         uint256 activityTimestamp = vault.lastActivity(tokenId);
 
@@ -138,10 +85,33 @@ contract DormancyEdgeCasesTest is Test {
         (bool eligibleBefore,) = vault.isDormantEligible(tokenId);
         assertFalse(eligibleBefore);
 
-        vm.warp(activityTimestamp + DORMANCY_THRESHOLD + 1);
+        vm.warp(activityTimestamp + DORMANCY_THRESHOLD);
 
         (bool eligibleAfter,) = vault.isDormantEligible(tokenId);
         assertTrue(eligibleAfter);
+    }
+
+    // ========== Poke / Grace Period ==========
+
+    function test_Dormancy_AnyoneCanPoke() public {
+        uint256 tokenId = _setupDormantVault();
+
+        vm.prank(charlie);
+        vault.pokeDormant(tokenId);
+
+        (, IVaultNFT.DormancyState state) = vault.isDormantEligible(tokenId);
+        assertEq(uint256(state), uint256(IVaultNFT.DormancyState.POKE_PENDING));
+    }
+
+    function test_Dormancy_CannotDoublePoke() public {
+        uint256 tokenId = _setupDormantVault();
+
+        vm.prank(charlie);
+        vault.pokeDormant(tokenId);
+
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.AlreadyPoked.selector, tokenId));
+        vault.pokeDormant(tokenId);
     }
 
     function test_Dormancy_GraceExactExpiry_NotClaimableBefore() public {
@@ -152,164 +122,102 @@ contract DormancyEdgeCasesTest is Test {
 
         vm.warp(block.timestamp + GRACE_PERIOD - 1);
 
-        (, IVaultNFTDormancy.DormancyState stateBefore) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(stateBefore), uint256(IVaultNFTDormancy.DormancyState.POKE_PENDING));
+        (, IVaultNFT.DormancyState stateBefore) = vault.isDormantEligible(tokenId);
+        assertEq(uint256(stateBefore), uint256(IVaultNFT.DormancyState.POKE_PENDING));
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.NotClaimable.selector, tokenId));
-        vault.claimDormantCollateral(tokenId);
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotClaimable.selector, tokenId));
+        vault.claimDormantCollateral(tokenId, ONE_BTC);
 
-        vm.warp(block.timestamp + 2);
+        vm.warp(block.timestamp + 1);
 
-        (, IVaultNFTDormancy.DormancyState stateAfter) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(stateAfter), uint256(IVaultNFTDormancy.DormancyState.CLAIMABLE));
+        (, IVaultNFT.DormancyState stateAfter) = vault.isDormantEligible(tokenId);
+        assertEq(uint256(stateAfter), uint256(IVaultNFT.DormancyState.CLAIMABLE));
 
         vm.prank(bob);
-        vault.claimDormantCollateral(tokenId);
+        vault.claimDormantCollateral(tokenId, ONE_BTC);
     }
 
-    function test_Dormancy_PartialBtcTokenAtOwner_StillEligible() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
+    function test_Dormancy_TransferDuringPokePending_ResetsDormancy() public {
+        uint256 tokenId = _setupDormantVault();
 
-        vm.warp(block.timestamp + VESTING_PERIOD);
+        vm.prank(bob);
+        vault.pokeDormant(tokenId);
 
         vm.prank(alice);
-        vault.mintBtcToken(tokenId);
+        vault.transferFrom(alice, charlie, tokenId);
+
+        (bool eligible, IVaultNFT.DormancyState newState) = vault.isDormantEligible(tokenId);
+        assertFalse(eligible);
+        assertEq(uint256(newState), uint256(IVaultNFT.DormancyState.ACTIVE));
+
+        vm.warp(block.timestamp + GRACE_PERIOD);
+
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotClaimable.selector, tokenId));
+        vault.claimDormantCollateral(tokenId, ONE_BTC);
+    }
+
+    function test_Dormancy_BtcTokenRepurchasedInGrace_NotEligible() public {
+        uint256 tokenId = _setupDormantVault();
+
+        vm.prank(charlie);
+        vault.pokeDormant(tokenId);
+
+        vm.warp(block.timestamp + GRACE_PERIOD / 2);
+
+        // Owner buys back the full reserve worth of vBTC
+        vm.prank(bob);
+        btcToken.transfer(alice, ONE_BTC);
+
+        (bool eligible,) = vault.isDormantEligible(tokenId);
+        assertFalse(eligible);
+
+        vm.warp(block.timestamp + GRACE_PERIOD);
+
+        vm.prank(charlie);
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotClaimable.selector, tokenId));
+        vault.claimDormantCollateral(tokenId, ONE_BTC);
+    }
+
+    function test_Dormancy_WithdrawDuringPokePending_ResetsDormancy() public {
+        // Partial strip so active collateral remains and withdraw pays out
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
+
+        _skipVesting();
+
+        vm.prank(alice);
+        vault.strip(tokenId, ONE_BTC / 2);
 
         vm.prank(alice);
         btcToken.transfer(bob, ONE_BTC / 2);
 
         vm.warp(block.timestamp + DORMANCY_THRESHOLD + 1);
 
-        (bool eligible,) = vault.isDormantEligible(tokenId);
-        assertTrue(eligible);
-    }
-
-    function test_Dormancy_WithdrawDuringPokePending_ResetsDormancy() public {
-        uint256 tokenId = _setupDormantVault();
-
         vm.prank(charlie);
         vault.pokeDormant(tokenId);
 
-        (, IVaultNFTDormancy.DormancyState stateBefore) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(stateBefore), uint256(IVaultNFTDormancy.DormancyState.POKE_PENDING));
-
         vm.prank(alice);
-        vault.withdraw(tokenId);
+        uint256 withdrawn = vault.withdraw(tokenId);
+        assertGt(withdrawn, 0);
 
-        (bool eligible, IVaultNFTDormancy.DormancyState stateAfter) = vault.isDormantEligible(tokenId);
+        (bool eligible, IVaultNFT.DormancyState stateAfter) = vault.isDormantEligible(tokenId);
         assertFalse(eligible);
-        assertEq(uint256(stateAfter), uint256(IVaultNFTDormancy.DormancyState.ACTIVE));
+        assertEq(uint256(stateAfter), uint256(IVaultNFT.DormancyState.ACTIVE));
     }
 
     function test_Dormancy_ClaimMatchDuringPokePending_ResetsDormancy() public {
-        vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
-
-        vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.warp(block.timestamp + 365 days);
-
-        vm.prank(bob);
-        vault.earlyRedeem(bobToken);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
-        vm.prank(alice);
-        vault.mintBtcToken(aliceToken);
-
-        vm.prank(alice);
-        btcToken.transfer(charlie, ONE_BTC);
-
-        vm.warp(block.timestamp + DORMANCY_THRESHOLD + 1);
+        uint256 tokenId = _setupDormantVault();
 
         vm.prank(charlie);
-        vault.pokeDormant(aliceToken);
+        vault.pokeDormant(tokenId);
 
         vm.prank(alice);
-        vault.claimMatch(aliceToken);
+        vault.claimMatch(tokenId);
 
-        (bool eligible, IVaultNFTDormancy.DormancyState stateAfter) = vault.isDormantEligible(aliceToken);
+        (bool eligible, IVaultNFT.DormancyState stateAfter) = vault.isDormantEligible(tokenId);
         assertFalse(eligible);
-        assertEq(uint256(stateAfter), uint256(IVaultNFTDormancy.DormancyState.ACTIVE));
-    }
-
-    function test_Dormancy_TreasureBurned() public {
-        uint256 tokenId = _setupDormantVault();
-
-        assertEq(treasure.ownerOf(0), address(vault));
-
-        vm.prank(charlie);
-        vault.pokeDormant(tokenId);
-
-        vm.warp(block.timestamp + GRACE_PERIOD);
-
-        vm.prank(bob);
-        vault.claimDormantCollateral(tokenId);
-
-        assertEq(treasure.ownerOf(0), address(0xdead));
-    }
-
-    function test_Dormancy_CollateralGoesToClaimer() public {
-        uint256 tokenId = _setupDormantVault();
-
-        uint256 bobWbtcBefore = wbtc.balanceOf(bob);
-
-        vm.prank(charlie);
-        vault.pokeDormant(tokenId);
-
-        vm.warp(block.timestamp + GRACE_PERIOD);
-
-        vm.prank(bob);
-        uint256 collateral = vault.claimDormantCollateral(tokenId);
-
-        assertEq(collateral, ONE_BTC);
-        assertEq(wbtc.balanceOf(bob), bobWbtcBefore + ONE_BTC);
-    }
-
-    function test_Dormancy_BtcTokenBurnedOnClaim() public {
-        uint256 tokenId = _setupDormantVault();
-
-        assertEq(btcToken.balanceOf(bob), ONE_BTC);
-        uint256 supplyBefore = btcToken.totalSupply();
-
-        vm.prank(charlie);
-        vault.pokeDormant(tokenId);
-
-        vm.warp(block.timestamp + GRACE_PERIOD);
-
-        vm.prank(bob);
-        vault.claimDormantCollateral(tokenId);
-
-        assertEq(btcToken.balanceOf(bob), 0);
-        assertEq(btcToken.totalSupply(), supplyBefore - ONE_BTC);
-    }
-
-    function test_Dormancy_VaultBurnedAfterClaim() public {
-        uint256 tokenId = _setupDormantVault();
-
-        vm.prank(charlie);
-        vault.pokeDormant(tokenId);
-
-        vm.warp(block.timestamp + GRACE_PERIOD);
-
-        vm.prank(bob);
-        vault.claimDormantCollateral(tokenId);
-
-        vm.expectRevert();
-        vault.ownerOf(tokenId);
-    }
-
-    function test_Dormancy_AnyoneCanPoke() public {
-        uint256 tokenId = _setupDormantVault();
-
-        vm.prank(charlie);
-        vault.pokeDormant(tokenId);
-
-        (, IVaultNFTDormancy.DormancyState state) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(state), uint256(IVaultNFTDormancy.DormancyState.POKE_PENDING));
+        assertEq(uint256(stateAfter), uint256(IVaultNFT.DormancyState.ACTIVE));
     }
 
     function test_Dormancy_ProveActivityBeforeGraceExpiry() public {
@@ -320,54 +228,153 @@ contract DormancyEdgeCasesTest is Test {
 
         vm.warp(block.timestamp + GRACE_PERIOD - 1);
 
+        vm.expectEmit(true, true, false, false);
+        emit IVaultNFT.ActivityProven(tokenId, alice);
+
         vm.prank(alice);
         vault.proveActivity(tokenId);
 
-        (bool eligible,) = vault.isDormantEligible(tokenId);
+        (bool eligible, IVaultNFT.DormancyState newState) = vault.isDormantEligible(tokenId);
         assertFalse(eligible);
+        assertEq(uint256(newState), uint256(IVaultNFT.DormancyState.ACTIVE));
     }
 
-    function test_Dormancy_ProveActivityAtLastSecond() public {
+    // ========== Claims ==========
+
+    function test_Dormancy_FullClaim() public {
         uint256 tokenId = _setupDormantVault();
+        _makeClaimable(tokenId);
 
-        vm.prank(charlie);
-        vault.pokeDormant(tokenId);
+        uint256 bobWbtcBefore = wbtc.balanceOf(bob);
+        uint256 supplyBefore = btcToken.totalSupply();
 
-        vm.warp(block.timestamp + GRACE_PERIOD - 1);
+        vm.expectEmit(true, true, true, true);
+        emit IVaultNFT.DormantCollateralClaimed(tokenId, alice, bob, ONE_BTC);
 
-        (, IVaultNFTDormancy.DormancyState state) = vault.isDormantEligible(tokenId);
-        assertEq(uint256(state), uint256(IVaultNFTDormancy.DormancyState.POKE_PENDING));
+        vm.prank(bob);
+        uint256 claimed = vault.claimDormantCollateral(tokenId, ONE_BTC);
 
-        vm.prank(alice);
-        vault.proveActivity(tokenId);
-
-        (bool eligible, IVaultNFTDormancy.DormancyState newState) = vault.isDormantEligible(tokenId);
-        assertFalse(eligible);
-        assertEq(uint256(newState), uint256(IVaultNFTDormancy.DormancyState.ACTIVE));
+        assertEq(claimed, ONE_BTC);
+        assertEq(wbtc.balanceOf(bob), bobWbtcBefore + ONE_BTC);
+        assertEq(btcToken.balanceOf(bob), 0);
+        assertEq(btcToken.totalSupply(), supplyBefore - ONE_BTC);
+        assertEq(vault.strippedReserve(tokenId), 0);
+        assertEq(vault.totalStrippedReserve(), 0);
     }
 
-    function test_Dormancy_NoBtcToken_NotEligible() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
+    function test_Dormancy_VaultSurvivesClaim() public {
+        uint256 tokenId = _setupDormantVault();
+        _makeClaimable(tokenId);
 
-        vm.warp(block.timestamp + VESTING_PERIOD + DORMANCY_THRESHOLD + 1);
+        vm.prank(bob);
+        vault.claimDormantCollateral(tokenId, ONE_BTC);
 
-        (bool eligible,) = vault.isDormantEligible(tokenId);
-        assertFalse(eligible);
+        // Vault persists: owner, treasure, and active collateral untouched
+        assertEq(vault.ownerOf(tokenId), alice);
+        assertEq(treasure.ownerOf(0), address(vault));
+        assertEq(vault.collateralAmount(tokenId), 0);
     }
 
-    function test_Dormancy_OwnerHoldsAllBtcToken_NotEligible() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
+    function test_Dormancy_ActiveCollateralUntouchedByClaim() public {
+        // Strip only half: active half must remain with the vault after a claim
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
 
-        vm.warp(block.timestamp + VESTING_PERIOD);
+        _skipVesting();
 
         vm.prank(alice);
-        vault.mintBtcToken(tokenId);
+        vault.strip(tokenId, ONE_BTC / 2);
+
+        vm.prank(alice);
+        btcToken.transfer(bob, ONE_BTC / 2);
 
         vm.warp(block.timestamp + DORMANCY_THRESHOLD + 1);
+        _makeClaimable(tokenId);
 
-        (bool eligible,) = vault.isDormantEligible(tokenId);
+        vm.prank(bob);
+        vault.claimDormantCollateral(tokenId, ONE_BTC / 2);
+
+        assertEq(vault.collateralAmount(tokenId), ONE_BTC / 2);
+        assertEq(vault.strippedReserve(tokenId), 0);
+        assertEq(vault.ownerOf(tokenId), alice);
+    }
+
+    function test_Dormancy_FractionalMultiClaimant() public {
+        uint256 tokenId = _setupDormantVault();
+
+        // Split the vBTC float between bob and charlie
+        vm.prank(bob);
+        btcToken.transfer(charlie, ONE_BTC / 4);
+
+        _makeClaimable(tokenId);
+
+        uint256 bobWbtcBefore = wbtc.balanceOf(bob);
+        uint256 charlieWbtcBefore = wbtc.balanceOf(charlie);
+
+        vm.prank(bob);
+        uint256 bobClaimed = vault.claimDormantCollateral(tokenId, ONE_BTC / 2);
+        assertEq(bobClaimed, ONE_BTC / 2);
+        assertEq(vault.strippedReserve(tokenId), ONE_BTC - ONE_BTC / 2);
+
+        vm.prank(charlie);
+        uint256 charlieClaimed = vault.claimDormantCollateral(tokenId, ONE_BTC / 4);
+        assertEq(charlieClaimed, ONE_BTC / 4);
+
+        vm.prank(bob);
+        vault.claimDormantCollateral(tokenId, ONE_BTC / 4);
+
+        assertEq(wbtc.balanceOf(bob), bobWbtcBefore + ONE_BTC / 2 + ONE_BTC / 4);
+        assertEq(wbtc.balanceOf(charlie), charlieWbtcBefore + ONE_BTC / 4);
+        assertEq(vault.strippedReserve(tokenId), 0);
+        assertEq(vault.totalStrippedReserve(), btcToken.totalSupply());
+    }
+
+    function test_Dormancy_ReserveZero_EndsEligibility() public {
+        uint256 tokenId = _setupDormantVault();
+        _makeClaimable(tokenId);
+
+        vm.prank(bob);
+        vault.claimDormantCollateral(tokenId, ONE_BTC);
+
+        (bool eligible, IVaultNFT.DormancyState state) = vault.isDormantEligible(tokenId);
         assertFalse(eligible);
+        assertEq(uint256(state), uint256(IVaultNFT.DormancyState.ACTIVE));
+
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotClaimable.selector, tokenId));
+        vault.claimDormantCollateral(tokenId, 1);
+    }
+
+    function test_Dormancy_Claim_RevertIf_ZeroAmount() public {
+        uint256 tokenId = _setupDormantVault();
+        _makeClaimable(tokenId);
+
+        vm.prank(bob);
+        vm.expectRevert(IVaultNFT.ZeroAmount.selector);
+        vault.claimDormantCollateral(tokenId, 0);
+    }
+
+    function test_Dormancy_Claim_RevertIf_ExceedsReserve() public {
+        uint256 tokenId = _setupDormantVault();
+        _makeClaimable(tokenId);
+
+        vm.prank(bob);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IVaultNFT.InsufficientReserve.selector, tokenId, ONE_BTC + 1, ONE_BTC
+            )
+        );
+        vault.claimDormantCollateral(tokenId, ONE_BTC + 1);
+    }
+
+    function test_Dormancy_Claim_RevertIf_InsufficientBtcToken() public {
+        uint256 tokenId = _setupDormantVault();
+        _makeClaimable(tokenId);
+
+        // Charlie holds no vBTC
+        vm.prank(charlie);
+        vm.expectRevert(
+            abi.encodeWithSelector(IVaultNFT.InsufficientBtcToken.selector, ONE_BTC, 0)
+        );
+        vault.claimDormantCollateral(tokenId, ONE_BTC);
     }
 }

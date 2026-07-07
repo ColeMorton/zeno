@@ -118,7 +118,7 @@ BTC price spikes renew retail interest in Bitcoin-exposure products. A minter wh
 
 **2. xBTC DeFi Integrations**
 
-When whitelisted protocols (per `ExpeditionCredits.sol` whitelist) integrate xBTC -- lending markets, LP pools, governance tokens -- new minting is incentivized to farm those opportunities. Each integration creates a step-function increase in xBTC utility, potentially triggering a minting sub-peak.
+When whitelisted protocols (per the proposed ExpeditionCredits whitelist design; contract removed from the protocol) integrate xBTC -- lending markets, LP pools, governance tokens -- new minting is incentivized to farm those opportunities. Each integration creates a step-function increase in xBTC utility, potentially triggering a minting sub-peak.
 
 **3. Match Pool Milestones**
 
@@ -227,7 +227,7 @@ Whether the xBTC gradient matters depends on how xBTC derives value:
 
 **If binary** (e.g., xBTC grants access to a governance vote or airdrop snapshot): The gradient is irrelevant. Having xBTC for 1 day provides the same access as having it for 1129 days. This eliminates urgency entirely.
 
-The protocol's current design (restricted ERC-20 with whitelisted transfers per `ExpeditionCredits.sol`) is agnostic -- xBTC's value depends on what whitelisted integrations emerge. The gradient's importance is therefore **contingent on the DeFi ecosystem's treatment of xBTC**.
+The proposed design (restricted ERC-20 with whitelisted transfers; contract removed from the protocol) is agnostic -- xBTC's value depends on what whitelisted integrations emerge. The gradient's importance is therefore **contingent on the DeFi ecosystem's treatment of xBTC**.
 
 ---
 
@@ -385,7 +385,6 @@ Observable metrics to validate or falsify the hypothesis post-launch:
 
 ### Internal
 - `contracts/protocol/src/VaultNFT.sol` — Mint function, vesting gate (`StillVesting` revert)
-- `contracts/protocol/src/ExpeditionCredits.sol` — xBTC mechanics, bootstrap-only minting, whitelist transfers
 - `contracts/protocol/src/libraries/VaultMath.sol` — `VESTING_PERIOD = 1129 days`, withdrawal rate constants
 - [Minting Economics](./Minting_Economics.md) — Vault sizing (0.005 WBTC), multi-vault strategy, gas thresholds
 - [vBTC Pricing Model](./vBTC_Pricing_Model.md) — Option-theoretic pricing, break-even periods, discount factor

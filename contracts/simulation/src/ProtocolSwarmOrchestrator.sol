@@ -11,7 +11,6 @@ import {ProtocolAgentLib} from "./agents/ProtocolAgentLib.sol";
 import {VaultNFT} from "@protocol/VaultNFT.sol";
 import {BtcToken} from "@protocol/BtcToken.sol";
 import {IVaultNFT} from "@protocol/interfaces/IVaultNFT.sol";
-import {IVaultNFTDormancy} from "@protocol/interfaces/IVaultNFTDormancy.sol";
 import {IVaultNFTDelegation} from "@protocol/interfaces/IVaultNFTDelegation.sol";
 import {TreasureNFT} from "@issuer/TreasureNFT.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -90,6 +89,7 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
         uint8 action;
         uint256 amount;
         bool success;
+        string errorType;
     }
 
     ActionRecord[] internal _actionLog;
@@ -210,7 +210,8 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
             agentId: agentId,
             action: uint8(action.action),
             amount: action.amount,
-            success: success
+            success: success,
+            errorType: ""
         }));
 
         if (success) {
@@ -230,10 +231,10 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
             return _execWithdraw(agentId, agent, action.targetId);
         } else if (action.action == ProtocolAgentLib.Action.EARLY_REDEEM) {
             return _execEarlyRedeem(agentId, agent, action.targetId);
-        } else if (action.action == ProtocolAgentLib.Action.MINT_BTC_TOKEN) {
-            return _execMintBtcToken(agentId, agent, action.targetId);
-        } else if (action.action == ProtocolAgentLib.Action.RETURN_BTC_TOKEN) {
-            return _execReturnBtcToken(agentId, agent, action.targetId);
+        } else if (action.action == ProtocolAgentLib.Action.STRIP) {
+            return _execStrip(agentId, agent, action.targetId, action.amount);
+        } else if (action.action == ProtocolAgentLib.Action.RECOMBINE) {
+            return _execRecombine(agentId, agent, action.targetId, action.amount);
         } else if (action.action == ProtocolAgentLib.Action.CLAIM_MATCH) {
             return _execClaimMatch(agent, action.targetId);
         } else if (action.action == ProtocolAgentLib.Action.PROVE_ACTIVITY) {
@@ -241,7 +242,7 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
         } else if (action.action == ProtocolAgentLib.Action.POKE_DORMANT) {
             return _execPokeDormant(agent, action.targetId);
         } else if (action.action == ProtocolAgentLib.Action.CLAIM_DORMANT) {
-            return _execClaimDormant(agent, action.targetId);
+            return _execClaimDormant(agent, action.targetId, action.amount);
         } else if (action.action == ProtocolAgentLib.Action.GRANT_WALLET_DELEGATE) {
             return _execGrantWalletDelegate(agentId, agent, action.targetId, action.delegationBps);
         } else if (action.action == ProtocolAgentLib.Action.GRANT_VAULT_DELEGATE) {
@@ -312,9 +313,10 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
         }
     }
 
-    function _execMintBtcToken(uint256 agentId, address agent, uint256 vaultId) internal returns (bool) {
+    function _execStrip(uint256 agentId, address agent, uint256 vaultId, uint256 amount) internal returns (bool) {
+        if (amount == 0) return false;
         _vm.startPrank(agent);
-        try protocol.vault.mintBtcToken(vaultId) returns (uint256) {
+        try protocol.vault.strip(vaultId, amount) {
             _vm.stopPrank();
             _agentHasSeparatedVbtc[agentId] = true;
             _agentLastSeparateTick[agentId] = currentTick;
@@ -327,9 +329,10 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
         }
     }
 
-    function _execReturnBtcToken(uint256 agentId, address agent, uint256 vaultId) internal returns (bool) {
+    function _execRecombine(uint256 agentId, address agent, uint256 vaultId, uint256 amount) internal returns (bool) {
+        if (amount == 0) return false;
         _vm.startPrank(agent);
-        try protocol.vault.returnBtcToken(vaultId) {
+        try protocol.vault.recombine(vaultId, amount) {
             _vm.stopPrank();
             _agentHasSeparatedVbtc[agentId] = false;
             _agentVbtcRecombined[agentId] = true;
@@ -377,9 +380,9 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
         }
     }
 
-    function _execClaimDormant(address agent, uint256 vaultId) internal returns (bool) {
+    function _execClaimDormant(address agent, uint256 vaultId, uint256 amount) internal returns (bool) {
         _vm.startPrank(agent);
-        try protocol.vault.claimDormantCollateral(vaultId) returns (uint256) {
+        try protocol.vault.claimDormantCollateral(vaultId, amount) returns (uint256) {
             _vm.stopPrank();
             return true;
         } catch {
@@ -493,7 +496,7 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
 
             p.anyValidVaultId = vid; // at least one valid vault
 
-            (,,, uint256 collateral,,,,,) = protocol.vault.getVaultInfo(vid);
+            (,,, uint256 collateral,,,,) = protocol.vault.getVaultInfo(vid);
             p.totalVaultCollateral += collateral;
 
             if (protocol.vault.isVested(vid)) {
@@ -533,8 +536,8 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
         if ((configs[agentId].psychology.strategyMask & ProtocolAgentLib.STRAT_DORMANCY) != 0) {
             p.dormantTargetId = _findDormantTarget(agentId);
             if (p.dormantTargetId > 0) {
-                try protocol.vault.isDormantEligible(p.dormantTargetId) returns (bool, IVaultNFTDormancy.DormancyState dState) {
-                    if (dState == IVaultNFTDormancy.DormancyState.CLAIMABLE) {
+                try protocol.vault.isDormantEligible(p.dormantTargetId) returns (bool, IVaultNFT.DormancyState dState) {
+                    if (dState == IVaultNFT.DormancyState.CLAIMABLE) {
                         p.dormantClaimable = true;
                     }
                 } catch {}
@@ -591,7 +594,7 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
         // Add vault collateral
         uint256[] storage vaults = _agentVaultIds[agentId];
         for (uint256 i = 0; i < vaults.length; i++) {
-            (,,, uint256 collateral,,,,,) = protocol.vault.getVaultInfo(vaults[i]);
+            (,,, uint256 collateral,,,,) = protocol.vault.getVaultInfo(vaults[i]);
             nw += collateral;
         }
 
@@ -622,7 +625,7 @@ contract ProtocolSwarmOrchestrator is SimulationOrchestrator {
             if (i == excludeAgent) continue;
             uint256[] storage vaults = _agentVaultIds[i];
             for (uint256 j = 0; j < vaults.length; j++) {
-                try protocol.vault.isDormantEligible(vaults[j]) returns (bool eligible, IVaultNFTDormancy.DormancyState) {
+                try protocol.vault.isDormantEligible(vaults[j]) returns (bool eligible, IVaultNFT.DormancyState) {
                     if (eligible) return vaults[j];
                 } catch {}
             }

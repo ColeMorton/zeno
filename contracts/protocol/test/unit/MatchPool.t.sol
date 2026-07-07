@@ -1,119 +1,61 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {VaultNFT} from "../../src/VaultNFT.sol";
-import {BtcToken} from "../../src/BtcToken.sol";
-import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
-import {MockTreasure} from "../mocks/MockTreasure.sol";
-import {MockWBTC} from "../mocks/MockWBTC.sol";
-import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
+import {BaseTest} from "../utils/BaseTest.sol";
 
-contract MatchPoolTest is Test {
-    VaultNFT public vault;
-    BtcToken public btcToken;
-    ExpeditionCredits public xbtc;
-    MockTreasure public treasure;
-    MockWBTC public wbtc;
-
-    address public alice;
-    address public bob;
-    address public charlie;
+contract MatchPoolTest is BaseTest {
     address public dave;
 
-    uint256 constant ONE_BTC = 1e8;
-    uint256 constant VESTING_PERIOD = 1129 days;
-    uint256 constant WITHDRAWAL_PERIOD = 30 days;
-
-    function setUp() public {
-        alice = makeAddr("alice");
-        bob = makeAddr("bob");
-        charlie = makeAddr("charlie");
+    function setUp() public override {
+        super.setUp();
         dave = makeAddr("dave");
-
-        treasure = new MockTreasure();
-        wbtc = new MockWBTC();
-
-        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
-        btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
-        xbtc = new ExpeditionCredits(vaultAddr, address(this));
-        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
-
-        wbtc.mint(alice, 100 * ONE_BTC);
-        wbtc.mint(bob, 100 * ONE_BTC);
-        wbtc.mint(charlie, 100 * ONE_BTC);
-        wbtc.mint(dave, 100 * ONE_BTC);
-        treasure.mintBatch(alice, 10);
-        treasure.mintBatch(bob, 10);
-        treasure.mintBatch(charlie, 10);
-        treasure.mintBatch(dave, 10);
-
-        _approveAll(alice);
-        _approveAll(bob);
-        _approveAll(charlie);
-        _approveAll(dave);
+        _fundUser(dave, 1000); // treasures 300-399
     }
 
-    function _approveAll(address user) internal {
-        vm.startPrank(user);
-        wbtc.approve(address(vault), type(uint256).max);
-        treasure.setApprovalForAll(address(vault), true);
-        vm.stopPrank();
-    }
-
-    function test_MatchPool_ClaimOrderFairness() public {
-        vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 2 * ONE_BTC);
-
-        vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
-
-        vm.prank(charlie);
-        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), ONE_BTC);
+    function test_MatchPool_SettlementOrderIndependent() public {
+        uint256 aliceToken = _mintVault(alice, 0, 2 * ONE_BTC);
+        uint256 bobToken = _mintVault(bob, 100, ONE_BTC);
+        uint256 charlieToken = _mintVault(charlie, 200, ONE_BTC);
 
         vm.warp(block.timestamp + 500 days);
 
         vm.prank(alice);
         (, uint256 forfeited) = vault.earlyRedeem(aliceToken);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
-        uint256 bobClaimedFirst;
-        uint256 charlieClaimedFirst;
+        assertGt(forfeited, 0);
 
         uint256 snapshotId = vm.snapshotState();
 
         vm.prank(bob);
-        bobClaimedFirst = vault.claimMatch(bobToken);
-
+        uint256 bobClaimedFirst = vault.claimMatch(bobToken);
         vm.prank(charlie);
-        charlieClaimedFirst = vault.claimMatch(charlieToken);
+        uint256 charlieClaimedSecond = vault.claimMatch(charlieToken);
 
         vm.revertToState(snapshotId);
 
         vm.prank(charlie);
-        uint256 charlieClaimedSecond = vault.claimMatch(charlieToken);
-
+        uint256 charlieClaimedFirst = vault.claimMatch(charlieToken);
         vm.prank(bob);
         uint256 bobClaimedSecond = vault.claimMatch(bobToken);
 
-        assertEq(bobClaimedFirst + charlieClaimedFirst, bobClaimedSecond + charlieClaimedSecond, "Total claimed should be same");
+        // Accumulator accounting: each vault gets exactly the same amount in either order
+        assertEq(bobClaimedFirst, bobClaimedSecond, "Bob's settlement must be order-independent");
+        assertEq(
+            charlieClaimedFirst,
+            charlieClaimedSecond,
+            "Charlie's settlement must be order-independent"
+        );
         assertGt(bobClaimedFirst, 0, "Bob should get some match");
         assertGt(charlieClaimedFirst, 0, "Charlie should get some match");
+
+        // Equal collateral => equal shares
+        assertEq(bobClaimedFirst, charlieClaimedFirst, "Equal collateral gets equal shares");
     }
 
     function test_MatchPool_MultipleRedemptions() public {
-        vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
-
-        vm.prank(charlie);
-        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), 2 * ONE_BTC);
-
-        vm.prank(dave);
-        uint256 daveToken = vault.mint(address(treasure), 30, address(wbtc), ONE_BTC);
+        uint256 aliceToken = _mintVault(alice, 0, ONE_BTC);
+        uint256 bobToken = _mintVault(bob, 100, ONE_BTC);
+        uint256 charlieToken = _mintVault(charlie, 200, 2 * ONE_BTC);
+        uint256 daveToken = _mintVault(dave, 300, ONE_BTC);
 
         assertEq(vault.matchPool(), 0);
 
@@ -129,9 +71,9 @@ contract MatchPoolTest is Test {
         vm.prank(bob);
         (, uint256 bobForfeited) = vault.earlyRedeem(bobToken);
 
-        assertEq(vault.matchPool(), aliceForfeited + bobForfeited);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
+        // Bob's redemption settles his own pending share first, reducing the pool,
+        // then his forfeiture accrues on top.
+        assertLe(vault.matchPool(), aliceForfeited + bobForfeited);
 
         uint256 poolBeforeClaims = vault.matchPool();
 
@@ -141,55 +83,45 @@ contract MatchPoolTest is Test {
         vm.prank(dave);
         uint256 daveClaimed = vault.claimMatch(daveToken);
 
-        assertLe(
-            charlieClaimed + daveClaimed,
-            poolBeforeClaims,
-            "Total claims should not exceed pool"
-        );
+        assertLe(charlieClaimed + daveClaimed, poolBeforeClaims, "Total claims cannot exceed pool");
         assertGt(charlieClaimed, daveClaimed, "Charlie (2 BTC) should get more than Dave (1 BTC)");
     }
 
-    function test_MatchPool_LateJoiner() public {
-        vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
+    function test_MatchPool_LateJoiner_ExcludedFromPriorForfeits() public {
+        uint256 aliceToken = _mintVault(alice, 0, ONE_BTC);
+        uint256 bobToken = _mintVault(bob, 100, ONE_BTC);
 
         vm.warp(block.timestamp + 365 days);
 
         vm.prank(alice);
-        (, uint256 forfeited1) = vault.earlyRedeem(aliceToken);
+        vault.earlyRedeem(aliceToken);
 
-        vm.prank(charlie);
-        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), ONE_BTC);
+        // Charlie joins after the first forfeiture: nothing pending for him
+        uint256 charlieToken = _mintVault(charlie, 200, ONE_BTC);
+        assertEq(vault.pendingMatch(charlieToken), 0);
 
         vm.warp(block.timestamp + 365 days);
 
         vm.prank(bob);
-        (, uint256 forfeited2) = vault.earlyRedeem(bobToken);
+        vault.earlyRedeem(bobToken);
 
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
+        // Charlie participates in the second forfeiture
         vm.prank(charlie);
         uint256 charlieClaimed = vault.claimMatch(charlieToken);
 
-        assertGt(charlieClaimed, 0, "Late joiner should still get match pool share");
+        assertGt(charlieClaimed, 0, "Late joiner shares in forfeits after joining");
     }
 
-    function test_MatchPool_AfterWithdrawals_IncreasedCollateral() public {
-        vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), 2 * ONE_BTC);
+    function test_MatchPool_AfterClaim_IncreasedWithdrawalBase() public {
+        uint256 aliceToken = _mintVault(alice, 0, ONE_BTC);
+        uint256 bobToken = _mintVault(bob, 100, 2 * ONE_BTC);
 
         vm.warp(block.timestamp + 500 days);
 
         vm.prank(alice);
         vault.earlyRedeem(aliceToken);
 
-        vm.warp(block.timestamp + VESTING_PERIOD);
+        _skipVesting();
 
         uint256 bobCollateralBefore = vault.collateralAmount(bobToken);
 
@@ -199,32 +131,24 @@ contract MatchPoolTest is Test {
         uint256 bobCollateralAfter = vault.collateralAmount(bobToken);
         assertEq(bobCollateralAfter, bobCollateralBefore + claimed);
 
-        vm.warp(block.timestamp + WITHDRAWAL_PERIOD);
-
         uint256 expectedWithdrawal = (bobCollateralAfter * 1000) / 100000;
 
         vm.prank(bob);
         uint256 withdrawn = vault.withdraw(bobToken);
 
-        assertEq(withdrawn, expectedWithdrawal, "Withdrawal should be based on increased collateral");
+        assertEq(withdrawn, expectedWithdrawal, "Withdrawal based on settled collateral");
     }
 
     function test_MatchPool_ProRataDistribution() public {
-        vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), 5 * ONE_BTC);
-
-        vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), 3 * ONE_BTC);
-
-        vm.prank(charlie);
-        uint256 charlieToken = vault.mint(address(treasure), 20, address(wbtc), 2 * ONE_BTC);
+        uint256 aliceToken = _mintVault(alice, 0, 5 * ONE_BTC);
+        uint256 bobToken = _mintVault(bob, 100, 3 * ONE_BTC);
+        uint256 charlieToken = _mintVault(charlie, 200, 2 * ONE_BTC);
+        aliceToken; // silence unused warning path
 
         vm.warp(block.timestamp + 500 days);
 
         vm.prank(alice);
-        (, uint256 forfeited) = vault.earlyRedeem(aliceToken);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
+        vault.earlyRedeem(aliceToken);
 
         vm.prank(bob);
         uint256 bobClaimed = vault.claimMatch(bobToken);
@@ -232,96 +156,103 @@ contract MatchPoolTest is Test {
         vm.prank(charlie);
         uint256 charlieClaimed = vault.claimMatch(charlieToken);
 
-        assertGt(bobClaimed, charlieClaimed, "Bob (3 BTC) should claim more than Charlie (2 BTC)");
-        assertGt(bobClaimed, 0, "Bob should get some match");
-        assertGt(charlieClaimed, 0, "Charlie should get some match");
+        assertGt(bobClaimed, 0);
+        assertGt(charlieClaimed, 0);
+        // 3:2 collateral ratio => 3:2 match ratio (floor rounding tolerance of 1)
+        assertApproxEqAbs(bobClaimed * 2, charlieClaimed * 3, 3);
     }
 
-    function test_MatchPool_EmptyPool_RevertOnClaim() public {
-        vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
+    function test_MatchPool_EmptyPool_ClaimReturnsZero() public {
+        uint256 aliceToken = _mintVault(alice, 0, ONE_BTC);
 
         vm.prank(alice);
-        vm.expectRevert(IVaultNFT.NoPoolAvailable.selector);
-        vault.claimMatch(aliceToken);
+        uint256 claimed = vault.claimMatch(aliceToken);
+
+        assertEq(claimed, 0, "No pool: settlement is a no-op, never a revert");
     }
 
-    function test_MatchPool_FullDrain() public {
-        vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
+    function test_MatchPool_AutomaticSettlementOnWithdraw() public {
+        uint256 aliceToken = _mintVault(alice, 0, ONE_BTC);
+        uint256 bobToken = _mintVault(bob, 100, ONE_BTC);
 
         vm.warp(block.timestamp + 500 days);
 
         vm.prank(alice);
         vault.earlyRedeem(aliceToken);
 
-        uint256 poolAmount = vault.matchPool();
-        assertGt(poolAmount, 0);
+        uint256 pending = vault.pendingMatch(bobToken);
+        assertGt(pending, 0);
 
-        vm.warp(block.timestamp + VESTING_PERIOD);
+        _skipVesting();
+
+        vm.prank(bob);
+        uint256 withdrawn = vault.withdraw(bobToken);
+
+        // Withdraw settled the pending match first: 1% of (collateral + pending)
+        assertEq(withdrawn, ((ONE_BTC + pending) * 1000) / 100000);
+        assertEq(vault.pendingMatch(bobToken), 0);
+    }
+
+    function test_MatchPool_AutomaticSettlementOnStrip() public {
+        uint256 aliceToken = _mintVault(alice, 0, ONE_BTC);
+        uint256 bobToken = _mintVault(bob, 100, ONE_BTC);
+
+        vm.warp(block.timestamp + 500 days);
+
+        vm.prank(alice);
+        vault.earlyRedeem(aliceToken);
+
+        uint256 pending = vault.pendingMatch(bobToken);
+        assertGt(pending, 0);
+
+        _skipVesting();
+
+        vm.prank(bob);
+        vault.strip(bobToken, ONE_BTC);
+
+        // Settlement happened before the strip; pending share stays active
+        assertEq(vault.collateralAmount(bobToken), pending);
+        assertEq(vault.strippedReserve(bobToken), ONE_BTC);
+        assertEq(vault.pendingMatch(bobToken), 0);
+    }
+
+    function test_MatchPool_ConservationAcrossFullDrain() public {
+        uint256 aliceToken = _mintVault(alice, 0, ONE_BTC);
+        uint256 bobToken = _mintVault(bob, 100, ONE_BTC);
+        uint256 charlieToken = _mintVault(charlie, 200, ONE_BTC);
+
+        vm.warp(block.timestamp + 500 days);
+
+        vm.prank(alice);
+        (, uint256 forfeited) = vault.earlyRedeem(aliceToken);
+
+        vm.prank(bob);
+        uint256 bobClaimed = vault.claimMatch(bobToken);
+        vm.prank(charlie);
+        uint256 charlieClaimed = vault.claimMatch(charlieToken);
+
+        assertLe(bobClaimed + charlieClaimed, forfeited, "Settled total cannot exceed forfeited");
+        assertEq(vault.matchPool(), forfeited - bobClaimed - charlieClaimed);
+    }
+
+    function test_MatchPool_PendingMatchView() public {
+        uint256 aliceToken = _mintVault(alice, 0, ONE_BTC);
+        uint256 bobToken = _mintVault(bob, 100, ONE_BTC);
+        uint256 charlieToken = _mintVault(charlie, 200, ONE_BTC);
+
+        vm.warp(block.timestamp + 500 days);
+
+        vm.prank(alice);
+        (, uint256 forfeited) = vault.earlyRedeem(aliceToken);
+
+        // Two equal vaults remain: each is pending half (floor)
+        uint256 bobPending = vault.pendingMatch(bobToken);
+        uint256 charliePending = vault.pendingMatch(charlieToken);
+        assertEq(bobPending, charliePending);
+        assertApproxEqAbs(bobPending, forfeited / 2, 1);
 
         vm.prank(bob);
         uint256 claimed = vault.claimMatch(bobToken);
-
-        assertGt(claimed, 0, "Claimer should get portion of pool");
-        assertLe(claimed, poolAmount, "Claimed should not exceed pool");
-        assertLe(vault.matchPool(), poolAmount, "Pool should decrease or stay same");
-    }
-
-    function test_MatchPool_MaturesFlagOnClaim() public {
-        vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
-
-        assertEq(vault.totalActiveCollateral(), 2 * ONE_BTC);
-        assertFalse(vault.matured(bobToken));
-
-        vm.warp(block.timestamp + 500 days);
-
-        vm.prank(alice);
-        vault.earlyRedeem(aliceToken);
-
-        assertEq(vault.totalActiveCollateral(), ONE_BTC);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
-        vm.prank(bob);
-        vault.claimMatch(bobToken);
-
-        assertTrue(vault.matured(bobToken));
-        assertEq(vault.totalActiveCollateral(), 0);
-    }
-
-    function test_MatchPool_ClaimDoesNotAffectBtcToken() public {
-        vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
-
-        vm.warp(block.timestamp + 500 days);
-
-        vm.prank(alice);
-        vault.earlyRedeem(aliceToken);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
-        vm.prank(bob);
-        vault.mintBtcToken(bobToken);
-
-        uint256 originalMinted = vault.originalMintedAmount(bobToken);
-
-        vm.prank(bob);
-        vault.claimMatch(bobToken);
-
-        assertEq(vault.originalMintedAmount(bobToken), originalMinted, "originalMintedAmount unchanged");
-        assertEq(vault.btcTokenAmount(bobToken), originalMinted, "btcTokenAmount unchanged");
+        assertEq(claimed, bobPending, "claimMatch settles exactly the pending amount");
     }
 }

@@ -47,10 +47,12 @@ library CrossLayerInvariants {
         return (true, "");
     }
 
-    /// @notice Verify match pool equals total forfeited minus total claimed
+    /// @notice Verify match pool never exceeds forfeitures minus explicit claims
+    /// @dev Auto-settlement inside collateral-changing operations reduces the pool beyond
+    /// explicit `claimMatch` calls, so the pool is bounded above, not equal.
     /// @param vault The VaultNFT contract
     /// @param totalForfeited Total amount forfeited from early redemptions
-    /// @param totalClaimed Total amount claimed from match pool
+    /// @param totalClaimed Total amount explicitly claimed from match pool
     /// @return valid True if invariant holds
     /// @return message Error message if invalid
     function checkMatchPoolConsistency(
@@ -60,7 +62,7 @@ library CrossLayerInvariants {
     ) internal view returns (bool valid, string memory message) {
         uint256 matchPool = vault.matchPool();
 
-        if (matchPool != totalForfeited - totalClaimed) {
+        if (matchPool > totalForfeited - totalClaimed) {
             return (false, "Match pool inconsistent");
         }
         return (true, "");

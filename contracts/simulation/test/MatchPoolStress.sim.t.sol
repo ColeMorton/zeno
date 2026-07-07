@@ -90,8 +90,10 @@ contract MatchPoolStressTest is Test {
             totalForfeited += forfeited;
         }
 
-        // Match pool should have all forfeited funds
-        assertEq(vault.matchPool(), totalForfeited, "Match pool = forfeited");
+        // Pool bounded by forfeits: each redeem auto-settles the redeemer's accrued match
+        // into its collateral first, so earlier forfeits recycle through later redemptions
+        assertLe(vault.matchPool(), totalForfeited, "Match pool <= forfeited");
+        assertGt(vault.matchPool(), 0, "Match pool funded");
 
         // Remaining 20% vest and claim
         vm.warp(block.timestamp + VESTING_PERIOD);
@@ -214,15 +216,20 @@ contract MatchPoolStressTest is Test {
             totalDustClaimed += claimed;
         }
 
-        // Dust actors should get minimal share due to small collateral
-        // Their total claim should be << whale's forfeited amount
-        assertLt(totalDustClaimed, forfeited / 10, "Dust claims < 10% of pool");
+        // Accumulator distributes pro-rata among ACTIVE vaults: with the whale gone,
+        // dust vaults are the entire active set and legitimately absorb the pool.
+        // The attack surface to verify is rounding amplification, not share size.
+        assertLe(totalDustClaimed, forfeited, "No free money from rounding");
+        assertLe(totalDustClaimed, initialPool, "Claims bounded by pool");
 
-        // No free money - dust actors didn't profit beyond their share
-        for (uint256 i = 0; i < dustCount; i++) {
-            uint256 collateral = vault.collateralAmount(vaultIds[i]);
-            // Even with match bonus, should be reasonable
-            assertLt(collateral, dustAmount * 2, "No excessive dust profit");
+        // Equal collateral => equal claims (no rounding advantage between dust vaults)
+        uint256 firstDustCollateral = vault.collateralAmount(vaultIds[0]);
+        for (uint256 i = 1; i < dustCount; i++) {
+            assertEq(
+                vault.collateralAmount(vaultIds[i]),
+                firstDustCollateral,
+                "Identical dust vaults settle identically"
+            );
         }
     }
 
@@ -277,10 +284,10 @@ contract MatchPoolStressTest is Test {
         // Match pool should be empty
         assertEq(vault.matchPool(), 0, "Pool empty");
 
-        // Claims should revert with NoPoolAvailable
+        // Claims should return 0 when no pending match
         vm.prank(actors[0]);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NoPoolAvailable.selector));
-        vault.claimMatch(vaultIds[0]);
+        uint256 claimed = vault.claimMatch(vaultIds[0]);
+        assertEq(claimed, 0, "No match to claim");
     }
 
     /// @notice Verify cannot double-claim match
@@ -299,12 +306,13 @@ contract MatchPoolStressTest is Test {
 
         // First claim succeeds
         vm.prank(actors[1]);
-        vault.claimMatch(vaultIds[1]);
+        uint256 claimed1 = vault.claimMatch(vaultIds[1]);
+        assertGt(claimed1, 0, "First claim should return match amount");
 
-        // Second claim on same vault should revert
+        // Second claim on same vault returns 0 (no more pending match)
         vm.prank(actors[1]);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.AlreadyClaimed.selector, vaultIds[1]));
-        vault.claimMatch(vaultIds[1]);
+        uint256 claimed2 = vault.claimMatch(vaultIds[1]);
+        assertEq(claimed2, 0, "Second claim should return 0");
     }
 
     // ==================== Withdrawal After Match Claim ====================

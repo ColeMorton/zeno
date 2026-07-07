@@ -260,14 +260,14 @@ See [`archetypes.md`](archetypes.md) for the complete archetype reference includ
 
 | Phase | Days | Ticks | Protocol State |
 |-------|------|-------|---------------|
-| Bootstrap | 0–1128 | 0–161 | xBTC minted 1:1 with collateral; no vBTC, no withdrawals, no match claims |
-| Post-bootstrap | 1129+ | 162+ | vBTC separation available; withdrawals enabled; match pool claimable; xBTC minting stops |
+| Bootstrap | 0–1128 | 0–161 | Vesting period; no vBTC, no withdrawals, no match claims |
+| Post-bootstrap | 1129+ | 162+ | vBTC separation available; withdrawals enabled; match pool claimable |
 
 ### Current Behavior
 
-All 100 agents mint on their first eligible tick regardless of bootstrap phase. The simulation produces a **Phase I surge-only pattern** -- no trough or terminal rally is modeled. Agents do not track xBTC holdings or make phase-aware minting decisions.
+All 100 agents mint on their first eligible tick regardless of bootstrap phase. The simulation produces a **Phase I surge-only pattern** -- no trough or terminal rally is modeled. Agents do not make phase-aware minting decisions.
 
-`ExpeditionCredits.mint()` is called by `VaultNFT.mint()` during bootstrap ticks (the protocol contract checks `block.timestamp <= expeditionCredits.bootstrapEnd()`), so agents do receive xBTC 1:1 with collateral. However, agents never use xBTC in decision-making -- it accumulates passively.
+The xBTC expedition-credit mechanic (`ExpeditionCredits`) has been removed from the protocol; no bootstrap credit accrues at mint. xBTC references in the three-phase research model below are historical analysis only.
 
 ### Three-Phase Model
 

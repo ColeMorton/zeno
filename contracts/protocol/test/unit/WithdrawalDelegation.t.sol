@@ -9,12 +9,10 @@ import {IVaultNFTDelegation} from "../../src/interfaces/IVaultNFTDelegation.sol"
 import {VaultMath} from "../../src/libraries/VaultMath.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
-import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
 
 contract WithdrawalDelegationTest is Test {
     VaultNFT public vault;
     BtcToken public btcToken;
-    ExpeditionCredits public xbtc;
     MockTreasure public treasure;
     MockWBTC public wbtc;
 
@@ -39,10 +37,9 @@ contract WithdrawalDelegationTest is Test {
         treasure = new MockTreasure();
         wbtc = new MockWBTC();
 
-        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
+        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
         btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
-        xbtc = new ExpeditionCredits(vaultAddr, address(this));
-        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
+        vault = new VaultNFT(address(btcToken), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
 
         // Mint tokens and setup approvals
         wbtc.mint(alice, 100 * ONE_BTC);
@@ -69,7 +66,6 @@ contract WithdrawalDelegationTest is Test {
 
         IVaultNFT.WalletDelegatePermission memory permission = vault.getWalletDelegatePermission(alice, bob);
         assertEq(permission.percentageBPS, 6000);
-        assertEq(permission.grantedAt, block.timestamp);
         assertTrue(permission.active);
         assertEq(vault.walletTotalDelegatedBPS(alice), 6000);
     }
@@ -341,6 +337,57 @@ contract WithdrawalDelegationTest is Test {
         vault.withdrawAsDelegate(tokenId);
     }
 
+    function test_RevokeAll_ThenRegrant() public {
+        // Regression: re-granting after revokeAllWithdrawalDelegates must be a fresh grant
+        // (previously double-subtracted the stale permission and underflowed).
+        vm.startPrank(alice);
+        vault.grantWithdrawalDelegate(bob, 6000);
+        vault.revokeAllWithdrawalDelegates();
+        vault.grantWithdrawalDelegate(bob, 4000);
+        vm.stopPrank();
+
+        assertEq(vault.walletTotalDelegatedBPS(alice), 4000);
+
+        IVaultNFT.WalletDelegatePermission memory permission = vault.getWalletDelegatePermission(alice, bob);
+        assertEq(permission.percentageBPS, 4000);
+        assertEq(permission.epoch, vault.walletDelegationEpoch(alice));
+        assertTrue(permission.active);
+
+        vm.prank(bob);
+        uint256 withdrawn = vault.withdrawAsDelegate(tokenId);
+        assertGt(withdrawn, 0);
+    }
+
+    function test_RevokeAll_BumpsEpoch_StalePermissionInert() public {
+        vm.prank(alice);
+        vault.grantWithdrawalDelegate(bob, 6000);
+
+        uint256 epochBefore = vault.walletDelegationEpoch(alice);
+
+        vm.prank(alice);
+        vault.revokeAllWithdrawalDelegates();
+
+        assertEq(vault.walletDelegationEpoch(alice), epochBefore + 1);
+        assertEq(vault.walletTotalDelegatedBPS(alice), 0);
+
+        // Stored permission still reads active, but its epoch is stale: inert everywhere
+        IVaultNFT.WalletDelegatePermission memory permission = vault.getWalletDelegatePermission(alice, bob);
+        assertTrue(permission.active);
+        assertEq(permission.epoch, epochBefore);
+
+        (bool canWithdraw,,) = vault.canDelegateWithdraw(tokenId, bob);
+        assertFalse(canWithdraw);
+
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.NotActiveDelegate.selector, tokenId, bob));
+        vault.withdrawAsDelegate(tokenId);
+
+        // Individually revoking a stale-epoch permission also reports not active
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.DelegateNotActive.selector, alice, bob));
+        vault.revokeWithdrawalDelegate(bob);
+    }
+
     function test_RevokeDelegate_RevertIf_NotActive() public {
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFTDelegation.DelegateNotActive.selector, alice, bob));
@@ -435,7 +482,6 @@ contract WithdrawalDelegationTest is Test {
 
         IVaultNFT.WalletDelegatePermission memory permission = vault.getWalletDelegatePermission(alice, bob);
         assertEq(permission.percentageBPS, 6000);
-        assertEq(permission.grantedAt, block.timestamp);
         assertTrue(permission.active);
     }
 
@@ -585,11 +631,10 @@ contract WithdrawalDelegationTest is Test {
         vm.prank(alice);
         vault.grantVaultDelegate(tokenId, bob, 5000, 0); // 50%, indefinite
 
-        IVaultNFT.VaultDelegatePermission memory permission = vault.getVaultDelegatePermission(tokenId, bob);
-        assertEq(permission.percentageBPS, 5000);
-        assertEq(permission.grantedAt, block.timestamp);
-        assertEq(permission.expiresAt, 0);
-        assertTrue(permission.active);
+        (uint256 permPercentageBPS, uint256 permExpiresAt, bool permActive) = vault.vaultDelegates(tokenId, bob);
+        assertEq(permPercentageBPS, 5000);
+        assertEq(permExpiresAt, 0);
+        assertTrue(permActive);
         assertEq(vault.vaultTotalDelegatedBPS(tokenId), 5000);
     }
 
@@ -602,8 +647,8 @@ contract WithdrawalDelegationTest is Test {
         vm.prank(alice);
         vault.grantVaultDelegate(tokenId, bob, 5000, duration);
 
-        IVaultNFT.VaultDelegatePermission memory permission = vault.getVaultDelegatePermission(tokenId, bob);
-        assertEq(permission.expiresAt, block.timestamp + duration);
+        (uint256 permPercentageBPS, uint256 permExpiresAt, bool permActive) = vault.vaultDelegates(tokenId, bob);
+        assertEq(permExpiresAt, block.timestamp + duration);
     }
 
     function test_GrantVaultDelegate_RevertIf_NotOwner() public {
@@ -644,8 +689,8 @@ contract WithdrawalDelegationTest is Test {
         vm.prank(alice);
         vault.revokeVaultDelegate(tokenId, bob);
 
-        IVaultNFT.VaultDelegatePermission memory permission = vault.getVaultDelegatePermission(tokenId, bob);
-        assertFalse(permission.active);
+        (uint256 permPercentageBPS, uint256 permExpiresAt, bool permActive) = vault.vaultDelegates(tokenId, bob);
+        assertFalse(permActive);
         assertEq(vault.vaultTotalDelegatedBPS(tokenId), 0);
     }
 
@@ -909,14 +954,14 @@ contract WithdrawalDelegationTest is Test {
         vm.prank(alice);
         vault.grantVaultDelegate(tokenId, bob, percentage, duration);
 
-        IVaultNFT.VaultDelegatePermission memory permission = vault.getVaultDelegatePermission(tokenId, bob);
-        assertEq(permission.percentageBPS, percentage);
-        assertTrue(permission.active);
+        (uint256 permPercentageBPS, uint256 permExpiresAt, bool permActive) = vault.vaultDelegates(tokenId, bob);
+        assertEq(permPercentageBPS, percentage);
+        assertTrue(permActive);
 
         if (duration > 0) {
-            assertEq(permission.expiresAt, block.timestamp + duration);
+            assertEq(permExpiresAt, block.timestamp + duration);
         } else {
-            assertEq(permission.expiresAt, 0);
+            assertEq(permExpiresAt, 0);
         }
 
         assertEq(vault.vaultTotalDelegatedBPS(tokenId), percentage);

@@ -22,8 +22,8 @@ library AgentLib {
         MINT_VAULT,
         WITHDRAW,
         EARLY_REDEEM,
-        MINT_BTC_TOKEN,
-        RETURN_BTC_TOKEN,
+        STRIP,
+        RECOMBINE,
         CLAIM_MATCH,
         PROVE_ACTIVITY,
         OPEN_PERP_LONG,
@@ -203,10 +203,24 @@ library AgentLib {
             }
         }
 
-        // 2b. Prerequisite: separate vBTC if vested and agent needs it for DeFi/dormancy
+        // 2b. Prerequisite: strip vBTC if vested and agent needs it for DeFi/dormancy
+        // Strip the full active collateral from the first eligible vested vault
         bool needsVbtc = (psy.strategyMask & (STRAT_PERPS | STRAT_VOL | STRAT_DORMANCY | STRAT_SWAP)) != 0;
-        if (portfolio.mintBtcTokenVaultId > 0 && !state.hasSeparatedVbtc && needsVbtc) {
-            return ActionParams(Action.MINT_BTC_TOKEN, 0, portfolio.mintBtcTokenVaultId, 0);
+        if (portfolio.mintBtcTokenVaultId > 0 && !state.hasSeparatedVbtc && needsVbtc && portfolio.vaultCollaterals.length > 0) {
+            // Find the vesting status of the vault we're targeting
+            uint256 targetIdx = type(uint256).max;
+            for (uint256 i = 0; i < state.vaultIds.length; i++) {
+                if (state.vaultIds[i] == portfolio.mintBtcTokenVaultId) {
+                    targetIdx = i;
+                    break;
+                }
+            }
+            if (targetIdx != type(uint256).max && targetIdx < portfolio.vaultCollaterals.length) {
+                uint256 stripAmount = portfolio.vaultCollaterals[targetIdx];
+                if (stripAmount > 0) {
+                    return ActionParams(Action.STRIP, stripAmount, portfolio.mintBtcTokenVaultId, 0);
+                }
+            }
         }
 
         // 2c. Seed AMM pool if not yet initialized and agent has both WBTC + vBTC

@@ -8,12 +8,10 @@ import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
 import {IVaultNFTDelegation} from "../../src/interfaces/IVaultNFTDelegation.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
-import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
 
 contract ConcurrentOpsTest is Test {
     VaultNFT public vault;
     BtcToken public btcToken;
-    ExpeditionCredits public xbtc;
     MockTreasure public treasure;
     MockWBTC public wbtc;
 
@@ -35,10 +33,9 @@ contract ConcurrentOpsTest is Test {
         treasure = new MockTreasure();
         wbtc = new MockWBTC();
 
-        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
+        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
         btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
-        xbtc = new ExpeditionCredits(vaultAddr, address(this));
-        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
+        vault = new VaultNFT(address(btcToken), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
 
         // Fund alice
         wbtc.mint(alice, 100 * ONE_BTC);

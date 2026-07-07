@@ -82,6 +82,7 @@ def load_actions(path):
     actions = []
     with open(path) as f:
         reader = csv.DictReader(f)
+        has_error = "errorType" in reader.fieldnames
         for row in reader:
             actions.append({
                 "tick": int(row["tick"]),
@@ -90,6 +91,7 @@ def load_actions(path):
                 "actionName": row["actionName"],
                 "amount": int(row["amount"]),
                 "success": row["success"] == "true",
+                "errorType": row.get("errorType", "") if not row.get("success", "true") == "true" else "",
             })
     return actions
 

@@ -29,20 +29,23 @@ for TOKEN_ID in "${REMAINING_ARGS[@]}"; do
         continue
     fi
 
-    # Get vault info
-    COLLATERAL=$(cast_call "$VAULT" "collateralAmount(uint256)(uint256)" "$TOKEN_ID")
+    # Get vault info via getVaultInfo (8-field tuple)
+    VAULT_INFO=$(cast_call "$VAULT" "getVaultInfo(uint256)" "$TOKEN_ID")
+    COLLATERAL=$(echo "$VAULT_INFO" | awk '{print $4}')
+    RESERVE=$(echo "$VAULT_INFO" | awk '{print $5}')
+
     IS_VESTED=$(cast_call "$VAULT" "isVested(uint256)(bool)" "$TOKEN_ID")
-    BTC_TOKEN_AMOUNT=$(cast_call "$VAULT" "btcTokenAmount(uint256)(uint256)" "$TOKEN_ID")
-    TOTAL_DELEGATED=$(cast_call "$VAULT" "totalDelegatedBPS(uint256)(uint256)" "$TOKEN_ID")
+    OWNER=$(cast_call "$VAULT" "ownerOf(uint256)(address)" "$TOKEN_ID")
+    WALLET_DELEGATED=$(cast_call "$VAULT" "walletTotalDelegatedBPS(address)(uint256)" "$OWNER")
 
     # Format values
     COLLATERAL_BTC=$(format_btc "$COLLATERAL")
     VESTED_STATUS="No"
     [[ "$IS_VESTED" == "true" ]] && VESTED_STATUS="Yes"
     VBTC_STATUS="No"
-    [[ "$BTC_TOKEN_AMOUNT" != "0" ]] && VBTC_STATUS="Yes"
+    [[ "$RESERVE" != "0" ]] && VBTC_STATUS="Yes"
     DELEGATED_PCT="0%"
-    [[ "$TOTAL_DELEGATED" != "0" ]] && DELEGATED_PCT=$(echo "scale=1; $TOTAL_DELEGATED / 100" | bc)"%"
+    [[ "$WALLET_DELEGATED" != "0" ]] && DELEGATED_PCT=$(echo "scale=1; $WALLET_DELEGATED / 100" | bc)"%"
 
     printf "%-8s %-12s %-10s %-12s %-10s\n" \
         "$TOKEN_ID" "${COLLATERAL_BTC} BTC" "$VESTED_STATUS" "$VBTC_STATUS" "$DELEGATED_PCT"

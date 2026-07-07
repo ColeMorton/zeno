@@ -10,15 +10,17 @@ contract MockVaultNFT is ERC721 {
     uint256 private _nextTokenId;
 
     struct VaultData {
-        address treasureContract;
+        address treasure;
         uint256 treasureTokenId;
         address collateralToken;
         uint256 collateralAmount;
+        uint256 strippedReserve;
         uint256 mintTimestamp;
+        uint256 lastWithdrawal;
+        uint256 lastActivity;
     }
 
     mapping(uint256 => VaultData) public vaults;
-    mapping(uint256 => bool) public matchClaimed;
     mapping(uint256 => bool) private _isVested;
 
     constructor() ERC721("Mock Vault", "MVAULT") {}
@@ -39,16 +41,46 @@ contract MockVaultNFT is ERC721 {
         _mint(msg.sender, tokenId);
 
         vaults[tokenId] = VaultData({
-            treasureContract: treasureContract,
+            treasure: treasureContract,
             treasureTokenId: treasureTokenId,
             collateralToken: collateralToken,
             collateralAmount: collateralAmount,
-            mintTimestamp: block.timestamp
+            strippedReserve: 0,
+            mintTimestamp: block.timestamp,
+            lastWithdrawal: 0,
+            lastActivity: block.timestamp
         });
     }
 
     function treasureContract(uint256 tokenId) external view returns (address) {
-        return vaults[tokenId].treasureContract;
+        return vaults[tokenId].treasure;
+    }
+
+    function getVaultInfo(uint256 tokenId)
+        external
+        view
+        returns (
+            address treasureContractAddr,
+            uint256 treasureTokenId,
+            address collateralTokenAddr,
+            uint256 collateralAmount,
+            uint256 strippedReserve,
+            uint256 mintTimestamp,
+            uint256 lastWithdrawal,
+            uint256 lastActivity
+        )
+    {
+        VaultData storage v = vaults[tokenId];
+        return (
+            v.treasure,
+            v.treasureTokenId,
+            v.collateralToken,
+            v.collateralAmount,
+            v.strippedReserve,
+            v.mintTimestamp,
+            v.lastWithdrawal,
+            v.lastActivity
+        );
     }
 
     function mintTimestamp(uint256 tokenId) external view returns (uint256) {
@@ -62,11 +94,6 @@ contract MockVaultNFT is ERC721 {
     /// @notice Test helper to set vesting status
     function setVested(uint256 tokenId, bool vested) external {
         _isVested[tokenId] = vested;
-    }
-
-    /// @notice Test helper to set match claimed status
-    function setMatchClaimed(uint256 tokenId, bool claimed) external {
-        matchClaimed[tokenId] = claimed;
     }
 
     function totalSupply() external view returns (uint256) {
@@ -83,11 +110,14 @@ contract MockVaultNFT is ERC721 {
         _mint(to, tokenId);
 
         vaults[tokenId] = VaultData({
-            treasureContract: treasure,
+            treasure: treasure,
             treasureTokenId: 0,
             collateralToken: address(0),
             collateralAmount: 0,
-            mintTimestamp: timestamp
+            strippedReserve: 0,
+            mintTimestamp: timestamp,
+            lastWithdrawal: 0,
+            lastActivity: timestamp
         });
     }
 }

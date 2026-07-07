@@ -1,8 +1,8 @@
 # User Manual
 
-> **Version:** 1.0
+> **Version:** 1.1
 > **Status:** Active
-> **Last Updated:** 2026-01-04
+> **Last Updated:** 2026-07-06
 
 CLI reference for BTCNFT Protocol operations.
 
@@ -119,41 +119,42 @@ Withdraws monthly collateral from a vested vault.
 
 ---
 
-#### `./btcnft separate`
+#### `./btcnft strip`
 
-Mints vBTC tokens representing the vault's collateral claim.
+Moves collateral into the immunized reserve and mints vBTC 1:1.
 
 ```bash
-./btcnft separate <vault_token_id>
+./btcnft strip <vault_token_id> <amount_satoshis>
 ```
 
-After separation, vBTC can be transferred independently from the Vault NFT.
+Fractional and repeatable: any amount up to the vault's active collateral. Reserve collateral is immunized (monthly withdrawals cannot touch it), so every vBTC is backed 1:1.
 
 **Requirements:**
-- Vault must be fully vested
-- vBTC not already minted for this vault
+- Vault must be fully vested (1129 days)
 
 **Example:**
 ```bash
-./btcnft separate 0
+./btcnft strip 0 50000000  # Strip 0.5 BTC into reserve, mint 0.5 vBTC
 ```
 
 ---
 
 #### `./btcnft recombine`
 
-Returns vBTC tokens to the vault, regaining full collateral control.
+Burns vBTC to move reserve back into active collateral.
 
 ```bash
-./btcnft recombine <vault_token_id>
+./btcnft recombine <vault_token_id> <amount_satoshis>
 ```
 
+Fractional: any amount up to the vault's outstanding reserve.
+
 **Requirements:**
-- Must hold the full original vBTC amount
+- Must hold at least `amount_satoshis` vBTC
 
 **Example:**
 ```bash
-./btcnft recombine 0
+./btcnft recombine 0 50000000
 ```
 
 ---
@@ -169,6 +170,9 @@ Burns the vault and returns pro-rata collateral based on elapsed time.
 **Formula:** `returned = collateral × (elapsed_days / 1129)`
 
 Forfeited collateral goes to the match pool.
+
+**Requirements:**
+- Zero outstanding stripped reserve — fully recombine first (recombination before redemption)
 
 **Example:**
 ```bash
@@ -388,36 +392,34 @@ Must be called by the vault owner.
 
 #### `./btcnft claim-dormant`
 
-Claims collateral from a dormant vault after grace period expires.
+Burns vBTC to claim reserve collateral 1:1 from a dormant vault.
 
 ```bash
-./btcnft claim-dormant <vault_token_id>
+./btcnft claim-dormant <vault_token_id> <amount_satoshis>
 ```
 
+Fractional: any vBTC holder may burn any amount up to the vault's outstanding reserve, repeatedly. Only reserve collateral transfers — the vault, its Treasure, and its active collateral remain with the owner.
+
 **Requirements:**
-- Vault must be dormant (1129 days inactive + 30 day grace expired)
-- Must hold the full vBTC amount for the vault
-- vBTC must have been separated first
+- Vault must be dormant (reserve outstanding + owner holds less vBTC than reserve + 1129 days inactive + 30 day grace expired)
+- Must hold at least `amount_satoshis` vBTC
 
 **Example:**
 ```bash
-./btcnft claim-dormant 42
+./btcnft claim-dormant 42 25000000
 ```
 
 ---
 
 #### `./btcnft claim-match`
 
-Claims a pro-rata share of the match pool based on vault collateral.
+Settles the vault's accrued match pool share into its active collateral.
 
 ```bash
 ./btcnft claim-match <vault_token_id>
 ```
 
-Match pool is funded by early redemption forfeitures.
-
-**Requirements:**
-- Vault must be fully vested
+Match pool is funded by early redemption forfeitures and accrues to all active vaults pro-rata via a continuous accumulator. Settlement also happens automatically on every collateral-changing operation (withdraw, strip, recombine, early-redeem); this command forces it explicitly. No vesting requirement — credited collateral stays in the vault and vests normally.
 
 **Example:**
 ```bash
@@ -470,17 +472,17 @@ foundryup
 ./btcnft delegate-revoke 1 0xServiceAddress
 ```
 
-### vBTC Separation
+### vBTC Stripping
 
 ```bash
-# Separate vBTC from vault
-./btcnft separate 0
+# Strip 0.5 BTC of collateral into reserve, minting 0.5 vBTC
+./btcnft strip 0 50000000
 
 # Transfer vBTC (use cast or wallet)
 cast send $BTC_TOKEN "transfer(address,uint256)" 0xRecipient 50000000
 
-# Recombine when ready
-./btcnft recombine 0
+# Recombine when ready (buy back vBTC if sold)
+./btcnft recombine 0 50000000
 ```
 
 ---

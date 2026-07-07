@@ -192,19 +192,20 @@ contract CrossLayerSimTest is Test {
         // 6. Verify vault is now vested
         assertTrue(vault.isVested(vaultId), "Vault should be vested");
 
-        // 7. Verify MATURED still cannot be claimed (match not claimed)
+        // 7. MATURED is claimable at vesting (match accrual settles continuously)
         (canClaim, reason) = minter.canClaimMaturedAchievement(alice, vaultId, address(wbtc));
-        assertFalse(canClaim, "Should not be able to claim MATURED without match claim");
-        assertEq(reason, "Match not claimed", "Reason should be match not claimed");
+        assertTrue(canClaim, "MATURED claimable once vested");
+        assertEq(reason, "", "No failure reason");
 
-        // 8. Claim match pool share (pool was funded by Bob's early redemption)
+        // 8. Settle match pool share (pool was funded by Bob's early redemption)
         vm.prank(alice);
-        vault.claimMatch(vaultId);
+        uint256 matchAmount = vault.claimMatch(vaultId);
 
-        // 9. Verify match was claimed
-        assertTrue(vault.matchClaimed(vaultId), "Match should be claimed");
+        // 9. Verify match settled
+        assertTrue(matchAmount > 0, "Match amount should be > 0");
+        assertEq(vault.pendingMatch(vaultId), 0, "No pending match after claim");
 
-        // 10. Now claim MATURED achievement
+        // 10. Claim MATURED achievement
         vm.prank(alice);
         minter.claimMaturedAchievement(vaultId, address(wbtc));
 

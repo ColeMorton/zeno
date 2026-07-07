@@ -24,15 +24,15 @@ contract VaultHandler is Test {
 
     // Ghost variables for tracking invariants
     uint256 public ghost_totalDeposited;
-    uint256 public ghost_totalWithdrawn;
-    uint256 public ghost_totalForfeited;
-    uint256 public ghost_totalMatchClaimed;
+    uint256 public ghost_totalWithdrawn; // all wBTC transferred out of the vault
 
     // Call counters for debugging
     uint256 public calls_mint;
     uint256 public calls_withdraw;
     uint256 public calls_earlyRedeem;
     uint256 public calls_claimMatch;
+    uint256 public calls_strip;
+    uint256 public calls_recombine;
     uint256 public calls_warp;
 
     constructor(
@@ -86,7 +86,6 @@ contract VaultHandler is Test {
         uint256 tokenId = userTokenIds[actor][tokenSeed % userTokenIds[actor].length];
 
         if (vault.ownerOf(tokenId) != actor) return;
-        if (vault.collateralAmount(tokenId) == 0) return;
 
         try vault.withdraw(tokenId) returns (uint256 amount) {
             ghost_totalWithdrawn += amount;
@@ -104,9 +103,8 @@ contract VaultHandler is Test {
 
         if (vault.ownerOf(tokenId) != actor) return;
 
-        try vault.earlyRedeem(tokenId) returns (uint256 returned, uint256 forfeited) {
+        try vault.earlyRedeem(tokenId) returns (uint256 returned, uint256) {
             ghost_totalWithdrawn += returned;
-            ghost_totalForfeited += forfeited;
 
             _removeTokenFromUser(actor, tokenIdx);
             calls_earlyRedeem++;
@@ -122,9 +120,49 @@ contract VaultHandler is Test {
 
         if (vault.ownerOf(tokenId) != actor) return;
 
-        try vault.claimMatch(tokenId) returns (uint256 amount) {
-            ghost_totalMatchClaimed += amount;
+        try vault.claimMatch(tokenId) {
             calls_claimMatch++;
+        } catch {}
+    }
+
+    function strip(uint256 actorSeed, uint256 tokenSeed, uint256 amount) external useActor(actorSeed) {
+        address actor = actors[actorSeed % actors.length];
+
+        if (userTokenIds[actor].length == 0) return;
+
+        uint256 tokenId = userTokenIds[actor][tokenSeed % userTokenIds[actor].length];
+
+        if (vault.ownerOf(tokenId) != actor) return;
+        if (!vault.isVested(tokenId)) return;
+
+        uint256 active = vault.collateralAmount(tokenId);
+        if (active == 0) return;
+
+        amount = bound(amount, 1, active);
+
+        try vault.strip(tokenId, amount) {
+            calls_strip++;
+        } catch {}
+    }
+
+    function recombine(uint256 actorSeed, uint256 tokenSeed, uint256 amount) external useActor(actorSeed) {
+        address actor = actors[actorSeed % actors.length];
+
+        if (userTokenIds[actor].length == 0) return;
+
+        uint256 tokenId = userTokenIds[actor][tokenSeed % userTokenIds[actor].length];
+
+        if (vault.ownerOf(tokenId) != actor) return;
+
+        uint256 reserve = vault.strippedReserve(tokenId);
+        uint256 balance = btcToken.balanceOf(actor);
+        uint256 max = reserve < balance ? reserve : balance;
+        if (max == 0) return;
+
+        amount = bound(amount, 1, max);
+
+        try vault.recombine(tokenId, amount) {
+            calls_recombine++;
         } catch {}
     }
 
@@ -161,8 +199,18 @@ contract VaultHandler is Test {
         uint256 withdraws,
         uint256 redeems,
         uint256 claims,
+        uint256 strips,
+        uint256 recombines,
         uint256 warps
     ) {
-        return (calls_mint, calls_withdraw, calls_earlyRedeem, calls_claimMatch, calls_warp);
+        return (
+            calls_mint,
+            calls_withdraw,
+            calls_earlyRedeem,
+            calls_claimMatch,
+            calls_strip,
+            calls_recombine,
+            calls_warp
+        );
     }
 }

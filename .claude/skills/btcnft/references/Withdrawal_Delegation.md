@@ -691,31 +691,9 @@ Gelato Web3 Function (Cron: monthly)
         └── 4. Submit via bundler
 ```
 
-### 12.3 Helper Contract
+### 12.3 Batch Queries
 
-The `WithdrawalAutomationHelper` provides batch query utilities:
-
-```solidity
-function batchCanDelegateWithdraw(
-    uint256[] calldata tokenIds,
-    address[] calldata delegates
-) external view returns (bool[] memory, uint256[] memory);
-
-function getNextWithdrawalTime(
-    uint256 tokenId,
-    address delegate
-) external view returns (uint256);
-
-function getAutomationStatus(
-    uint256 tokenId,
-    address delegate
-) external view returns (
-    bool canWithdraw,
-    uint256 amount,
-    uint256 nextWithdrawal,
-    uint256 percentageBPS
-);
-```
+Batch eligibility checks are served off-chain by multicalling `VaultNFT.canDelegateWithdraw(tokenId, delegate)` across the vault set; no on-chain helper contract exists.
 
 ---
 

@@ -32,17 +32,6 @@ library VaultMath {
         forfeited = collateral - returned;
     }
 
-    function calculateMatchShare(
-        uint256 pool,
-        uint256 holderCollateral,
-        uint256 totalActiveCollateral
-    ) internal pure returns (uint256) {
-        if (totalActiveCollateral == 0 || pool == 0) {
-            return 0;
-        }
-        return (pool * holderCollateral) / totalActiveCollateral;
-    }
-
     function isVested(uint256 mintTimestamp, uint256 currentTimestamp) internal pure returns (bool) {
         return currentTimestamp >= mintTimestamp + VESTING_PERIOD;
     }

@@ -7,7 +7,6 @@ import {BtcToken} from "../../src/BtcToken.sol";
 import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
-import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
 
 /// @title Flash Loan Security Tests
 /// @notice Documents protocol resilience against flash loan attacks
@@ -16,7 +15,6 @@ import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
 contract FlashLoanTest is Test {
     VaultNFT public vault;
     BtcToken public btcToken;
-    ExpeditionCredits public xbtc;
     MockTreasure public treasure;
     MockWBTC public wbtc;
 
@@ -35,10 +33,9 @@ contract FlashLoanTest is Test {
         treasure = new MockTreasure();
         wbtc = new MockWBTC();
 
-        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
+        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
         btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
-        xbtc = new ExpeditionCredits(vaultAddr, address(this));
-        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
+        vault = new VaultNFT(address(btcToken), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
 
         wbtc.mint(alice, 100 * ONE_BTC);
         wbtc.mint(bob, 100 * ONE_BTC);
@@ -65,6 +62,10 @@ contract FlashLoanTest is Test {
         // Alice creates a vault
         vm.prank(alice);
         uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
+
+        // Bob holds a regular vault that stays active
+        vm.prank(bob);
+        vault.mint(address(treasure), 10, address(wbtc), 10 * ONE_BTC);
 
         // Attacker creates vault with large flash-loaned amount
         // (simulating borrowing 1000 BTC via flash loan)
@@ -107,10 +108,11 @@ contract FlashLoanTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.StillVesting.selector, tokenId));
         vault.withdraw(tokenId);
 
-        // Cannot mint BTC token immediately
+        // Stripping is blocked pre-vesting too: no early liquidity against the time lock
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.StillVesting.selector, tokenId));
-        vault.mintBtcToken(tokenId);
+        vault.strip(tokenId, 1000 * ONE_BTC);
+        assertEq(wbtc.balanceOf(address(vault)), 1000 * ONE_BTC, "No collateral leaves the vault");
 
         // Only time advances allow withdrawal (1129 days)
         vm.warp(block.timestamp + VESTING_PERIOD);
@@ -140,23 +142,23 @@ contract FlashLoanTest is Test {
         // There's no price oracle or liquidity pool to manipulate
     }
 
-    /// @notice Flash loan cannot claim dormant collateral without burning BTC token
-    /// @dev Dormancy claim requires burning original minted amount of BTC tokens
+    /// @notice Flash loan cannot claim dormant collateral without burning vBTC
+    /// @dev Dormancy claims burn the claimer's vBTC 1:1 against the stripped reserve
     function test_FlashLoan_CannotClaimDormantWithoutBtcToken() public {
-        // Alice creates vault and mints BTC token
+        // Alice creates vault, vests, and strips the full collateral
         vm.prank(alice);
         uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD);
 
         vm.prank(alice);
-        vault.mintBtcToken(tokenId);
+        vault.strip(tokenId, ONE_BTC);
 
-        // Alice transfers BTC token to bob (not attacker)
+        // Alice transfers vBTC to bob (not attacker)
         vm.prank(alice);
         btcToken.transfer(address(bob), ONE_BTC);
 
-        // Wait for dormancy threshold
+        // Wait for dormancy threshold (relative to strip, the last activity)
         vm.warp(block.timestamp + VESTING_PERIOD + 1);
 
         // Anyone can poke dormancy
@@ -166,19 +168,17 @@ contract FlashLoanTest is Test {
         // Wait for grace period to expire
         vm.warp(block.timestamp + 30 days);
 
-        // Attacker cannot claim without BTC tokens
-        // Even with flash loan, they cannot acquire the BTC tokens needed
-        // Flash loans don't help because BTC tokens are held by bob
+        // Attacker cannot claim without vBTC
+        // Even with flash loan, they cannot acquire the vBTC needed
+        // Flash loans don't help because the vBTC is held by bob
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.InsufficientBtcToken.selector, ONE_BTC, 0));
-        vault.claimDormantCollateral(tokenId);
+        vault.claimDormantCollateral(tokenId, ONE_BTC);
 
-        // Only bob (who holds the BTC tokens) can claim
-        vm.prank(bob);
-        btcToken.approve(address(vault), ONE_BTC);
+        // Only bob (who holds the vBTC) can claim
         uint256 bobBalanceBefore = wbtc.balanceOf(bob);
         vm.prank(bob);
-        vault.claimDormantCollateral(tokenId);
+        vault.claimDormantCollateral(tokenId, ONE_BTC);
         uint256 bobBalanceAfter = wbtc.balanceOf(bob);
 
         assertEq(bobBalanceAfter - bobBalanceBefore, ONE_BTC, "Bob claimed the collateral");

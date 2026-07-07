@@ -54,20 +54,19 @@ library ProtocolInvariants {
         return (true, "");
     }
 
-    /// @notice Verify vBTC total supply equals sum of separated vault collateral
+    /// @notice Verify vBTC total supply equals sum of stripped reserves
     function checkVbtcConservation(
         VaultNFT vault,
         IERC20 btcToken
     ) internal view returns (bool valid, string memory message) {
         uint256 totalSupply = btcToken.totalSupply();
-        uint256 vaultBalance = btcToken.balanceOf(address(vault));
+        uint256 totalStrippedReserve = vault.totalStrippedReserve();
 
-        // vBTC total supply should equal vault's btcToken balance (unminted) + circulating
-        // The vault mints vBTC on mintBtcToken and burns on returnBtcToken
-        // Conservation: totalSupply is always backed by vault collateral
-        // This is a simplified check — exact conservation depends on vault implementation
-        if (totalSupply > 0 && vaultBalance == 0) {
-            // All vBTC is circulating, which is valid
+        // vBTC total supply should equal total stripped reserve (1:1 backing)
+        // The vault mints vBTC on strip() and burns on recombine()/claimDormantCollateral()
+        // Conservation: totalSupply == totalStrippedReserve (reserve is immunized)
+        if (totalSupply != totalStrippedReserve) {
+            return (false, "vBTC supply not backed by stripped reserves");
         }
         return (true, "");
     }

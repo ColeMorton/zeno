@@ -217,9 +217,8 @@ contract AchievementMinterTest is Test {
         vm.prank(alice);
         minter.claimMinterAchievement(vaultId, address(wbtc));
 
-        // Set vault as vested and match claimed
+        // Set vault as vested (only requirement now)
         vault.setVested(vaultId, true);
-        vault.setMatchClaimed(vaultId, true);
 
         // Claim MATURED
         vm.prank(alice);
@@ -235,7 +234,6 @@ contract AchievementMinterTest is Test {
         minter.claimMinterAchievement(vaultId, address(wbtc));
 
         vault.setVested(vaultId, true);
-        vault.setMatchClaimed(vaultId, true);
 
         vm.prank(alice);
         vm.expectEmit(true, true, false, false);
@@ -247,7 +245,6 @@ contract AchievementMinterTest is Test {
         (uint256 vaultId,) = _mintVaultForAlice();
 
         vault.setVested(vaultId, true);
-        vault.setMatchClaimed(vaultId, true);
 
         vm.prank(alice);
         vm.expectRevert(
@@ -263,27 +260,11 @@ contract AchievementMinterTest is Test {
         minter.claimMinterAchievement(vaultId, address(wbtc));
 
         // NOT vested
-        vault.setMatchClaimed(vaultId, true);
+        // vault.setVested(vaultId, true); // Intentionally not set
 
         vm.prank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(AchievementMinter.VaultNotVested.selector, vaultId)
-        );
-        minter.claimMaturedAchievement(vaultId, address(wbtc));
-    }
-
-    function test_ClaimMaturedAchievement_RevertIf_MatchNotClaimed() public {
-        (uint256 vaultId,) = _mintVaultForAlice();
-
-        vm.prank(alice);
-        minter.claimMinterAchievement(vaultId, address(wbtc));
-
-        // Vested but match NOT claimed
-        vault.setVested(vaultId, true);
-
-        vm.prank(alice);
-        vm.expectRevert(
-            abi.encodeWithSelector(AchievementMinter.MatchNotClaimed.selector, vaultId)
         );
         minter.claimMaturedAchievement(vaultId, address(wbtc));
     }
@@ -448,7 +429,6 @@ contract AchievementMinterTest is Test {
         minter.claimMinterAchievement(vaultId, address(wbtc));
 
         vault.setVested(vaultId, true);
-        vault.setMatchClaimed(vaultId, true);
 
         vm.prank(alice);
         minter.claimMaturedAchievement(vaultId, address(wbtc));
@@ -476,7 +456,6 @@ contract AchievementMinterTest is Test {
         minter.claimMinterAchievement(vaultId, address(wbtc));
 
         vault.setVested(vaultId, true);
-        vault.setMatchClaimed(vaultId, true);
 
         vm.prank(alice);
         minter.claimMaturedAchievement(vaultId, address(wbtc));
@@ -538,7 +517,6 @@ contract AchievementMinterTest is Test {
         minter.claimMinterAchievement(vaultId, address(wbtc));
 
         vault.setVested(vaultId, true);
-        vault.setMatchClaimed(vaultId, true);
 
         vm.prank(alice);
         minter.claimMaturedAchievement(vaultId, address(wbtc));
@@ -584,7 +562,6 @@ contract AchievementMinterTest is Test {
         minter.claimMinterAchievement(vaultId, address(wbtc));
 
         vault.setVested(vaultId, true);
-        vault.setMatchClaimed(vaultId, true);
 
         (bool canClaim, string memory reason) = minter.canClaimMaturedAchievement(alice, vaultId, address(wbtc));
         assertTrue(canClaim);
@@ -635,7 +612,6 @@ contract AchievementMinterTest is Test {
         minter.claimMinterAchievement(vaultId, address(wbtc));
 
         vault.setVested(vaultId, true);
-        vault.setMatchClaimed(vaultId, true);
 
         vm.prank(alice);
         minter.claimMaturedAchievement(vaultId, address(wbtc));

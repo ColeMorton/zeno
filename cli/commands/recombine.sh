@@ -1,57 +1,70 @@
 #!/bin/bash
-# Return vBTC tokens to vault
+# Burn vBTC to reactivate reserve collateral
 set -e
 
 source "$(dirname "$0")/../lib/common.sh"
 load_env
 
 # Validate arguments
-if [[ ${#REMAINING_ARGS[@]} -lt 1 ]]; then
-    echo "Usage: ./btcnft recombine <vault_token_id>"
+if [[ ${#REMAINING_ARGS[@]} -lt 2 ]]; then
+    echo "Usage: ./btcnft recombine <vault_token_id> <amount_satoshis>"
     echo ""
-    echo "Returns vBTC tokens to the vault, regaining full collateral control."
-    echo "Requires holding the full original vBTC amount."
+    echo "Burns vBTC to move reserve back into active collateral (1:1)."
+    echo "Fractional and repeatable; can be called until reserve reaches zero."
+    echo ""
+    echo "Arguments:"
+    echo "  vault_token_id     Vault to recombine into"
+    echo "  amount_satoshis    Amount of vBTC to burn (100000000 = 1 BTC)"
     exit 1
 fi
 
 TOKEN_ID="${REMAINING_ARGS[0]}"
+AMOUNT="${REMAINING_ARGS[1]}"
 
-echo "=== Recombining vBTC with Vault #$TOKEN_ID ==="
+echo "=== Recombining vBTC into Vault #$TOKEN_ID ==="
 echo "Network: $(get_network_name)"
 echo ""
 
 # Verify vault exists
 require_vault_exists "$TOKEN_ID"
 
-# Check if vBTC exists
-BTC_AMOUNT=$(cast_call "$VAULT" "btcTokenAmount(uint256)(uint256)" "$TOKEN_ID")
-if [[ "$BTC_AMOUNT" == "0" ]]; then
-    echo "Error: No vBTC minted for this vault" >&2
+# Get reserve balance
+RESERVE=$(cast_call "$VAULT" "strippedReserve(uint256)(uint256)" "$TOKEN_ID")
+if [[ "$RESERVE" == "0" ]]; then
+    echo "Error: No reserve to recombine for this vault" >&2
     exit 1
 fi
 
-# Check caller's balance
+if [[ $AMOUNT -gt $RESERVE ]]; then
+    echo "Error: Insufficient reserve to recombine" >&2
+    echo "Requested: $(format_btc "$AMOUNT") BTC" >&2
+    echo "Available: $(format_btc "$RESERVE") BTC" >&2
+    exit 1
+fi
+
+# Check caller's vBTC balance
 CALLER=$(get_caller_address)
-ORIGINAL_AMOUNT=$(cast_call "$VAULT" "originalMintedAmount(uint256)(uint256)" "$TOKEN_ID")
 BALANCE=$(cast_call "$BTC_TOKEN" "balanceOf(address)(uint256)" "$CALLER")
 
-echo "Original vBTC amount: $(format_btc "$ORIGINAL_AMOUNT") vBTC"
+echo "Reserve to recombine: $(format_btc "$RESERVE") BTC"
+echo "Amount requested:     $(format_btc "$AMOUNT") BTC"
 echo "Your vBTC balance:    $(format_btc "$BALANCE") vBTC"
 echo ""
 
-if [[ $BALANCE -lt $ORIGINAL_AMOUNT ]]; then
+if [[ $BALANCE -lt $AMOUNT ]]; then
     echo "Error: Insufficient vBTC balance" >&2
-    echo "Required: $(format_btc "$ORIGINAL_AMOUNT") vBTC" >&2
+    echo "Required: $(format_btc "$AMOUNT") vBTC" >&2
     echo "Have:     $(format_btc "$BALANCE") vBTC" >&2
     exit 1
 fi
 
 # Confirm on testnet
-confirm_non_local_action "return vBTC to vault"
+confirm_non_local_action "recombine vBTC into vault"
 
-# Return vBTC
-echo "Returning vBTC..."
-TX_HASH=$(cast_send "$VAULT" "returnBtcToken(uint256)" "$TOKEN_ID")
+# Recombine vBTC
+echo "Burning vBTC and reactivating reserve..."
+TX_HASH=$(cast_send "$VAULT" "recombine(uint256,uint256)" "$TOKEN_ID" "$AMOUNT")
 
-print_success "vBTC returned to vault" "$TX_HASH"
-print_vault_summary "$TOKEN_ID"
+print_success "vBTC recombined" "$TX_HASH"
+echo ""
+echo "View vault status: ./btcnft status $TOKEN_ID"

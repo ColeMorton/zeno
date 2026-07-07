@@ -164,64 +164,6 @@ contract VaultMathFuzzTest is Test {
         assertEq(f1129, 0);
     }
 
-    // ========== calculateMatchShare Fuzz Tests ==========
-
-    function testFuzz_CalculateMatchShare_ProportionalDistribution(
-        uint256 pool,
-        uint256 holderCollateral,
-        uint256 totalCollateral
-    ) public pure {
-        pool = bound(pool, 1, type(uint128).max);
-        totalCollateral = bound(totalCollateral, 1, type(uint128).max);
-        holderCollateral = bound(holderCollateral, 1, totalCollateral);
-
-        uint256 share = VaultMath.calculateMatchShare(pool, holderCollateral, totalCollateral);
-
-        // Share should be proportional
-        uint256 expected = (pool * holderCollateral) / totalCollateral;
-        assertEq(share, expected);
-
-        // Share should not exceed pool
-        assertLe(share, pool);
-    }
-
-    function testFuzz_CalculateMatchShare_ZeroPool(
-        uint256 holderCollateral,
-        uint256 totalCollateral
-    ) public pure {
-        holderCollateral = bound(holderCollateral, 1, type(uint128).max);
-        totalCollateral = bound(totalCollateral, holderCollateral, type(uint128).max);
-
-        uint256 share = VaultMath.calculateMatchShare(0, holderCollateral, totalCollateral);
-        assertEq(share, 0);
-    }
-
-    function testFuzz_CalculateMatchShare_ZeroTotalCollateral(
-        uint256 pool,
-        uint256 holderCollateral
-    ) public pure {
-        pool = bound(pool, 1, type(uint128).max);
-        holderCollateral = bound(holderCollateral, 1, type(uint128).max);
-
-        uint256 share = VaultMath.calculateMatchShare(pool, holderCollateral, 0);
-        assertEq(share, 0);
-    }
-
-    function test_CalculateMatchShare_SingleHolder() public pure {
-        uint256 pool = ONE_BTC;
-        uint256 share = VaultMath.calculateMatchShare(pool, ONE_BTC, ONE_BTC);
-        assertEq(share, pool); // Gets entire pool
-    }
-
-    function test_CalculateMatchShare_EqualHolders() public pure {
-        uint256 pool = ONE_BTC;
-        // Two equal holders
-        uint256 share1 = VaultMath.calculateMatchShare(pool, ONE_BTC, 2 * ONE_BTC);
-        uint256 share2 = VaultMath.calculateMatchShare(pool, ONE_BTC, 2 * ONE_BTC);
-        assertEq(share1, share2);
-        assertEq(share1, pool / 2);
-    }
-
     // ========== isVested Fuzz Tests ==========
 
     function testFuzz_IsVested_BeforeVesting(uint256 mintTime, uint256 elapsed) public pure {

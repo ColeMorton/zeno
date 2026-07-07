@@ -116,13 +116,15 @@ contract CrossLayerInvariantTest is Test {
         );
     }
 
-    /// @notice Match pool must equal total forfeited minus total claimed
+    /// @notice Match pool never exceeds forfeitures minus explicit claims
+    /// @dev Auto-settlement inside withdraw/strip/recombine/earlyRedeem reduces the pool
+    /// beyond explicit `claimMatch` calls, so the pool is bounded above, not equal.
     function invariant_matchPoolConsistency() public view {
         uint256 matchPool = vault.matchPool();
         uint256 totalForfeited = handler.ghost_totalForfeited();
         uint256 totalClaimed = handler.ghost_totalMatchClaimed();
 
-        assertEq(
+        assertLe(
             matchPool,
             totalForfeited - totalClaimed,
             "Match pool inconsistent"

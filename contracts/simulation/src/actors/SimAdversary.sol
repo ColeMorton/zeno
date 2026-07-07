@@ -158,7 +158,10 @@ contract SimAdversary is IERC721Receiver {
     /// @param vaultId Target vault ID
     /// @return succeeded Whether the attack succeeded (should always be false)
     function tryClaimUnownedDormant(uint256 vaultId) external returns (bool succeeded) {
-        try vault.claimDormantCollateral(vaultId) {
+        // Try to claim reserve without holding vBTC
+        // ponytail: query reserve to attack with full amount
+        uint256 reserve = vault.strippedReserve(vaultId);
+        try vault.claimDormantCollateral(vaultId, reserve) {
             _recordAttack(AttackType.CLAIM_UNOWNED_DORMANT, vaultId, address(0), true, "CRITICAL: Claimed dormant without vBTC");
             successfulAttacks++;
             return true;

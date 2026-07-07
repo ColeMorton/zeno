@@ -25,8 +25,8 @@ library ProtocolAgentLib {
         MINT_VAULT,
         WITHDRAW,
         EARLY_REDEEM,
-        MINT_BTC_TOKEN,
-        RETURN_BTC_TOKEN,
+        STRIP,
+        RECOMBINE,
         CLAIM_MATCH,
         PROVE_ACTIVITY,
         POKE_DORMANT,
@@ -110,7 +110,8 @@ library ProtocolAgentLib {
         uint256 withdrawableVaultId;    // specific vault ready for withdrawal (vested + cooldown passed)
         uint256 matchClaimableVaultId;  // specific vault eligible for match claim (vested + unclaimed)
         uint256 unvestedVaultId;        // specific unvested vault for early redeem
-        uint256 vestedVaultId;          // specific vested vault for mintBtcToken/returnBtcToken
+        uint256 vestedVaultId;          // specific vested vault for strip/recombine
+        uint256 vestedVaultCollateral;  // active collateral in the vested vault
         uint256 anyValidVaultId;        // any existing vault for prove activity
         uint256[] nextWithdrawableTick; // per-vault: tick when withdrawal next allowed (0 = any tick)
         // Dormancy
@@ -174,10 +175,12 @@ library ProtocolAgentLib {
             if ((psy.strategyMask & STRAT_VBTC_LIFECYCLE) != 0 && portfolio.vestedVaultId > 0) {
                 if (psy.separateInterval > 0 && signals.currentTick > state.lastSeparateTick + uint256(psy.separateInterval)) {
                     if (state.hasSeparatedVbtc && portfolio.vbtcBalance > 0) {
-                        return ActionParams(Action.RETURN_BTC_TOKEN, 0, portfolio.vestedVaultId, 0, 0);
+                        // Recombine full vBTC balance to reactivate reserve
+                        return ActionParams(Action.RECOMBINE, portfolio.vbtcBalance, portfolio.vestedVaultId, 0, 0);
                     }
-                    if (!state.hasSeparatedVbtc) {
-                        return ActionParams(Action.MINT_BTC_TOKEN, 0, portfolio.vestedVaultId, 0, 0);
+                    if (!state.hasSeparatedVbtc && portfolio.vestedVaultCollateral > 0) {
+                        // Strip all active collateral from vested vault
+                        return ActionParams(Action.STRIP, portfolio.vestedVaultCollateral, portfolio.vestedVaultId, 0, 0);
                     }
                 }
             }
@@ -185,8 +188,8 @@ library ProtocolAgentLib {
 
         // 6. Prerequisite: separate vBTC if vested and needed for dormancy
         bool needsVbtc = (psy.strategyMask & STRAT_DORMANCY) != 0;
-        if (portfolio.vestedVaultId > 0 && !state.hasSeparatedVbtc && needsVbtc) {
-            return ActionParams(Action.MINT_BTC_TOKEN, 0, portfolio.vestedVaultId, 0, 0);
+        if (portfolio.vestedVaultId > 0 && !state.hasSeparatedVbtc && needsVbtc && portfolio.vestedVaultCollateral > 0) {
+            return ActionParams(Action.STRIP, portfolio.vestedVaultCollateral, portfolio.vestedVaultId, 0, 0);
         }
 
         // 7. Panic exit (early redeem on severe drawdown) — use specific unvested vault

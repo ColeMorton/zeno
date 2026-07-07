@@ -6,13 +6,11 @@ import {VaultNFT} from "../../src/VaultNFT.sol";
 import {BtcToken} from "../../src/BtcToken.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
-import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
 import {VaultHandler} from "./handlers/VaultHandler.sol";
 
 contract VaultInvariantTest is Test {
     VaultNFT public vault;
     BtcToken public btcToken;
-    ExpeditionCredits public xbtc;
     MockTreasure public treasure;
     MockWBTC public wbtc;
     VaultHandler public handler;
@@ -31,10 +29,9 @@ contract VaultInvariantTest is Test {
         treasure = new MockTreasure();
         wbtc = new MockWBTC();
 
-        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
+        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
         btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
-        xbtc = new ExpeditionCredits(vaultAddr, address(this));
-        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
+        vault = new VaultNFT(address(btcToken), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
 
         // Fund actors
         address[] memory actors = new address[](3);
@@ -57,109 +54,50 @@ contract VaultInvariantTest is Test {
         targetContract(address(handler));
     }
 
-    /// @notice Total BTC in vault must equal sum of all collaterals + match pool
-    function invariant_collateralConservation() public view {
-        uint256 vaultBalance = wbtc.balanceOf(address(vault));
-        uint256 matchPool = vault.matchPool();
+    /// @notice Every outstanding vBTC is backed 1:1 by stripped reserve
+    function invariant_reserveBacksBtcTokenSupply() public view {
+        assertEq(
+            vault.totalStrippedReserve(),
+            btcToken.totalSupply(),
+            "totalStrippedReserve must equal vBTC total supply"
+        );
+    }
 
-        // Sum all active collaterals
-        uint256 sumCollaterals = 0;
+    /// @notice Vault token balance decomposes exactly into active + reserve + match pool
+    function invariant_collateralConservation() public view {
+        assertEq(
+            wbtc.balanceOf(address(vault)),
+            vault.totalActiveCollateral() + vault.totalStrippedReserve() + vault.matchPool(),
+            "vault balance != totalActiveCollateral + totalStrippedReserve + matchPool"
+        );
+    }
+
+    /// @notice Global totals equal the sum of per-vault balances
+    function invariant_perVaultSumsMatchTotals() public view {
+        uint256 sumActive = 0;
+        uint256 sumReserve = 0;
         uint256 tokenCount = handler.getMintedTokenCount();
 
         for (uint256 i = 0; i < tokenCount; i++) {
             try vault.collateralAmount(i) returns (uint256 amount) {
-                sumCollaterals += amount;
+                sumActive += amount;
+                sumReserve += vault.strippedReserve(i);
             } catch {
                 // Token was burned, skip
             }
         }
 
-        assertEq(
-            vaultBalance,
-            sumCollaterals + matchPool,
-            "Collateral conservation violated: vault balance != collaterals + pool"
-        );
+        assertEq(sumActive, vault.totalActiveCollateral(), "sum of active != totalActiveCollateral");
+        assertEq(sumReserve, vault.totalStrippedReserve(), "sum of reserves != totalStrippedReserve");
     }
 
-    /// @notice Match pool must equal total forfeited from early redemptions
-    function invariant_matchPoolConsistency() public view {
-        uint256 matchPool = vault.matchPool();
-        uint256 totalForfeited = handler.ghost_totalForfeited();
-        uint256 totalClaimed = handler.ghost_totalMatchClaimed();
-
-        assertEq(
-            matchPool,
-            totalForfeited - totalClaimed,
-            "Match pool inconsistent: pool != forfeited - claimed"
-        );
-    }
-
-    /// @notice Total withdrawn + remaining collateral <= total deposited
+    /// @notice Exact wBTC conservation: balance == deposits - transfers out
     function invariant_noFreeMoney() public view {
-        uint256 totalDeposited = handler.ghost_totalDeposited();
-        uint256 totalWithdrawn = handler.ghost_totalWithdrawn();
-
-        // Sum remaining collaterals
-        uint256 sumRemaining = 0;
-        uint256 tokenCount = handler.getMintedTokenCount();
-
-        for (uint256 i = 0; i < tokenCount; i++) {
-            try vault.collateralAmount(i) returns (uint256 amount) {
-                sumRemaining += amount;
-            } catch {
-                // Token was burned
-            }
-        }
-
-        // Include match pool as it came from deposits
-        uint256 matchPool = vault.matchPool();
-
-        assertLe(
-            totalWithdrawn + sumRemaining + matchPool,
-            totalDeposited + handler.ghost_totalMatchClaimed(),
-            "Free money detected: withdrawn + remaining > deposited"
+        assertEq(
+            wbtc.balanceOf(address(vault)),
+            handler.ghost_totalDeposited() - handler.ghost_totalWithdrawn(),
+            "Vault balance must equal deposits minus withdrawals"
         );
-    }
-
-    /// @notice Vault WBTC balance must never exceed total deposited
-    function invariant_vaultBalanceBounded() public view {
-        uint256 vaultBalance = wbtc.balanceOf(address(vault));
-        uint256 totalDeposited = handler.ghost_totalDeposited();
-
-        assertLe(
-            vaultBalance,
-            totalDeposited,
-            "Vault balance exceeds total deposits"
-        );
-    }
-
-    /// @notice totalActiveCollateral only decreases on maturity or early redemption
-    /// Note: totalActiveCollateral tracks original deposits for match pool distribution,
-    /// not current balances after withdrawals. This is by design.
-    function invariant_totalActiveCollateralNonNegative() public view {
-        uint256 reported = vault.totalActiveCollateral();
-        uint256 totalDeposited = handler.ghost_totalDeposited();
-
-        // totalActiveCollateral should never exceed total deposited
-        assertLe(
-            reported,
-            totalDeposited,
-            "totalActiveCollateral exceeds total deposited"
-        );
-    }
-
-    /// @notice Collateral can never become negative (implicit via uint256, but verify no underflow)
-    function invariant_noNegativeCollateral() public view {
-        uint256 tokenCount = handler.getMintedTokenCount();
-
-        for (uint256 i = 0; i < tokenCount; i++) {
-            try vault.collateralAmount(i) returns (uint256 amount) {
-                // If we can read it without revert, it's >= 0 (uint256)
-                assertTrue(amount >= 0, "Negative collateral impossible with uint256");
-            } catch {
-                // Token doesn't exist, which is fine
-            }
-        }
     }
 
     /// @notice Call summary for debugging failed invariants
@@ -169,6 +107,8 @@ contract VaultInvariantTest is Test {
             uint256 withdraws,
             uint256 redeems,
             uint256 claims,
+            uint256 strips,
+            uint256 recombines,
             uint256 warps
         ) = handler.getCallSummary();
 
@@ -177,6 +117,8 @@ contract VaultInvariantTest is Test {
         console.log("  withdraws:", withdraws);
         console.log("  earlyRedeems:", redeems);
         console.log("  claimMatch:", claims);
+        console.log("  strips:", strips);
+        console.log("  recombines:", recombines);
         console.log("  warpTime:", warps);
     }
 }

@@ -1,69 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {VaultNFT} from "../../src/VaultNFT.sol";
-import {BtcToken} from "../../src/BtcToken.sol";
 import {IVaultNFT} from "../../src/interfaces/IVaultNFT.sol";
-import {IVaultNFTDormancy} from "../../src/interfaces/IVaultNFTDormancy.sol";
-import {MockTreasure} from "../mocks/MockTreasure.sol";
-import {MockWBTC} from "../mocks/MockWBTC.sol";
-import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
+import {BaseTest} from "../utils/BaseTest.sol";
 
-contract SecurityTest is Test {
-    VaultNFT public vault;
-    BtcToken public btcToken;
-    ExpeditionCredits public xbtc;
-    MockTreasure public treasure;
-    MockWBTC public wbtc;
-
-    address public alice;
-    address public bob;
+contract SecurityTest is BaseTest {
     address public attacker;
 
-    uint256 constant ONE_BTC = 1e8;
-    uint256 constant VESTING_PERIOD = 1129 days;
-    uint256 constant WITHDRAWAL_PERIOD = 30 days;
-    uint256 constant DORMANCY_THRESHOLD = 1129 days;
-    uint256 constant GRACE_PERIOD = 30 days;
-
-    function setUp() public {
-        alice = makeAddr("alice");
-        bob = makeAddr("bob");
+    function setUp() public override {
+        super.setUp();
         attacker = makeAddr("attacker");
-
-        treasure = new MockTreasure();
-        wbtc = new MockWBTC();
-
-        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
-        btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
-        xbtc = new ExpeditionCredits(vaultAddr, address(this));
-        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
-
-        wbtc.mint(alice, 100 * ONE_BTC);
-        wbtc.mint(bob, 100 * ONE_BTC);
-        wbtc.mint(attacker, 100 * ONE_BTC);
-        treasure.mintBatch(alice, 10);
-        treasure.mintBatch(bob, 10);
-        treasure.mintBatch(attacker, 10);
-
-        _approveAll(alice);
-        _approveAll(bob);
-        _approveAll(attacker);
-    }
-
-    function _approveAll(address user) internal {
-        vm.startPrank(user);
-        wbtc.approve(address(vault), type(uint256).max);
-        treasure.setApprovalForAll(address(vault), true);
-        vm.stopPrank();
+        _fundUser(attacker, 100); // treasures 300-399
     }
 
     function test_Security_NonOwnerCannotWithdraw() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
 
-        vm.warp(block.timestamp + VESTING_PERIOD);
+        _skipVesting();
 
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotTokenOwner.selector, tokenId));
@@ -73,8 +26,7 @@ contract SecurityTest is Test {
     }
 
     function test_Security_NonOwnerCannotRedeem() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
 
         vm.warp(block.timestamp + 500 days);
 
@@ -85,41 +37,33 @@ contract SecurityTest is Test {
         assertEq(vault.ownerOf(tokenId), alice);
     }
 
-    function test_Security_NonOwnerCannotMintBtcToken() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
+    function test_Security_NonOwnerCannotStrip() public {
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
 
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotTokenOwner.selector, tokenId));
-        vault.mintBtcToken(tokenId);
+        vault.strip(tokenId, ONE_BTC);
 
-        assertEq(vault.btcTokenAmount(tokenId), 0);
+        assertEq(vault.strippedReserve(tokenId), 0);
     }
 
-    function test_Security_NonOwnerCannotReturnBtcToken() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
+    function test_Security_NonOwnerCannotRecombine() public {
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
+        _stripAll(alice, tokenId);
 
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
-        vm.prank(alice);
-        vault.mintBtcToken(tokenId);
-
+        // Attacker even holds the vBTC: still cannot recombine someone else's vault
         vm.prank(alice);
         btcToken.transfer(attacker, ONE_BTC);
 
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotTokenOwner.selector, tokenId));
-        vault.returnBtcToken(tokenId);
+        vault.recombine(tokenId, ONE_BTC);
 
-        assertEq(vault.btcTokenAmount(tokenId), ONE_BTC);
+        assertEq(vault.strippedReserve(tokenId), ONE_BTC);
     }
 
     function test_Security_NonOwnerCannotProveActivity() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
 
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotTokenOwner.selector, tokenId));
@@ -127,18 +71,13 @@ contract SecurityTest is Test {
     }
 
     function test_Security_NonOwnerCannotClaimMatch() public {
-        vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
+        uint256 aliceToken = _mintVault(alice, 0, ONE_BTC);
+        uint256 bobToken = _mintVault(bob, 100, ONE_BTC);
 
         vm.warp(block.timestamp + 365 days);
 
         vm.prank(alice);
         vault.earlyRedeem(aliceToken);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
 
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotTokenOwner.selector, bobToken));
@@ -146,13 +85,8 @@ contract SecurityTest is Test {
     }
 
     function test_Security_CannotClaimDormantWithoutBtcToken() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
-        vm.prank(alice);
-        vault.mintBtcToken(tokenId);
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
+        _stripAll(alice, tokenId);
 
         vm.prank(alice);
         btcToken.transfer(bob, ONE_BTC);
@@ -166,23 +100,18 @@ contract SecurityTest is Test {
 
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(IVaultNFT.InsufficientBtcToken.selector, ONE_BTC, 0));
-        vault.claimDormantCollateral(tokenId);
+        vault.claimDormantCollateral(tokenId, ONE_BTC);
     }
 
-    function test_Security_CannotClaimDormantWithPartialBtcToken() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
+    function test_Security_DormantClaimCappedByBtcTokenBalance() public {
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
+        _stripAll(alice, tokenId);
 
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
-        vm.prank(alice);
-        vault.mintBtcToken(tokenId);
-
-        vm.prank(alice);
+        // Attacker holds only half the float: cannot claim the full reserve
+        vm.startPrank(alice);
         btcToken.transfer(bob, ONE_BTC / 2);
-
-        vm.prank(alice);
         btcToken.transfer(attacker, ONE_BTC / 2);
+        vm.stopPrank();
 
         vm.warp(block.timestamp + DORMANCY_THRESHOLD + 1);
 
@@ -195,39 +124,35 @@ contract SecurityTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(IVaultNFT.InsufficientBtcToken.selector, ONE_BTC, ONE_BTC / 2)
         );
-        vault.claimDormantCollateral(tokenId);
+        vault.claimDormantCollateral(tokenId, ONE_BTC);
+
+        // But the fractional claim up to their balance succeeds
+        vm.prank(attacker);
+        uint256 claimed = vault.claimDormantCollateral(tokenId, ONE_BTC / 2);
+        assertEq(claimed, ONE_BTC / 2);
     }
 
-    function test_Security_DoubleClaimMatch() public {
-        vm.prank(alice);
-        uint256 aliceToken = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.prank(bob);
-        uint256 bobToken = vault.mint(address(treasure), 10, address(wbtc), ONE_BTC);
+    function test_Security_SecondClaimMatchReturnsZero() public {
+        uint256 aliceToken = _mintVault(alice, 0, ONE_BTC);
+        uint256 bobToken = _mintVault(bob, 100, ONE_BTC);
 
         vm.warp(block.timestamp + 365 days);
 
         vm.prank(alice);
         vault.earlyRedeem(aliceToken);
 
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
         vm.prank(bob);
-        vault.claimMatch(bobToken);
+        uint256 first = vault.claimMatch(bobToken);
+        assertGt(first, 0);
 
+        // Settlement is idempotent: no double-claim possible
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.AlreadyClaimed.selector, bobToken));
-        vault.claimMatch(bobToken);
+        assertEq(vault.claimMatch(bobToken), 0);
     }
 
     function test_Security_CannotDoublePoke() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
-        vm.prank(alice);
-        vault.mintBtcToken(tokenId);
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
+        _stripAll(alice, tokenId);
 
         vm.prank(alice);
         btcToken.transfer(bob, ONE_BTC);
@@ -238,13 +163,12 @@ contract SecurityTest is Test {
         vault.pokeDormant(tokenId);
 
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.AlreadyPoked.selector, tokenId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.AlreadyPoked.selector, tokenId));
         vault.pokeDormant(tokenId);
     }
 
     function test_Security_CannotPokeBurnedVault() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
 
         vm.warp(block.timestamp + 500 days);
 
@@ -257,10 +181,9 @@ contract SecurityTest is Test {
     }
 
     function test_Security_CannotWithdrawFromBurnedVault() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
 
-        vm.warp(block.timestamp + VESTING_PERIOD);
+        _skipVesting();
 
         vm.prank(alice);
         vault.earlyRedeem(tokenId);
@@ -277,13 +200,8 @@ contract SecurityTest is Test {
     }
 
     function test_Security_OnlyVaultCanBurnBtcToken() public {
-        vm.prank(alice);
-        uint256 tokenId = vault.mint(address(treasure), 0, address(wbtc), ONE_BTC);
-
-        vm.warp(block.timestamp + VESTING_PERIOD);
-
-        vm.prank(alice);
-        vault.mintBtcToken(tokenId);
+        uint256 tokenId = _mintVault(alice, 0, ONE_BTC);
+        _stripAll(alice, tokenId);
 
         vm.prank(attacker);
         vm.expectRevert();

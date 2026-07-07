@@ -99,15 +99,18 @@ contract SwarmSimulationTest is Test {
                 IERC20(address(_btcToken)),
                 orchestrator.getAllPerpPositionIds()
             );
-            if (!perpValid) {
-                console.log("WARNING Tick %d: perp vault insolvent", tick);
-            }
+            assertTrue(perpValid, string.concat("Tick ", vm.toString(tick), ": perp vault insolvent"));
 
             (bool volValid,) = SwarmInvariants.checkVolPoolSolvency(
                 IVolatilityPool(address(orchestrator.volPool())),
                 IERC20(address(_btcToken))
             );
             assertTrue(volValid, string.concat("Tick ", vm.toString(tick), ": vol pool insolvent"));
+
+            // P&L sanity checks
+            _checkPerpReturns(tick);
+            _checkVolReturns(tick);
+            _checkFundingRate(tick);
         }
     }
 
@@ -166,9 +169,9 @@ contract SwarmSimulationTest is Test {
         _exportSummaryMarkdown(tickCount);
     }
 
-    /// @notice Write market_data.csv: tick,price,vbtcRatio,tvl,matchPool,regime
+    /// @notice Write market_data.csv: tick,price,vbtcRatio,tvl,matchPool,regime,perpVaultBalance,perpTotalCollateral,volPoolBalance,volPoolAssets
     function _exportMarketData(uint256 tickCount) internal {
-        vm.writeFile("reports/market_data.csv", "tick,price,vbtcRatio,tvl,matchPool,regime\n");
+        vm.writeFile("reports/market_data.csv", "tick,price,vbtcRatio,tvl,matchPool,regime,perpVaultBalance,perpTotalCollateral,volPoolBalance,volPoolAssets\n");
 
         for (uint256 t = 0; t < tickCount; t++) {
             vm.writeLine("reports/market_data.csv", string.concat(
@@ -177,7 +180,11 @@ contract SwarmSimulationTest is Test {
                 vm.toString(orchestrator.vbtcRatioSnapshots(t)), ",",
                 vm.toString(orchestrator.tvlSnapshots(t)), ",",
                 vm.toString(orchestrator.matchPoolSnapshots(t)), ",",
-                vm.toString(uint256(orchestrator.regimeSnapshots(t)))
+                vm.toString(uint256(orchestrator.regimeSnapshots(t))), ",",
+                vm.toString(orchestrator.perpVaultBalanceSnapshots(t)), ",",
+                vm.toString(orchestrator.perpTotalCollateralSnapshots(t)), ",",
+                vm.toString(orchestrator.volPoolBalanceSnapshots(t)), ",",
+                vm.toString(orchestrator.volPoolAssetsSnapshots(t))
             ));
         }
     }
@@ -201,9 +208,9 @@ contract SwarmSimulationTest is Test {
         }
     }
 
-    /// @notice Write agent_actions.csv: tick,agentId,action,actionName,amount,success
+    /// @notice Write agent_actions.csv: tick,agentId,action,actionName,amount,success,errorType
     function _exportAgentActions() internal {
-        vm.writeFile("reports/agent_actions.csv", "tick,agentId,action,actionName,amount,success\n");
+        vm.writeFile("reports/agent_actions.csv", "tick,agentId,action,actionName,amount,success,errorType\n");
 
         uint256 logLen = orchestrator.getActionLogLength();
         for (uint256 i = 0; i < logLen; i++) {
@@ -214,7 +221,8 @@ contract SwarmSimulationTest is Test {
                 vm.toString(uint256(rec.action)), ",",
                 DataExport.actionName(rec.action), ",",
                 vm.toString(rec.amount), ",",
-                rec.success ? "true" : "false"
+                rec.success ? "true" : "false", ",",
+                rec.errorType
             ));
         }
     }
@@ -400,6 +408,112 @@ contract SwarmSimulationTest is Test {
             ? string.concat("0", vm.toString(frac))
             : vm.toString(frac);
         return string.concat(vm.toString(whole), ".", fracStr, "%");
+    }
+
+    // ==================== P&L Sanity Checks ====================
+
+    /// @notice Check no perp position shows >1000% return (payout / collateral > 11)
+    function _checkPerpReturns(uint256 tick) internal view {
+        uint256[] memory posIds = orchestrator.getAllPerpPositionIds();
+        for (uint256 i = 0; i < posIds.length; i++) {
+            try orchestrator.perpVault().getPosition(posIds[i]) returns (IPerpetualVault.Position memory pos) {
+                if (pos.collateral == 0) continue;
+                (, uint256 payout) = orchestrator.perpVault().previewClose(posIds[i]);
+                // 1000% return means payout > 11 * collateral
+                assertTrue(
+                    payout <= pos.collateral * 11,
+                    string.concat(
+                        "Tick ", vm.toString(tick),
+                        ": perp position ", vm.toString(posIds[i]),
+                        " shows >1000% return. payout=", vm.toString(payout),
+                        " collateral=", vm.toString(pos.collateral)
+                    )
+                );
+            } catch {}
+        }
+    }
+
+    /// @notice Check vol pool deposit returns haven't exploded (>500% return per agent)
+    function _checkVolReturns(uint256 tick) internal view {
+        // Pool-level sanity: share price should not exceed 6x
+        uint256 longAssets = orchestrator.volPool().longPoolAssets();
+        uint256 longShares = orchestrator.volPool().longPoolShares();
+        if (longShares > 0) {
+            uint256 longPrice = (longAssets * 1e18) / longShares;
+            assertTrue(
+                longPrice <= 6e18,
+                string.concat(
+                    "Tick ", vm.toString(tick),
+                    ": long vol pool share price >6x. assets=", vm.toString(longAssets),
+                    " shares=", vm.toString(longShares)
+                )
+            );
+        }
+        uint256 shortAssets = orchestrator.volPool().shortPoolAssets();
+        uint256 shortShares = orchestrator.volPool().shortPoolShares();
+        if (shortShares > 0) {
+            uint256 shortPrice = (shortAssets * 1e18) / shortShares;
+            assertTrue(
+                shortPrice <= 6e18,
+                string.concat(
+                    "Tick ", vm.toString(tick),
+                    ": short vol pool share price >6x. assets=", vm.toString(shortAssets),
+                    " shares=", vm.toString(shortShares)
+                )
+            );
+        }
+
+        // Per-agent sanity using cost basis
+        for (uint256 i = 0; i < 100; i++) {
+            uint256 lvShares = orchestrator.getAgentLongVolShares(i);
+            if (lvShares > 0) {
+                uint256 lvAssets = orchestrator.volPool().previewWithdrawLong(lvShares);
+                uint256 lvCost = orchestrator.getAgentLongVolCostBasis(i);
+                if (lvCost > 0) {
+                    assertTrue(
+                        lvAssets <= lvCost * 6,
+                        string.concat(
+                            "Tick ", vm.toString(tick),
+                            ": agent ", vm.toString(i),
+                            " long vol return >500%. assets=", vm.toString(lvAssets),
+                            " cost=", vm.toString(lvCost)
+                        )
+                    );
+                }
+            }
+            uint256 svShares = orchestrator.getAgentShortVolShares(i);
+            if (svShares > 0) {
+                uint256 svAssets = orchestrator.volPool().previewWithdrawShort(svShares);
+                uint256 svCost = orchestrator.getAgentShortVolCostBasis(i);
+                if (svCost > 0) {
+                    assertTrue(
+                        svAssets <= svCost * 6,
+                        string.concat(
+                            "Tick ", vm.toString(tick),
+                            ": agent ", vm.toString(i),
+                            " short vol return >500%. assets=", vm.toString(svAssets),
+                            " cost=", vm.toString(svCost)
+                        )
+                    );
+                }
+            }
+        }
+    }
+
+    /// @notice Check perp funding rate stays within [-50%, +50%] annualized
+    function _checkFundingRate(uint256 tick) internal view {
+        int256 rateBPS = orchestrator.perpVault().getCurrentFundingRate();
+        // Annualize: rateBPS * 8760 / 10000
+        int256 annualizedBPS = (rateBPS * 8760) / 10000;
+        // 50% annualized = 5000 BPS
+        assertTrue(
+            annualizedBPS >= -5000 && annualizedBPS <= 5000,
+            string.concat(
+                "Tick ", vm.toString(tick),
+                ": funding rate annualized out of bounds. rateBPS=", vm.toString(rateBPS),
+                " annualized=", vm.toString(annualizedBPS)
+            )
+        );
     }
 
     // ==================== Price Series Loading ====================

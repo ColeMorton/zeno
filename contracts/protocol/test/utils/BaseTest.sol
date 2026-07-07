@@ -4,14 +4,12 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {VaultNFT} from "../../src/VaultNFT.sol";
 import {BtcToken} from "../../src/BtcToken.sol";
-import {ExpeditionCredits} from "../../src/ExpeditionCredits.sol";
 import {MockTreasure} from "../mocks/MockTreasure.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
 
 abstract contract BaseTest is Test {
     VaultNFT public vault;
     BtcToken public btcToken;
-    ExpeditionCredits public xbtc;
     MockTreasure public treasure;
     MockWBTC public wbtc;
 
@@ -22,7 +20,7 @@ abstract contract BaseTest is Test {
     uint256 internal constant ONE_BTC = 1e8;
     uint256 internal constant VESTING_PERIOD = 1129 days;
     uint256 internal constant WITHDRAWAL_PERIOD = 30 days;
-    uint256 internal constant DORMANCY_THRESHOLD = 365 days;
+    uint256 internal constant DORMANCY_THRESHOLD = 1129 days;
     uint256 internal constant GRACE_PERIOD = 30 days;
 
     function setUp() public virtual {
@@ -33,11 +31,10 @@ abstract contract BaseTest is Test {
         treasure = new MockTreasure();
         wbtc = new MockWBTC();
 
-        // Pre-compute vault address: nonce+2 because BtcToken and ExpeditionCredits deploy first
-        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 2);
+        // Pre-compute vault address: nonce+1 because BtcToken deploys first
+        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
         btcToken = new BtcToken(vaultAddr, "vestedBTC-wBTC", "vWBTC");
-        xbtc = new ExpeditionCredits(vaultAddr, address(this));
-        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
+        vault = new VaultNFT(address(btcToken), address(wbtc), "Vault NFT-wBTC", "VAULT-W");
 
         _fundUser(alice, 1000);
         _fundUser(bob, 1000);
@@ -60,6 +57,15 @@ abstract contract BaseTest is Test {
     function _mintVault(address user, uint256 treasureId, uint256 collateral) internal returns (uint256) {
         vm.prank(user);
         return vault.mint(address(treasure), treasureId, address(wbtc), collateral);
+    }
+
+    /// @dev Strip the vault's full active collateral, minting vBTC 1:1 to the owner.
+    /// Warps past vesting first if needed — strip requires a vested vault.
+    function _stripAll(address user, uint256 tokenId) internal returns (uint256 amount) {
+        if (!vault.isVested(tokenId)) _skipVesting();
+        amount = vault.collateralAmount(tokenId);
+        vm.prank(user);
+        vault.strip(tokenId, amount);
     }
 
     function _skipVesting() internal {

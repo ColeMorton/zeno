@@ -5,7 +5,6 @@ import {Test, console} from "forge-std/Test.sol";
 import {SimulationOrchestrator, MockWBTC} from "../src/SimulationOrchestrator.sol";
 import {VaultNFT} from "@protocol/VaultNFT.sol";
 import {IVaultNFT} from "@protocol/interfaces/IVaultNFT.sol";
-import {IVaultNFTDormancy} from "@protocol/interfaces/IVaultNFTDormancy.sol";
 import {BtcToken} from "@protocol/BtcToken.sol";
 import {TreasureNFT} from "@issuer/TreasureNFT.sol";
 import {VaultMath} from "@protocol/libraries/VaultMath.sol";
@@ -68,11 +67,12 @@ contract DormancyTest is Test {
         vm.prank(alice);
         uint256 vaultId = vault.mint(address(treasureNFT), 0, address(wbtc), 10 * ONE_BTC);
 
-        // Vest and mint vBTC
+        // Vest and strip collateral into reserve
         vm.warp(block.timestamp + VESTING_PERIOD + 1);
 
+        uint256 stripAmount = 5 * ONE_BTC;
         vm.prank(alice);
-        vault.mintBtcToken(vaultId);
+        vault.strip(vaultId, stripAmount);
 
         // Transfer vBTC to Bob (simulating sale/separation)
         uint256 vBtcAmount = btcToken.balanceOf(alice);
@@ -84,7 +84,7 @@ contract DormancyTest is Test {
         assertEq(vault.ownerOf(vaultId), alice);
 
         // Not dormant yet - hasn't been inactive long enough
-        (bool eligible, IVaultNFTDormancy.DormancyState state) = vault.isDormantEligible(vaultId);
+        (bool eligible, IVaultNFT.DormancyState state) = vault.isDormantEligible(vaultId);
         assertFalse(eligible, "Not dormant eligible yet");
 
         // Warp past dormancy threshold (additional 1129 days of inactivity)
@@ -94,7 +94,7 @@ contract DormancyTest is Test {
         // Now dormant eligible
         (eligible, state) = vault.isDormantEligible(vaultId);
         assertTrue(eligible, "Should be dormant eligible");
-        assertEq(uint8(state), uint8(IVaultNFTDormancy.DormancyState.ACTIVE), "State should be ACTIVE (not poked)");
+        assertEq(uint8(state), uint8(IVaultNFT.DormancyState.ACTIVE), "State should be ACTIVE (not poked)");
 
         // Charlie (or anyone) can poke
         vm.prank(charlie);
@@ -103,12 +103,12 @@ contract DormancyTest is Test {
         // Check state is now POKE_PENDING
         (eligible, state) = vault.isDormantEligible(vaultId);
         assertTrue(eligible, "Still eligible");
-        assertEq(uint8(state), uint8(IVaultNFTDormancy.DormancyState.POKE_PENDING), "State should be POKE_PENDING");
+        assertEq(uint8(state), uint8(IVaultNFT.DormancyState.POKE_PENDING), "State should be POKE_PENDING");
 
         // Cannot claim yet - grace period not expired
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.NotClaimable.selector, vaultId));
-        vault.claimDormantCollateral(vaultId);
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotClaimable.selector, vaultId));
+        vault.claimDormantCollateral(vaultId, stripAmount);
 
         // Warp past grace period
         vm.warp(block.timestamp + GRACE_PERIOD + 1);
@@ -116,25 +116,23 @@ contract DormancyTest is Test {
         // Now claimable
         (eligible, state) = vault.isDormantEligible(vaultId);
         assertTrue(eligible, "Still eligible");
-        assertEq(uint8(state), uint8(IVaultNFTDormancy.DormancyState.CLAIMABLE), "State should be CLAIMABLE");
+        assertEq(uint8(state), uint8(IVaultNFT.DormancyState.CLAIMABLE), "State should be CLAIMABLE");
 
-        // Bob (vBTC holder) can claim
+        // Bob (vBTC holder) can claim the reserve
         uint256 bobWbtcBefore = wbtc.balanceOf(bob);
-        uint256 collateralBefore = vault.collateralAmount(vaultId);
 
         vm.prank(bob);
-        uint256 claimed = vault.claimDormantCollateral(vaultId);
+        uint256 claimed = vault.claimDormantCollateral(vaultId, stripAmount);
 
-        // Bob received the collateral
-        assertEq(wbtc.balanceOf(bob), bobWbtcBefore + collateralBefore, "Bob received collateral");
-        assertEq(claimed, collateralBefore, "Claimed amount matches");
+        // Bob received the reserve collateral
+        assertEq(wbtc.balanceOf(bob), bobWbtcBefore + stripAmount, "Bob received reserve collateral");
+        assertEq(claimed, stripAmount, "Claimed amount matches");
 
         // Bob's vBTC was burned
         assertEq(btcToken.balanceOf(bob), 0, "vBTC burned");
 
-        // Vault NFT was burned after dormancy claim
-        vm.expectRevert();
-        vault.ownerOf(vaultId);
+        // Vault NFT still exists and belongs to Alice
+        assertEq(vault.ownerOf(vaultId), alice, "Vault persists after dormancy claim");
     }
 
     /// @notice vBTC holder != vault owner - separation scenario
@@ -145,8 +143,9 @@ contract DormancyTest is Test {
 
         vm.warp(block.timestamp + VESTING_PERIOD + 1);
 
+        uint256 stripAmount = 25 * ONE_BTC;
         vm.prank(alice);
-        vault.mintBtcToken(vaultId);
+        vault.strip(vaultId, stripAmount);
 
         uint256 vBtcAmount = btcToken.balanceOf(alice);
 
@@ -170,13 +169,12 @@ contract DormancyTest is Test {
 
         // Bob claims (as vBTC holder)
         vm.prank(bob);
-        vault.claimDormantCollateral(vaultId);
+        vault.claimDormantCollateral(vaultId, stripAmount);
 
-        // Collateral transferred to Bob, vBTC burned
-        // Vault NFT is burned after dormancy claim - verify by expecting revert
-        vm.expectRevert();
-        vault.ownerOf(vaultId);
-        assertEq(btcToken.balanceOf(bob), 0);
+        // Reserve collateral transferred to Bob, vBTC burned
+        // Vault NFT persists after dormancy claim
+        assertEq(vault.ownerOf(vaultId), alice, "Vault still belongs to Alice");
+        assertEq(btcToken.balanceOf(bob), 0, "Bob's vBTC was burned");
     }
 
     /// @notice Activity reset during grace period
@@ -187,8 +185,9 @@ contract DormancyTest is Test {
 
         vm.warp(block.timestamp + VESTING_PERIOD + 1);
 
+        uint256 stripAmount = 5 * ONE_BTC;
         vm.prank(alice);
-        vault.mintBtcToken(vaultId);
+        vault.strip(vaultId, stripAmount);
 
         uint256 aliceVbtc = btcToken.balanceOf(alice);
         vm.prank(alice);
@@ -202,8 +201,8 @@ contract DormancyTest is Test {
         vault.pokeDormant(vaultId);
 
         // Verify POKE_PENDING state
-        (, IVaultNFTDormancy.DormancyState state) = vault.isDormantEligible(vaultId);
-        assertEq(uint8(state), uint8(IVaultNFTDormancy.DormancyState.POKE_PENDING));
+        (, IVaultNFT.DormancyState state) = vault.isDormantEligible(vaultId);
+        assertEq(uint8(state), uint8(IVaultNFT.DormancyState.POKE_PENDING));
 
         // Alice proves activity during grace period
         vm.prank(alice);
@@ -218,8 +217,8 @@ contract DormancyTest is Test {
 
         // Not claimable anymore
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.NotClaimable.selector, vaultId));
-        vault.claimDormantCollateral(vaultId);
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotClaimable.selector, vaultId));
+        vault.claimDormantCollateral(vaultId, stripAmount);
     }
 
     /// @notice Transfer resets lastActivity
@@ -230,8 +229,9 @@ contract DormancyTest is Test {
 
         vm.warp(block.timestamp + VESTING_PERIOD + 1);
 
+        uint256 stripAmount2 = 5 * ONE_BTC;
         vm.prank(alice);
-        vault.mintBtcToken(vaultId);
+        vault.strip(vaultId, stripAmount2);
 
         // Separate vBTC
         uint256 aliceVbtc = btcToken.balanceOf(alice);
@@ -263,25 +263,26 @@ contract DormancyTest is Test {
 
     /// @notice Cannot poke non-eligible vault
     function test_CannotPoke_NonEligibleVault() public {
-        // Alice mints but keeps vBTC
+        // Alice mints but keeps vBTC (no strip = no reserve = not dormant eligible)
         vm.prank(alice);
         uint256 vaultId = vault.mint(address(treasureNFT), 0, address(wbtc), 10 * ONE_BTC);
 
         vm.warp(block.timestamp + VESTING_PERIOD + 1);
 
+        uint256 stripAmount3 = 5 * ONE_BTC;
         vm.prank(alice);
-        vault.mintBtcToken(vaultId);
+        vault.strip(vaultId, stripAmount3);
 
-        // Alice still holds vBTC - not dormant eligible
+        // Alice still holds vBTC (same amount as reserve) - not dormant eligible
         // Use library constant to avoid optimizer bug
         vm.warp(block.timestamp + VaultMath.DORMANCY_THRESHOLD + 1);
 
         (bool eligible, ) = vault.isDormantEligible(vaultId);
-        assertFalse(eligible, "Not eligible when owner holds vBTC");
+        assertFalse(eligible, "Not eligible when owner holds vBTC >= reserve");
 
         // Cannot poke
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.NotDormantEligible.selector, vaultId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.NotDormantEligible.selector, vaultId));
         vault.pokeDormant(vaultId);
     }
 
@@ -293,8 +294,9 @@ contract DormancyTest is Test {
 
         vm.warp(block.timestamp + VESTING_PERIOD + 1);
 
+        uint256 stripAmount4 = 5 * ONE_BTC;
         vm.prank(alice);
-        vault.mintBtcToken(vaultId);
+        vault.strip(vaultId, stripAmount4);
 
         uint256 aliceVbtc = btcToken.balanceOf(alice);
         vm.prank(alice);
@@ -309,7 +311,7 @@ contract DormancyTest is Test {
 
         // Second poke fails
         vm.prank(charlie);
-        vm.expectRevert(abi.encodeWithSelector(IVaultNFTDormancy.AlreadyPoked.selector, vaultId));
+        vm.expectRevert(abi.encodeWithSelector(IVaultNFT.AlreadyPoked.selector, vaultId));
         vault.pokeDormant(vaultId);
     }
 
@@ -321,8 +323,9 @@ contract DormancyTest is Test {
 
         vm.warp(block.timestamp + VESTING_PERIOD + 1);
 
+        uint256 stripAmount5 = 5 * ONE_BTC;
         vm.prank(alice);
-        vault.mintBtcToken(vaultId);
+        vault.strip(vaultId, stripAmount5);
 
         uint256 aliceVbtc = btcToken.balanceOf(alice);
         vm.prank(alice);
@@ -338,15 +341,15 @@ contract DormancyTest is Test {
 
         // Charlie (no vBTC) cannot claim
         vm.prank(charlie);
-        vm.expectRevert(); // InsufficientBalance
-        vault.claimDormantCollateral(vaultId);
+        vm.expectRevert(); // InsufficientBtcToken
+        vault.claimDormantCollateral(vaultId, stripAmount5);
 
         // Bob (vBTC holder) can claim
         vm.prank(bob);
-        vault.claimDormantCollateral(vaultId);
+        vault.claimDormantCollateral(vaultId, stripAmount5);
     }
 
-    /// @notice Partial vBTC holdings - requires full amount
+    /// @notice Partial vBTC holdings - fractional claims allowed
     function test_ClaimRequires_FullVbtcAmount() public {
         // Setup dormant vault
         vm.prank(alice);
@@ -354,8 +357,9 @@ contract DormancyTest is Test {
 
         vm.warp(block.timestamp + VESTING_PERIOD + 1);
 
+        uint256 stripAmount6 = 5 * ONE_BTC;
         vm.prank(alice);
-        vault.mintBtcToken(vaultId);
+        vault.strip(vaultId, stripAmount6);
 
         uint256 vBtcAmount = btcToken.balanceOf(alice);
 
@@ -374,41 +378,31 @@ contract DormancyTest is Test {
 
         vm.warp(block.timestamp + GRACE_PERIOD + 1);
 
-        // Bob has only half - cannot claim
+        // Bob can claim half (fractional claims allowed)
+        uint256 halfReserve = stripAmount6 / 2;
         vm.prank(bob);
-        vm.expectRevert(); // InsufficientBalance
-        vault.claimDormantCollateral(vaultId);
+        vault.claimDormantCollateral(vaultId, halfReserve);
 
-        // Charlie also has only half - cannot claim
+        // Charlie can claim remaining half
         vm.prank(charlie);
-        vm.expectRevert();
-        vault.claimDormantCollateral(vaultId);
-
-        // Bob acquires Charlie's half
-        uint256 charlieVbtc = btcToken.balanceOf(charlie);
-        vm.prank(charlie);
-        btcToken.transfer(bob, charlieVbtc);
-
-        // Now Bob has full amount - can claim
-        vm.prank(bob);
-        vault.claimDormantCollateral(vaultId);
+        vault.claimDormantCollateral(vaultId, halfReserve);
     }
 
-    /// @notice No vBTC minted - cannot be dormant
+    /// @notice No reserve stripped - cannot be dormant
     function test_NoVbtcMinted_NotDormantEligible() public {
         vm.prank(alice);
         uint256 vaultId = vault.mint(address(treasureNFT), 0, address(wbtc), 10 * ONE_BTC);
 
-        // Vest but don't mint vBTC
+        // Vest but don't strip reserve
         vm.warp(block.timestamp + VESTING_PERIOD + 1);
 
         // Wait dormancy period
         // Use library constant to avoid optimizer bug
         vm.warp(block.timestamp + VaultMath.DORMANCY_THRESHOLD + 1);
 
-        // Not dormant eligible without vBTC
+        // Not dormant eligible without reserve
         (bool eligible, ) = vault.isDormantEligible(vaultId);
-        assertFalse(eligible, "Not eligible without vBTC minted");
+        assertFalse(eligible, "Not eligible without reserve stripped");
     }
 
     /// @notice Withdrawal resets lastActivity (prevents dormancy)
@@ -418,9 +412,10 @@ contract DormancyTest is Test {
 
         vm.warp(block.timestamp + VESTING_PERIOD + 1);
 
-        // Mint vBTC and transfer
+        // Strip reserve and transfer vBTC
+        uint256 stripAmount7 = 50 * ONE_BTC;
         vm.prank(alice);
-        vault.mintBtcToken(vaultId);
+        vault.strip(vaultId, stripAmount7);
 
         uint256 aliceVbtc = btcToken.balanceOf(alice);
         vm.prank(alice);
@@ -462,13 +457,14 @@ contract DormancyTest is Test {
 
         vm.warp(block.timestamp + VESTING_PERIOD + 1);
 
-        // All mint vBTC
+        uint256 stripAmount8 = 5 * ONE_BTC;
+        // All strip reserve
         vm.prank(alice);
-        vault.mintBtcToken(vault1);
+        vault.strip(vault1, stripAmount8);
         vm.prank(bob);
-        vault.mintBtcToken(vault2);
+        vault.strip(vault2, stripAmount8);
         vm.prank(charlie);
-        vault.mintBtcToken(vault3);
+        vault.strip(vault3, stripAmount8);
 
         // Alice and Bob transfer their vBTC away (become dormant-eligible)
         address receiver = makeAddr("receiver");

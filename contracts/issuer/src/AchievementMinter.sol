@@ -49,7 +49,6 @@ contract AchievementMinter is Ownable {
     error NotVaultOwner(uint256 vaultId, address caller);
     error VaultNotUsingIssuerTreasure(uint256 vaultId, address treasureContract);
     error VaultNotVested(uint256 vaultId);
-    error MatchNotClaimed(uint256 vaultId);
     error MissingMinterAchievement(address wallet);
     error MissingMaturedAchievement(address wallet);
     error ZeroCollateral();
@@ -137,17 +136,13 @@ contract AchievementMinter is Ownable {
             revert VaultNotUsingIssuerTreasure(vaultId, vaultTreasure);
         }
 
-        // 4. Verify vault is vested
+        // 4. Verify vault is vested (match accrual settles continuously on-chain,
+        // so vesting completion is the maturity event)
         if (!selectedProtocol.isVested(vaultId)) {
             revert VaultNotVested(vaultId);
         }
 
-        // 5. Verify match was claimed
-        if (!selectedProtocol.matchClaimed(vaultId)) {
-            revert MatchNotClaimed(vaultId);
-        }
-
-        // 6. Mint achievement (AchievementNFT handles duplicate prevention)
+        // 5. Mint achievement (AchievementNFT handles duplicate prevention)
         achievements.mint(msg.sender, AchievementTypes.MATURED, bytes32(0), false);
 
         emit MaturedAchievementClaimed(msg.sender, vaultId);
@@ -318,10 +313,6 @@ contract AchievementMinter is Ownable {
 
         if (!selectedProtocol.isVested(vaultId)) {
             return (false, "Vault not vested");
-        }
-
-        if (!selectedProtocol.matchClaimed(vaultId)) {
-            return (false, "Match not claimed");
         }
 
         return (true, "");

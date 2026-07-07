@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {VaultNFT} from "@protocol/VaultNFT.sol";
 import {BtcToken} from "@protocol/BtcToken.sol";
-import {ExpeditionCredits} from "@protocol/ExpeditionCredits.sol";
 
 import {TreasureNFT} from "@issuer/TreasureNFT.sol";
 import {AchievementNFT} from "@issuer/AchievementNFT.sol";
@@ -72,17 +71,14 @@ contract SimulationOrchestrator {
 
         // Compute predicted vault address for BtcToken initialization
         // Contract nonces start at 1 (EIP-161), so after deploying WBTC (nonce 1),
-        // BtcToken will use nonce 2, ExpeditionCredits will use nonce 3, and VaultNFT will use nonce 4
-        address predictedVault = _computeCreateAddress(address(this), 4);
+        // BtcToken will use nonce 2, and VaultNFT will use nonce 3
+        address predictedVault = _computeCreateAddress(address(this), 3);
 
         // Deploy BtcToken with predicted vault address
         btcToken = new BtcToken(predictedVault, "Vested BTC", "vBTC");
 
-        // Deploy ExpeditionCredits with predicted vault address
-        ExpeditionCredits xbtc = new ExpeditionCredits(predictedVault, address(this));
-
-        // Deploy VaultNFT with BtcToken, ExpeditionCredits, and single collateral token
-        vault = new VaultNFT(address(btcToken), address(xbtc), address(wbtc), "Vault NFT", "VAULT");
+        // Deploy VaultNFT with BtcToken and collateral token
+        vault = new VaultNFT(address(btcToken), address(wbtc), "Vault NFT", "VAULT");
 
         require(address(vault) == predictedVault, "Vault address mismatch");
 

@@ -201,8 +201,8 @@ contract TreasureNFT is ERC721, Ownable, ITreasureNFT {
         uint256 vaultId = treasureVault[treasureTokenId];
         if (vaultId == 0) return Tier.Bronze;
 
-        (,,, uint256 collateral,,,,,) = protocol.getVaultInfo(vaultId);
-        return computeTier(collateral);
+        (,,, uint256 collateral, uint256 reserve,,,) = protocol.getVaultInfo(vaultId);
+        return computeTier(collateral + reserve);
     }
 
     /// @notice Get the total number of Treasure NFTs minted

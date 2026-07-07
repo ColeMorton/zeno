@@ -24,11 +24,6 @@ interface IVaultState {
     /// @param tokenId The vault token ID
     /// @return True if the vault is vested
     function isVested(uint256 tokenId) external view returns (bool);
-
-    /// @notice Check if a vault's match pool claim has been claimed
-    /// @param tokenId The vault token ID
-    /// @return True if the match was claimed
-    function matchClaimed(uint256 tokenId) external view returns (bool);
 }
 
 /// @title IVaultMint - Interface for protocol vault minting
