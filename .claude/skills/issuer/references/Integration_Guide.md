@@ -803,18 +803,9 @@ function VaultAutomationSetup({ vaultId }) {
 **Issuer Effort:** Frontend + backend development
 **Revenue Opportunity:** Premium feature, subscription model
 
-### Helper Contract
+### Batch Queries
 
-Deploy `WithdrawalAutomationHelper` for batch queries:
-
-```solidity
-// contracts/issuer/src/WithdrawalAutomationHelper.sol
-
-function batchCanDelegateWithdraw(
-    uint256[] calldata tokenIds,
-    address[] calldata delegates
-) external view returns (bool[] memory, uint256[] memory);
-```
+Serve batch eligibility checks off-chain by multicalling `VaultNFT.canDelegateWithdraw(tokenId, delegate)`; no on-chain helper contract exists.
 
 ### Cost Structure
 
@@ -833,7 +824,7 @@ Track automation health across issuer vaults:
 | Active automations | Count Gelato tasks with issuer vaults |
 | Success rate | Successful executions / total attempts |
 | Gas spend | Sum of execution costs |
-| Next withdrawals | `getNextWithdrawalTime()` batch query |
+| Next withdrawals | `canDelegateWithdraw()` multicall |
 
 ---
 
@@ -843,7 +834,7 @@ Track automation health across issuer vaults:
 
 Convert discrete monthly withdrawals into continuous Sablier streams for a smoother holder experience.
 
-> **Full Documentation:** [Sablier Streaming Integration](./Sablier_Streaming_Integration.md)
+> **Status:** Research-only — no streaming contract is deployed. Full design in `.claude/skills/research/references/Sablier_Streaming_Integration.md`.
 
 ### Why Streaming?
 
@@ -855,7 +846,7 @@ Convert discrete monthly withdrawals into continuous Sablier streams for a smoot
 
 ### Quick Setup
 
-1. **Deploy SablierStreamWrapper:**
+1. **Deploy a stream wrapper** (proposed; see research doc):
    ```solidity
    wrapper = new SablierStreamWrapper(vaultNFTAddress, sablierAddress);
    ```
@@ -905,7 +896,7 @@ Convert discrete monthly withdrawals into continuous Sablier streams for a smoot
 | Bonding | Optional; deploy for POL accumulation if needed |
 | IOL Bootstrap | Genesis program → Single-sided → Time-locked multipliers |
 | Automation | Self-service docs minimum; managed service for revenue |
-| Streaming | Optional Sablier integration for continuous withdrawals |
+| Streaming | Sablier integration is research-only (see research skill) |
 
 ---
 

@@ -168,10 +168,13 @@ Stream NFTs are transferable on OpenSea, Blur, etc. This enables:
 | Stream cancellation | Non-cancellable streams |
 | Reentrancy | ReentrancyGuard; Sablier audited |
 
-## Files
+## Status
 
-- `contracts/issuer/src/SablierStreamWrapper.sol` - Core wrapper
-- `contracts/issuer/src/interfaces/ISablierStreamWrapper.sol` - Interface
-- `contracts/issuer/src/interfaces/ISablierV2LockupLinear.sol` - Sablier interface
-- `automation/gelato/streamingWithdrawalChecker.ts` - Gelato function
-- `automation/gelato/streaming.schema.json` - Gelato schema
+Research only. The wrapper implementation was removed from the codebase — it was a speculative consumer built before any issuer requested streaming payouts. The protocol already sells the valuable primitive (composable withdrawal rights via delegation).
+
+**Rebuild trigger:** first issuer requesting streaming payouts.
+
+**Rebuild notes:**
+
+- Delegation cooldown is additive to owner withdrawals — the wrapper's stream cadence must account for the owner's own withdrawal activity, not assume exclusive access to the monthly allowance.
+- Import the canonical Sablier interface from the Sablier package on rebuild; do not hand-roll `ISablierV2LockupLinear`.
