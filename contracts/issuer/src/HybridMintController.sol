@@ -7,29 +7,65 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-import {IHybridMintController} from "./interfaces/IHybridMintController.sol";
-import {IProtocolHybridVaultNFT} from "./interfaces/IProtocolHybridVaultNFT.sol";
+import {IVaultNFT} from "@protocol/interfaces/IVaultNFT.sol";
+import {VestingEscrow} from "@protocol/VestingEscrow.sol";
 import {ITreasureNFT} from "./interfaces/ITreasureNFT.sol";
 import {ICurveCryptoSwap} from "./interfaces/ICurveCryptoSwap.sol";
 
 /// @title HybridMintController
-/// @notice Issuer-layer controller that mints Protocol HybridVaultNFTs with Curve LP integration
+/// @notice Issuer-layer controller that composes a dual-collateral position from the protocol's
+/// single vault primitive: a VaultNFT holding the cbBTC leg (1% monthly perpetual withdrawal)
+/// and a VestingEscrow holding the Curve LP leg (100% at vesting), bound together by the vault's
+/// redeem hook for atomic early exit.
 /// @dev Thin orchestration: handles cbBTC→LP conversion, delegates vault mechanics to protocol
-contract HybridMintController is IHybridMintController, Ownable, ReentrancyGuard {
+contract HybridMintController is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
+
+    // ==================== Types ====================
+
+    /// @notice Monthly configuration for dynamic LP ratio calculation
+    struct MonthlyConfig {
+        uint256 baseLPRatioBPS; // Default: 3000 (30%)
+        uint256 minLPRatioBPS; // Default: 1000 (10%)
+        uint256 maxLPRatioBPS; // Default: 5000 (50%)
+        uint256 discountThresholdBPS; // Default: 1000 (10%)
+        uint256 discountSensitivity; // Default: 2
+        uint256 targetSlippageBPS; // Default: 50 (0.5%)
+        uint256 slippageSensitivity; // Default: 20
+        uint256 standardSwapBPS; // Default: 10 (0.1% of TVL)
+        uint256 effectiveTimestamp; // When this config became active
+    }
+
+    event HybridVaultMinted(
+        uint256 indexed vaultId,
+        address indexed owner,
+        uint256 cbBTCToVault,
+        uint256 lpMinted,
+        uint256 lpRatioBPS
+    );
+
+    event MonthlyConfigUpdated(uint256 baseLPRatioBPS, uint256 effectiveTimestamp);
+
+    error ZeroAmount();
+    error ZeroAddress();
+    error ConfigUpdateTooFrequent();
+    error RateLimitExceeded(string param);
 
     // ==================== Immutables ====================
 
-    /// @notice Protocol HybridVaultNFT contract
-    IProtocolHybridVaultNFT public immutable hybridVaultNFT;
+    /// @notice Protocol VaultNFT contract holding the cbBTC leg
+    IVaultNFT public immutable vaultNFT;
+
+    /// @notice Protocol VestingEscrow holding the LP leg, keyed to the vault's clock
+    VestingEscrow public immutable vestingEscrow;
 
     /// @notice TreasureNFT contract for vault treasures
     ITreasureNFT public immutable treasureNFT;
 
-    /// @notice cbBTC collateral token (primary collateral in protocol vault)
+    /// @notice cbBTC collateral token (primary leg in the protocol vault)
     IERC20 public immutable cbBTC;
 
-    /// @notice Curve LP token (secondary collateral in protocol vault)
+    /// @notice Curve LP token (secondary leg in the vesting escrow)
     IERC20 public immutable lpToken;
 
     /// @notice Curve pool for cbBTC/vestedBTC (CryptoSwap V2 for non-pegged pairs)
@@ -57,18 +93,21 @@ contract HybridMintController is IHybridMintController, Ownable, ReentrancyGuard
     // ==================== Constructor ====================
 
     constructor(
-        address hybridVaultNFT_,
+        address vaultNFT_,
+        address vestingEscrow_,
         address treasureNFT_,
         address cbBTC_,
         address lpToken_,
         address curvePool_
     ) Ownable(msg.sender) {
-        if (hybridVaultNFT_ == address(0)) revert ZeroAddress();
+        if (vaultNFT_ == address(0)) revert ZeroAddress();
+        if (vestingEscrow_ == address(0)) revert ZeroAddress();
         if (treasureNFT_ == address(0)) revert ZeroAddress();
         if (cbBTC_ == address(0)) revert ZeroAddress();
         if (lpToken_ == address(0)) revert ZeroAddress();
         if (curvePool_ == address(0)) revert ZeroAddress();
-        hybridVaultNFT = IProtocolHybridVaultNFT(hybridVaultNFT_);
+        vaultNFT = IVaultNFT(vaultNFT_);
+        vestingEscrow = VestingEscrow(vestingEscrow_);
         treasureNFT = ITreasureNFT(treasureNFT_);
         cbBTC = IERC20(cbBTC_);
         lpToken = IERC20(lpToken_);
@@ -90,7 +129,10 @@ contract HybridMintController is IHybridMintController, Ownable, ReentrancyGuard
 
     // ==================== Core Functions ====================
 
-    /// @inheritdoc IHybridMintController
+    /// @notice Mint a dual-collateral position: a protocol vault (cbBTC leg) plus an escrowed
+    /// LP leg, atomically bound via the vault's redeem hook
+    /// @param cbBTCAmount Total cbBTC to deposit (splits per current LP ratio)
+    /// @return vaultId Protocol VaultNFT token ID (user owns directly)
     function mintHybridVault(uint256 cbBTCAmount) external nonReentrant returns (uint256 vaultId) {
         if (cbBTCAmount == 0) revert ZeroAmount();
 
@@ -112,25 +154,27 @@ contract HybridMintController is IHybridMintController, Ownable, ReentrancyGuard
         uint256[2] memory amounts = [lpPortionCBBTC, 0]; // cbBTC only
         uint256 lpReceived = curvePool.add_liquidity(amounts, 0);
 
-        // 6. Approve and mint on Protocol HybridVaultNFT
-        IERC721(address(treasureNFT)).approve(address(hybridVaultNFT), treasureId);
-        cbBTC.forceApprove(address(hybridVaultNFT), vaultPortionCBBTC);
-        lpToken.forceApprove(address(hybridVaultNFT), lpReceived);
+        // 6. Mint the protocol vault with the cbBTC leg
+        IERC721(address(treasureNFT)).approve(address(vaultNFT), treasureId);
+        cbBTC.forceApprove(address(vaultNFT), vaultPortionCBBTC);
+        vaultId = vaultNFT.mint(address(treasureNFT), treasureId, address(cbBTC), vaultPortionCBBTC);
 
-        // Protocol HybridVaultNFT.mint(treasureContract, treasureTokenId, primaryAmount, secondaryAmount)
-        // primaryAmount = cbBTC (1% monthly withdrawal)
-        // secondaryAmount = LP tokens (100% at vesting)
-        vaultId = hybridVaultNFT.mint(address(treasureNFT), treasureId, vaultPortionCBBTC, lpReceived);
+        // 7. Bind the escrow as the vault's redeem hook (controller owns the vault here),
+        // then escrow the LP leg against it — deposit requires the binding
+        vaultNFT.setRedeemHook(vaultId, address(vestingEscrow));
+        lpToken.forceApprove(address(vestingEscrow), lpReceived);
+        vestingEscrow.deposit(vaultId, lpReceived);
 
-        // 7. Transfer vault NFT to caller (user owns protocol vault directly)
-        IERC721(address(hybridVaultNFT)).transferFrom(address(this), msg.sender, vaultId);
+        // 8. Transfer vault NFT to caller (user owns protocol vault directly)
+        IERC721(address(vaultNFT)).transferFrom(address(this), msg.sender, vaultId);
 
         emit HybridVaultMinted(vaultId, msg.sender, vaultPortionCBBTC, lpReceived, lpRatioBPS);
     }
 
     // ==================== View Functions ====================
 
-    /// @inheritdoc IHybridMintController
+    /// @notice Calculate current target LP ratio based on market conditions
+    /// @return ratioBPS LP ratio in basis points
     function calculateTargetLPRatio() public view returns (uint256 ratioBPS) {
         MonthlyConfig memory config = currentConfig;
 
@@ -148,7 +192,8 @@ contract HybridMintController is IHybridMintController, Ownable, ReentrancyGuard
         return uint256(ratio);
     }
 
-    /// @inheritdoc IHybridMintController
+    /// @notice Measure current slippage for standard swap size
+    /// @return slippageBPS Slippage in basis points
     function measureSlippage() public view returns (uint256 slippageBPS) {
         MonthlyConfig memory config = currentConfig;
 
@@ -172,14 +217,16 @@ contract HybridMintController is IHybridMintController, Ownable, ReentrancyGuard
         return ((expectedOut - actualOut) * BASIS_POINTS) / expectedOut;
     }
 
-    /// @inheritdoc IHybridMintController
+    /// @notice Get current monthly configuration
+    /// @return Current MonthlyConfig
     function getCurrentConfig() external view returns (MonthlyConfig memory) {
         return currentConfig;
     }
 
     // ==================== Admin Functions ====================
 
-    /// @inheritdoc IHybridMintController
+    /// @notice Update monthly configuration (rate-limited)
+    /// @param newConfig New configuration values
     function updateMonthlyConfig(MonthlyConfig calldata newConfig) external onlyOwner {
         // Rate limit: at least 30 days since last update
         if (block.timestamp < currentConfig.effectiveTimestamp + CONFIG_UPDATE_PERIOD) {
@@ -225,15 +272,15 @@ contract HybridMintController is IHybridMintController, Ownable, ReentrancyGuard
     }
 
     /// @notice Calculates LP allocation adjustment based on vBTC discount from reference price
-    /// @dev vBTC is a subordinated residual claim that trades at a structural discount to BTC.
-    ///      This discount is NOT a "depeg" - it reflects time value, subordination, and decay.
-    ///      The reference price (1:1) is used as a measurement baseline, not an expected peg.
-    ///      See docs/research/Time_Preference_Primer.md for detailed explanation.
+    /// @dev vBTC is a floating principal strip backed 1:1 by immunized reserve collateral
+    ///      (protocol invariant: totalStrippedReserve == vBTC totalSupply). Par (1:1) is
+    ///      therefore the exact on-chain NAV floor, not an expected peg: the market discount
+    ///      below par prices recombination timing and control, and this measures it.
     function _calculateDiscountAdjustment(MonthlyConfig memory config) internal view returns (int256) {
         // Get vestedBTC/cbBTC price from Curve pool
         // 1 vestedBTC -> how much cbBTC?
         uint256 vestedBTCPrice = curvePool.get_dy(1, 0, 1e8); // 1 vestedBTC (8 decimals) -> cbBTC
-        uint256 referencePrice = 1e8; // Baseline for discount measurement, NOT an expected peg
+        uint256 referencePrice = 1e8; // NAV floor: reserve backs vBTC 1:1
 
         if (vestedBTCPrice >= referencePrice) return 0;
 

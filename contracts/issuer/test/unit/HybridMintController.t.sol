@@ -2,17 +2,19 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {HybridMintController} from "../../src/HybridMintController.sol";
-import {IHybridMintController} from "../../src/interfaces/IHybridMintController.sol";
 import {TreasureNFT} from "../../src/TreasureNFT.sol";
-import {MockProtocolHybridVaultNFT} from "../mocks/MockProtocolHybridVaultNFT.sol";
+import {VaultNFT} from "@protocol/VaultNFT.sol";
+import {VestingEscrow} from "@protocol/VestingEscrow.sol";
+import {BtcToken} from "@protocol/BtcToken.sol";
 import {MockCurvePool} from "../mocks/MockCurvePool.sol";
 import {MockWBTC} from "../mocks/MockWBTC.sol";
 
 contract HybridMintControllerTest is Test {
     HybridMintController public controller;
-    MockProtocolHybridVaultNFT public hybridVault;
+    VaultNFT public vault;
+    VestingEscrow public escrow;
+    BtcToken public btcToken;
     TreasureNFT public treasure;
     MockWBTC public cbBTC;
     MockWBTC public vestedBTC;
@@ -24,6 +26,7 @@ contract HybridMintControllerTest is Test {
 
     uint256 constant ONE_BTC = 1e8;
     uint256 constant CONFIG_UPDATE_PERIOD = 30 days;
+    uint256 constant VESTING_PERIOD = 1129 days;
 
     function setUp() public {
         owner = address(this);
@@ -37,15 +40,21 @@ contract HybridMintControllerTest is Test {
         // Deploy mock Curve pool (LP token is the pool itself in mock)
         curvePool = new MockCurvePool(address(cbBTC), address(vestedBTC));
 
-        // Deploy mock protocol HybridVaultNFT
-        hybridVault = new MockProtocolHybridVaultNFT(address(cbBTC), address(curvePool));
+        // Deploy protocol: BtcToken needs the vault address, vault deploys next
+        address vaultAddr = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
+        btcToken = new BtcToken(vaultAddr, "vestedBTC-cbBTC", "vCBBTC");
+        vault = new VaultNFT(address(btcToken), address(cbBTC), "Vault NFT", "VAULT");
+
+        // VestingEscrow holds the LP leg against the vault's clock
+        escrow = new VestingEscrow(address(vault), address(curvePool));
 
         // Deploy treasure NFT
         treasure = new TreasureNFT("Controller Treasure", "CT", "https://example.com/", address(0));
 
         // Deploy HybridMintController
         controller = new HybridMintController(
-            address(hybridVault),
+            address(vault),
+            address(escrow),
             address(treasure),
             address(cbBTC),
             address(curvePool), // LP token is the pool itself in mock
@@ -65,29 +74,28 @@ contract HybridMintControllerTest is Test {
         curvePool.setBalances(1000 * ONE_BTC, 1000 * ONE_BTC);
     }
 
+    function _mint(address user, uint256 amount) internal returns (uint256 vaultId) {
+        vm.startPrank(user);
+        cbBTC.approve(address(controller), amount);
+        vaultId = controller.mintHybridVault(amount);
+        vm.stopPrank();
+    }
+
     // ==================== Minting Tests ====================
 
     function test_MintHybridVault_Success() public {
-        vm.startPrank(alice);
-        cbBTC.approve(address(controller), 10 * ONE_BTC);
-
-        uint256 vaultId = controller.mintHybridVault(10 * ONE_BTC);
-        vm.stopPrank();
+        uint256 vaultId = _mint(alice, 10 * ONE_BTC);
 
         assertEq(vaultId, 0);
         // User owns the protocol vault directly
-        assertEq(hybridVault.ownerOf(vaultId), alice);
+        assertEq(vault.ownerOf(vaultId), alice);
     }
 
     function test_MintHybridVault_SplitsCollateralCorrectly() public {
-        vm.startPrank(alice);
-        cbBTC.approve(address(controller), 10 * ONE_BTC);
+        uint256 vaultId = _mint(alice, 10 * ONE_BTC);
 
-        uint256 vaultId = controller.mintHybridVault(10 * ONE_BTC);
-        vm.stopPrank();
-
-        // Get vault info from protocol
-        (,, uint256 primaryAmount, uint256 secondaryAmount,) = hybridVault.getVaultInfo(vaultId);
+        uint256 primaryAmount = vault.collateralAmount(vaultId);
+        uint256 secondaryAmount = escrow.escrowAmount(vaultId);
 
         // LP ratio is dynamic, ranges 10-50%
         // Primary (cbBTC) should be 50-90% of input
@@ -102,16 +110,50 @@ contract HybridMintControllerTest is Test {
     }
 
     function test_MintHybridVault_TreasureNFTCreated() public {
-        vm.startPrank(alice);
-        cbBTC.approve(address(controller), 10 * ONE_BTC);
-
-        uint256 vaultId = controller.mintHybridVault(10 * ONE_BTC);
-        vm.stopPrank();
+        uint256 vaultId = _mint(alice, 10 * ONE_BTC);
 
         // Check treasure NFT was created and is held by protocol vault
-        (address treasureContract, uint256 treasureId,,,) = hybridVault.getVaultInfo(vaultId);
+        (address treasureContract, uint256 treasureId,,,,,,) = vault.getVaultInfo(vaultId);
         assertEq(treasureContract, address(treasure));
-        assertEq(treasure.ownerOf(treasureId), address(hybridVault));
+        assertEq(treasure.ownerOf(treasureId), address(vault));
+    }
+
+    function test_MintHybridVault_BindsEscrowAsRedeemHook() public {
+        uint256 vaultId = _mint(alice, 10 * ONE_BTC);
+
+        assertEq(vault.redeemHook(vaultId), address(escrow));
+        assertEq(escrow.mintTimestamp(vaultId), vault.mintTimestamp(vaultId));
+    }
+
+    function test_MintHybridVault_AtomicEarlyExit() public {
+        uint256 vaultId = _mint(alice, 10 * ONE_BTC);
+        uint256 lpEscrowed = escrow.escrowAmount(vaultId);
+
+        vm.warp(block.timestamp + VESTING_PERIOD / 2);
+
+        uint256 cbBefore = cbBTC.balanceOf(alice);
+        uint256 lpBefore = curvePool.balanceOf(alice);
+
+        vm.prank(alice);
+        vault.earlyRedeem(vaultId);
+
+        // Both legs settled in one transaction with the pro-rata curve
+        assertGt(cbBTC.balanceOf(alice), cbBefore);
+        uint256 lpReturned = curvePool.balanceOf(alice) - lpBefore;
+        assertGt(lpReturned, 0);
+        assertLt(lpReturned, lpEscrowed);
+        assertEq(escrow.escrowAmount(vaultId), 0);
+    }
+
+    function test_MintHybridVault_SecondaryClaimAtVesting() public {
+        uint256 vaultId = _mint(alice, 10 * ONE_BTC);
+        uint256 lpEscrowed = escrow.escrowAmount(vaultId);
+
+        vm.warp(block.timestamp + VESTING_PERIOD);
+
+        vm.prank(alice);
+        uint256 claimed = escrow.claim(vaultId);
+        assertEq(claimed, lpEscrowed);
     }
 
     function test_MintHybridVault_EmitsEvent() public {
@@ -124,7 +166,7 @@ contract HybridMintControllerTest is Test {
         uint256 expectedCBBTC = 10 * ONE_BTC - expectedLP;
 
         vm.expectEmit(true, true, false, true);
-        emit IHybridMintController.HybridVaultMinted(0, alice, expectedCBBTC, expectedLP, lpRatio);
+        emit HybridMintController.HybridVaultMinted(0, alice, expectedCBBTC, expectedLP, lpRatio);
 
         controller.mintHybridVault(10 * ONE_BTC);
         vm.stopPrank();
@@ -132,22 +174,18 @@ contract HybridMintControllerTest is Test {
 
     function test_MintHybridVault_RevertIf_ZeroAmount() public {
         vm.prank(alice);
-        vm.expectRevert(IHybridMintController.ZeroAmount.selector);
+        vm.expectRevert(HybridMintController.ZeroAmount.selector);
         controller.mintHybridVault(0);
     }
 
     function test_MintHybridVault_MultipleMints() public {
-        vm.startPrank(alice);
-        cbBTC.approve(address(controller), 20 * ONE_BTC);
-
-        uint256 id1 = controller.mintHybridVault(10 * ONE_BTC);
-        uint256 id2 = controller.mintHybridVault(10 * ONE_BTC);
-        vm.stopPrank();
+        uint256 id1 = _mint(alice, 10 * ONE_BTC);
+        uint256 id2 = _mint(alice, 10 * ONE_BTC);
 
         assertEq(id1, 0);
         assertEq(id2, 1);
-        assertEq(hybridVault.ownerOf(id1), alice);
-        assertEq(hybridVault.ownerOf(id2), alice);
+        assertEq(vault.ownerOf(id1), alice);
+        assertEq(vault.ownerOf(id2), alice);
     }
 
     // ==================== LP Ratio Tests ====================
@@ -156,7 +194,7 @@ contract HybridMintControllerTest is Test {
         uint256 ratio = controller.calculateTargetLPRatio();
 
         // Should be within min/max bounds
-        IHybridMintController.MonthlyConfig memory config = controller.getCurrentConfig();
+        HybridMintController.MonthlyConfig memory config = controller.getCurrentConfig();
         assertGe(ratio, config.minLPRatioBPS);
         assertLe(ratio, config.maxLPRatioBPS);
     }
@@ -177,12 +215,9 @@ contract HybridMintControllerTest is Test {
 
     // ==================== Config Update Tests ====================
 
-    function test_UpdateMonthlyConfig_Success() public {
-        // Wait for update period
-        vm.warp(block.timestamp + CONFIG_UPDATE_PERIOD + 1);
-
-        IHybridMintController.MonthlyConfig memory newConfig = IHybridMintController.MonthlyConfig({
-            baseLPRatioBPS: 3200, // +2% from default 3000
+    function _defaultConfig(uint256 baseLPRatioBPS) internal pure returns (HybridMintController.MonthlyConfig memory) {
+        return HybridMintController.MonthlyConfig({
+            baseLPRatioBPS: baseLPRatioBPS,
             minLPRatioBPS: 1000,
             maxLPRatioBPS: 5000,
             discountThresholdBPS: 1000,
@@ -192,66 +227,36 @@ contract HybridMintControllerTest is Test {
             standardSwapBPS: 10,
             effectiveTimestamp: 0 // Will be set to block.timestamp
         });
+    }
 
-        controller.updateMonthlyConfig(newConfig);
+    function test_UpdateMonthlyConfig_Success() public {
+        // Wait for update period
+        vm.warp(block.timestamp + CONFIG_UPDATE_PERIOD + 1);
 
-        IHybridMintController.MonthlyConfig memory current = controller.getCurrentConfig();
+        controller.updateMonthlyConfig(_defaultConfig(3200)); // +2% from default 3000
+
+        HybridMintController.MonthlyConfig memory current = controller.getCurrentConfig();
         assertEq(current.baseLPRatioBPS, 3200);
     }
 
     function test_UpdateMonthlyConfig_RevertIf_TooFrequent() public {
         // Don't wait for update period
-        IHybridMintController.MonthlyConfig memory newConfig = IHybridMintController.MonthlyConfig({
-            baseLPRatioBPS: 3200,
-            minLPRatioBPS: 1000,
-            maxLPRatioBPS: 5000,
-            discountThresholdBPS: 1000,
-            discountSensitivity: 2,
-            targetSlippageBPS: 50,
-            slippageSensitivity: 20,
-            standardSwapBPS: 10,
-            effectiveTimestamp: 0
-        });
-
-        vm.expectRevert(IHybridMintController.ConfigUpdateTooFrequent.selector);
-        controller.updateMonthlyConfig(newConfig);
+        vm.expectRevert(HybridMintController.ConfigUpdateTooFrequent.selector);
+        controller.updateMonthlyConfig(_defaultConfig(3200));
     }
 
     function test_UpdateMonthlyConfig_RevertIf_RateLimitExceeded() public {
         vm.warp(block.timestamp + CONFIG_UPDATE_PERIOD + 1);
 
         // Try to change baseLPRatioBPS by more than 5% (500 BPS)
-        IHybridMintController.MonthlyConfig memory newConfig = IHybridMintController.MonthlyConfig({
-            baseLPRatioBPS: 4000, // +10% from default 3000, exceeds 5% limit
-            minLPRatioBPS: 1000,
-            maxLPRatioBPS: 5000,
-            discountThresholdBPS: 1000,
-            discountSensitivity: 2,
-            targetSlippageBPS: 50,
-            slippageSensitivity: 20,
-            standardSwapBPS: 10,
-            effectiveTimestamp: 0
-        });
-
-        vm.expectRevert(abi.encodeWithSelector(IHybridMintController.RateLimitExceeded.selector, "baseLPRatioBPS"));
-        controller.updateMonthlyConfig(newConfig);
+        vm.expectRevert(abi.encodeWithSelector(HybridMintController.RateLimitExceeded.selector, "baseLPRatioBPS"));
+        controller.updateMonthlyConfig(_defaultConfig(4000)); // +10% from default 3000
     }
 
     function test_UpdateMonthlyConfig_RevertIf_NotOwner() public {
         vm.warp(block.timestamp + CONFIG_UPDATE_PERIOD + 1);
 
-        IHybridMintController.MonthlyConfig memory newConfig = IHybridMintController.MonthlyConfig({
-            baseLPRatioBPS: 3200,
-            minLPRatioBPS: 1000,
-            maxLPRatioBPS: 5000,
-            discountThresholdBPS: 1000,
-            discountSensitivity: 2,
-            targetSlippageBPS: 50,
-            slippageSensitivity: 20,
-            standardSwapBPS: 10,
-            effectiveTimestamp: 0
-        });
-
+        HybridMintController.MonthlyConfig memory newConfig = _defaultConfig(3200);
         vm.prank(alice);
         vm.expectRevert();
         controller.updateMonthlyConfig(newConfig);
@@ -266,16 +271,10 @@ contract HybridMintControllerTest is Test {
 
         cbBTC.mint(alice, amount);
 
-        vm.startPrank(alice);
-        cbBTC.approve(address(controller), amount);
+        uint256 vaultId = _mint(alice, amount);
 
-        uint256 vaultId = controller.mintHybridVault(amount);
-        vm.stopPrank();
-
-        assertEq(hybridVault.ownerOf(vaultId), alice);
-
-        (,, uint256 primary, uint256 secondary,) = hybridVault.getVaultInfo(vaultId);
-        assertGt(primary, 0);
-        assertGt(secondary, 0);
+        assertEq(vault.ownerOf(vaultId), alice);
+        assertGt(vault.collateralAmount(vaultId), 0);
+        assertGt(escrow.escrowAmount(vaultId), 0);
     }
 }
